@@ -1,87 +1,216 @@
-<!DOCTYPE html>
-<html lang="en-us">
+﻿<!DOCTYPE html>
+<html>
 
 <head>
-  <meta charset="UTF-8">
-  <title>taurenshaman | whispering wolf by taurenshaman</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" type="text/css" href="stylesheets/normalize.css" media="screen">
-  <link href='https://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
-  <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
-  <link rel="stylesheet" type="text/css" href="stylesheets/github-light.css" media="screen">
+    <!-- Standard Meta -->
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+
+    <!-- Site Properties -->
+    <title>taurenshaman | whispering wolf by taurenshaman</title>
+
+    <link rel="stylesheet" type="text/css" href="assets/metro/css/metro-all.min.css">
+    <link rel="stylesheet" type="text/css" href="assets/css/site.css">
+
+    <script src="assets/js/jquery/jquery-3.3.1.min.js"></script>
+    <script src="assets/metro/js/metro.min.js"></script>
+    <script src="assets/js/site.js?v=20180807"></script>
 </head>
 
 <body>
-  <section class="page-header">
-    <h1 class="project-name">taurenshaman | whispering wolf</h1>
-    <h2 class="project-tagline">semantic web, knowledge, artificial intelligence, c#</h2>
-  </section>
+    <header class="pos-relative app-bar-expand-md" data-role="appbar" style="padding-left: 20px; padding-right: 20px;">
+        <a class="brand no-hover order-1 pl-4 pr-4">Whispering Wolf</a>
+        <!-- <div class="app-bar-item d-none d-flex-md order-2">
+            <input type="text" placeholder="Search" class="app-bar-input app-bar-search">
+        </div> -->
+        <ul class="app-bar-menu order-4 order-md-3">
+            <li>
+                <a href="#" class="fg-white-hover">AI</a>
+                <ul class="d-menu" data-role="dropdown"> 
+                    <li><a href="https://github.com/taurenshaman/semantic-web">Semantic Web | Ontologies</a></li>
+                    <li><a href="https://github.com/taurenshaman/SemanticImage">Semantic Image</a></li>
+                </ul>
+            </li>
+            <li>
+            <a href="#" class="fg-white-hover"><span class="mif-organization pr-1"></span> 13F</a>
+                <ul class="d-menu" data-role="dropdown"> 
+                    <li><a href="https://github.com/13f/lore-card">lore-card</a></li>
+                    <li><a href="https://github.com/13f/lore-graph">lore-graph</a></li>
+                    <li><a href="https://github.com/13f/templates">templates</a></li>
+                </ul>
+            </li>
+            <li>
+                <a href="#" class="fg-white-hover">JavaScript Demo</a>
+                <ul class="d-menu" data-role="dropdown"> 
+                    <li><a href="#">vis.js + JsonEditor</a></li>
+                </ul>
+            </li>
+            <li>
+                <a href="#" class="fg-white-hover"><span class="mif-list2 pr-1"></span> Awesome list</a>
+                <ul class="d-menu" data-role="dropdown"> 
+                    <li><a href="https://github.com/taurenshaman/awesome-3d">3D | AR | VR | MR</a></li>
+                    <li><a href="https://github.com/taurenshaman/awesome-card">Card</a></li>
+                    <li><a href="https://github.com/taurenshaman/awesome-graph">Graph</a></li>
+                </ul>
+            </li>
+        </ul>
+        
+        <div class="app-bar-container ml-auto order-3 order-md-4">
+            <!-- <a class="app-bar-item text-center" href="#"><span class="mif-bell"></span></a> -->
+          <div class="app-bar-contaniner float-left">
+            <a class="app-bar-item dropdown-toggle marker-light" href="#"><span class="mif-steps mif-2x pr-1"></span> About Jerin!</a>
+            <ul class="d-menu place-right" data-role="dropdown"> 
+              <li><a href="http://lore.chuci.info/taurenshaman">lore:&gt; me</a></li>
+              <li><a href="https://about.me/taurenshaman">About.me</a></li>
+              <li><a href="https://github.com/taurenshaman"><span class="mif-github"></span> Github</a></li>
+              <li><a href="https://www.douban.com/people/taurenshaman/">@douban.com</a></li>
+              <li><a href="https://www.zhihu.com/people/jerin">@zhihu.com</a></li>
+            </ul>
+          </div>
 
-  <section class="main-content">
-    <h1>
-      <a id="lore-me" class="anchor" href="#lore-me" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>lore:&gt;
-      Jerin Lee
-    </h1>
+            <!-- <div class="app-bar-contaniner float-left">
+            <a class="app-bar-item dropdown-toggle marker-light pl-1 pr-5" href="#"><img class="rounded" data-role="gravatar" data-email="sergey@pimenov.com.ua" data-size="25"></img></a>
+            <ul class="d-menu place-right" data-role="dropdown"> 
+              <li><a href="">Signed as <strong>olton</strong></a></li>
+              <li class="divider"></li>
+              <li><a href="">Your profile</a></li>
+              <li><a href="">Your stars</a></li>
+              <li><a href="">Your gists</a></li>
+              <li class="divider"></li>
+              <li><a href="">Help</a></li>
+              <li><a href="">Settings</a></li>
+              <li><a href="">Sign out</a></li>
+            </ul>
+          </div> -->
 
-    <p>lore:&gt; me // <a href="http://lore.chuci.info/taurenshaman">http://lore.chuci.info/taurenshaman</a></p>
-    <p>About me: <a href="https://about.me/taurenshaman">https://about.me/taurenshaman</a></p>
-    <p>@GitHub: <a href="https://github.com/taurenshaman">https://github.com/taurenshaman</a></p>
+        </div>
+    </header>
 
-    <h1>
-      <a id="products" class="anchor" href="#products" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Products</h1>
+    <div class="container hero pt-md-3 pb-md-3">
+        <div class="container text-center">
+            <div class="h1 m-10"><span class="reduce-1 enlarge-1-md">taurenshaman | whispering wolf</span></div>
+            <div class="text-leader">
+                <p class="reduce-1 enlarge-1-md pl-5-fs pr-5-fs pl-20-md pr-20-md">
+                    touch knowledge
+                </p>
+            </div>
+            <hr class="mt-10 mb-10 w-50" style="background-color: #E1E1E1">
+            <div class="text-leader2">
+                <p class="reduce-1 enlarge-1-md pl-5-fs pr-5-fs pl-20-md pr-20-md">
+                    semantic web, knowledge, artificial intelligence, c#
+                </p>
+            </div>
+        </div>
+    </div>
 
-    <h3>
-      <a id="bring-knowledge-to-your-lifeproduct" class="anchor" href="#bring-knowledge-to-your-lifeproduct" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Bring
-      knowledge to your life/product:</h3>
+    <div class="container-fluid bg-white fg-dark">
+        <div class="container text-center">
 
-    <p>
-      <a href="http://www.chuci.info">http://www.chuci.info</a>
-      <br />
-      <span>#semantic web#</span>
-    </p>
+            <div class="feature-table row mt-10">
+                <div class="cell-md-4">
+                    <div class="info-panel rounded no-overflow shadow-3">
+                        <div class="info-panel-header bg-cyan fg-white"><a class="linktext" href="http://www.chuci.info">Chuci</a></div>
+                        <div class="info-panel-content">
+                            <div class="m-10"><a href="http://www.chuci.info"><img src="assets/images/chuci-120x120.png"></a></div>
+                            <span class="text-leader2">Knowledge platform based on Semantic Web.</span>
+                        </div>
+                        <!-- <div class="info-panel-footer">
+                            <a href="http://www.chuci.info" class="button large outline success rounded">Visit</a>
+                        </div> -->
+                    </div>
+                </div>
+                <div class="cell-md-4">
+                    <div class="info-panel rounded no-overflow shadow-3">
+                        <div class="info-panel-header bg-orange fg-white"><a class="linktext" href="http://lore.chuci.info">Lore</a></div>
+                        <div class="info-panel-content">
+                            <div class="m-10"><a href="http://lore.chuci.info"><img src="assets/images/lore-150x150.jpg"></a></div>
+                            <span class="text-leader2">&gt; note for geeks_</span>
+                        </div>
+                        <!-- <div class="info-panel-footer">
+                            <a href="http://lore.chuci.info" class="button large outline secondary rounded">Visit</a>
+                        </div> -->
+                    </div>
+                </div>
+                <div class="cell-md-4">
+                    <div class="info-panel rounded no-overflow shadow-3">
+                        <div class="info-panel-header bg-violet fg-white"><a class="linktext" href="http://nodes.chuci.info">Nodes</a></div>
+                        <div class="info-panel-content">
+                            <div><a href="http://nodes.chuci.info"><img src="assets/images/nodes-256x256.png"></a></div>
+                            <span class="text-leader2">One node. One function. One possibility.</span>
+                        </div>
+                        <!-- <div class="info-panel-footer">
+                            <a href="http://nodes.chuci.info" class="button large outline warning rounded">Visit</a>
+                        </div> -->
+                    </div>
+                </div>
+                
+            </div>
 
-    <h3>
-      <a id="lore-to-be-geek" class="anchor" href="#lore-to-be-geek" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>lore:&gt;
-      to be geek</h3>
+            <div class="feature-table row mt-10">
+                <div class="cell-md-4">
+                    <div class="info-panel rounded no-overflow shadow-3">
+                        <div class="info-panel-header bg-magenta fg-white"><a class="linktext" href="http://veins.design">Veins.Design</a></div>
+                        <div class="info-panel-content">
+                            <div class="m-10"><a href="http://veins.design"><img src="assets/images/veins-237x237.png"></a></div>
+                            <span class="text-leader2">Art | Design | Share</span>
+                        </div>
+                        <!-- <div class="info-panel-footer">
+                            <a href="http://veins.design" class="button large outline warning rounded">Visit</a>
+                        </div> -->
+                    </div>
+                </div>
 
-    <p>
-      <a href="http://lore.chuci.info">http://lore.chuci.info</a>
-      <br />
-      <span>#geek note#</span>
-    </p>
+            </div>
+        </div>
+    </div>
 
-    <h3>
-      <a id="share-artdesign" class="anchor" href="#share-artdesign" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>share
-      art/design</h3>
+    <!-- <div class="container-fluid bg-light">
+        <div class="container text-center">
+            <div class="h1 m-10"><span class="reduce-1 enlarge-1-md">What is it?</span></div>
+            <div class="text-leader">
+                <p class="reduce-1 enlarge-1-md pl-5-fs pr-5-fs pl-20-md pr-20-md">
+                    Metro 4 is an open source toolkit for developing with HTML, CSS, and JS.
+                    Quickly prototype your ideas or build your entire app with responsive grid system, extensive prebuilt components, and powerful plugins built on jQuery.
+                </p>
+            </div>
+            <hr class="mt-10 mb-10 w-50" style="background-color: #E1E1E1">
+            <div class="text-leader2">
+                <p class="reduce-1 enlarge-1-md pl-5-fs pr-5-fs pl-20-md pr-20-md">
+                    Build responsive, mobile-first projects on the web with the first front-end component library in Metro Style.
+                </p>
+            </div>
+        </div>
+    </div> -->
+    <div class="container-fluid">
+        <div class="h1 m-10 text-center">
+            <span class="reduce-1 enlarge-1-md fg-gray">whispering ...</span>
+        </div>
 
-    <p><a href="http://veins.design">http://veins.design</a></p>
+        <div data-role="cube"
+            data-color="bg-cyan bd-darkCyan"
+            data-flash-color="#aa00ff"></div>
+    </div>
 
-    <h1>
-      <a id="ai" class="anchor" href="#ai" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>AI</h1>
-    <p>Semantic Web|Ontologies: <a href="https://github.com/taurenshaman/semantic-web">https://github.com/taurenshaman/semantic-web</a> rdf; ttl; owl</p>
-    <p>Nodes: <a href="https://github.com/taurenshaman/nodes">https://github.com/taurenshaman/nodes</a> function; lamda; serverless; node</p>
-
-
-    <h1>
-      <a id="awesome" class="anchor" href="#awesome" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Awesome list</h1>
-    <p>3D: <a href="https://github.com/taurenshaman/awesome-3d">https://github.com/taurenshaman/awesome-3dn</a> 3D model; VR; AR; MR</p>
-    <p>Card: <a href="https://github.com/taurenshaman/awesome-card">https://github.com/taurenshaman/awesome-card</a> card; modern design; information</p>
-    <p>Graph: <a href="https://github.com/taurenshaman/awesome-graph">https://github.com/taurenshaman/awesome-graph</a> graph; nodes</p>
-
-    <h1>
-      <a id="websites" class="anchor" href="#websites" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Websites hosted on github</h1>
-    <p>Nodes: <a href="http://nodes.chuci.info/">http://nodes.chuci.info/</a></p>
-    <p>吐纳科技|Tuna Tech Ltd: <a href="http://www.ituna.ltd">www.ituna.ltd</a></p>
-
-    <hr />
-
-    <footer class="site-footer">
-      <span class="site-footer-credits">This page was generated by <a href="https://pages.github.com">GitHub Pages</a> using the <a href="https://github.com/jasonlong/cayman-theme">Cayman theme</a> by <a href="https://twitter.com/jasonlong">Jason Long</a>.</span>
+    <footer class="container-fluid bg-light" style="height: 130px;">
+        <div class="container grid text-center">
+            <div class="row">
+            </div>
+            <div class="row">
+                <hr class="fg-white" />
+            </div>
+            <div class="row" style="margin-top: 8px;">
+                <div class="cell-12 flex-justify-center">
+                    <span class="footerItem0">Knowledge | Data | Art | Share</span>
+                    <span class="footerItem1">&copy; 2010-2018 Jerin Lee</span>
+                    <span class="footerItem1">v1.0.20180911</span>
+                </div>
+            </div>
+            <div class="row m-5">
+                <div class="cell-12 flex-justify-center"><span class="fg-gray">Hangzhou, China</span></div>
+            </div>
+        </div>
     </footer>
-
-  </section>
-
-
 </body>
 
 </html>
