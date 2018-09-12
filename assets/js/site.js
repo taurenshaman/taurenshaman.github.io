@@ -1,11 +1,11 @@
 $(document)
     .ready(function () {
         // insert header
-        //$("<div/>").load("header.html").replaceAll($("header"));
-        $('.header').load('header.html');
+        $("<div/>").load("header.html").replaceAll($("header"));
+        //$('.header').load('header.html');
         // insert footer
-        //$("<div/>").load("footer.html").replaceAll($("footer"));
-        $('.footer').load('footer.html');
+        $("<div/>").load("footer.html").replaceAll($("footer"));
+        //$('.footer').load('footer.html');
     });
 
 // 百度统计
