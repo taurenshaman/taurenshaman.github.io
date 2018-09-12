@@ -1,10 +1,12 @@
 $(document)
     .ready(function () {
         // insert header
-        $("<div/>").load("header.html").replaceAll($("header"));
+        $("<div/>").load("/header.html").insertBefore($("#headerline"));
+        //$("<div/>").load("header.html").replaceAll($("header"));
         //$('.header').load('header.html');
         // insert footer
-        $("<div/>").load("footer.html").replaceAll($("footer"));
+        $("<div/>").load("/footer.html").insertAfter($("#footerline"));
+        //$("<div/>").load("footer.html").replaceAll($("footer"));
         //$('.footer').load('footer.html');
     });
 
