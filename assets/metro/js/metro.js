@@ -1,6 +1,6 @@
 /*
- * Metro 4 Components Library v4.2.20 build 697 (https://metroui.org.ua)
- * Copyright 2018 Sergey Pimenov
+ * Metro 4 Components Library v4.2.42  (https://metroui.org.ua)
+ * Copyright 2012-2019 Sergey Pimenov
  * Licensed under MIT
  */
 
@@ -11,12 +11,12 @@
         factory( jQuery );
     }
 }(function( jQuery ) { 
+// Source: js/metro.js
+
 'use strict';
 
 var $ = jQuery;
 
-
-// Source: js/metro.js
 if (typeof jQuery === 'undefined') {
     throw new Error('Metro 4 requires jQuery!');
 }
@@ -33,6 +33,21 @@ var meta_date_format_input = $("meta[name='metro4:date_format_input']").attr("co
 var meta_animation_duration = $("meta[name='metro4:animation_duration']").attr("content");
 var meta_callback_timeout = $("meta[name='metro4:callback_timeout']").attr("content");
 var meta_timeout = $("meta[name='metro4:timeout']").attr("content");
+var meta_scroll_multiple = $("meta[name='metro4:scroll_multiple']").attr("content");
+var meta_cloak = $("meta[name='metro4:cloak']").attr("content"); //default or fade
+var meta_cloak_duration = $("meta[name='metro4:cloak_duration']").attr("content"); //100
+
+/* Added by Ken Kitay https://github.com/kens-code*/
+var meta_about = $("meta[name='metro4:about']").attr("content");
+if (window.METRO_SHOW_ABOUT === undefined) {
+    window.METRO_SHOW_ABOUT = meta_about !== undefined ? JSON.parse(meta_about) : true;
+}
+/* --- end ---*/
+
+var meta_compile = $("meta[name='metro4:compile']").attr("content");
+if (window.METRO_SHOW_COMPILE_TIME === undefined) {
+    window.METRO_SHOW_COMPILE_TIME = meta_compile !== undefined ? JSON.parse(meta_compile) : true;
+}
 
 if (window.METRO_INIT === undefined) {
     window.METRO_INIT = meta_init !== undefined ? JSON.parse(meta_init) : true;
@@ -60,6 +75,15 @@ if (window.METRO_CALLBACK_TIMEOUT === undefined) {
 if (window.METRO_TIMEOUT === undefined) {
     window.METRO_TIMEOUT = meta_timeout !== undefined ? parseInt(meta_timeout) : 2000;
 }
+if (window.METRO_SCROLL_MULTIPLE === undefined) {
+    window.METRO_SCROLL_MULTIPLE = meta_scroll_multiple !== undefined ? parseInt(meta_scroll_multiple) : 20;
+}
+if (window.METRO_CLOAK_REMOVE === undefined) {
+    window.METRO_CLOAK_REMOVE = meta_cloak !== undefined ? (""+meta_cloak).toLowerCase() : "fade";
+}
+if (window.METRO_CLOAK_DURATION === undefined) {
+    window.METRO_CLOAK_DURATION = meta_cloak_duration !== undefined ? parseInt(meta_cloak_duration) : 500;
+}
 if (window.METRO_HOTKEYS_FILTER_CONTENT_EDITABLE === undefined) {window.METRO_HOTKEYS_FILTER_CONTENT_EDITABLE = true;}
 if (window.METRO_HOTKEYS_FILTER_INPUT_ACCEPTING_ELEMENTS === undefined) {window.METRO_HOTKEYS_FILTER_INPUT_ACCEPTING_ELEMENTS = true;}
 if (window.METRO_HOTKEYS_FILTER_TEXT_INPUTS === undefined) {window.METRO_HOTKEYS_FILTER_TEXT_INPUTS = true;}
@@ -84,12 +108,19 @@ if (typeof Object.values !== 'function') {
     }
 }
 
+if (typeof window.setImmediate !== 'function') {
+    window.setImmediate = function(fn){
+        return setTimeout(fn, 0);
+    }
+}
+
 var isTouch = (('ontouchstart' in window) || (navigator.MaxTouchPoints > 0) || (navigator.msMaxTouchPoints > 0));
 
 var Metro = {
 
-    version: "4.2.20",
-    versionFull: "4.2.20.697 ",
+    version: "4.2.42",
+    compileTime: "07/05/2019 22:20:03",
+    buildNumber: "723",
     isTouchable: isTouch,
     fullScreenEnabled: document.fullscreenEnabled,
     sheet: null,
@@ -154,28 +185,39 @@ var Metro = {
 
     events: {
         click: 'click.metro',
-        start: 'touchstart.metro mousedown.metro',
-        stop: 'touchend.metro mouseup.metro',
-        move: 'touchmove.metro mousemove.metro',
-        enter: 'touchstart.metro mouseenter.metro',
-        leave: 'touchend.metro mouseleave.metro',
+        start: isTouch ? 'touchstart.metro' : 'mousedown.metro',
+        stop: isTouch ? 'touchend.metro' : 'mouseup.metro',
+        move: isTouch ? 'touchmove.metro' : 'mousemove.metro',
+        enter: isTouch ? 'touchstart.metro' : 'mouseenter.metro',
+
+        startAll: 'mousedown.metro touchstart.metro',
+        stopAll: 'mouseup.metro touchend.metro',
+        moveAll: 'mousemove.metro touchmove.metro',
+
+        leave: 'mouseleave.metro',
         focus: 'focus.metro',
         blur: 'blur.metro',
         resize: 'resize.metro',
         keyup: 'keyup.metro',
         keydown: 'keydown.metro',
-        keypress: 'keypredd.metro',
+        keypress: 'keypress.metro',
         dblclick: 'dblclick.metro',
         input: 'input.metro',
         change: 'change.metro',
         cut: 'cut.metro',
         paste: 'paste.metro',
-        drop: 'drop.metro',
         scroll: 'scroll.metro',
         scrollStart: 'scrollstart.metro',
         scrollStop: 'scrollstop.metro',
         mousewheel: 'mousewheel.metro',
-        inputchange: "change.metro input.metro propertychange.metro cut.metro paste.metro copy.metro"
+        inputchange: "change.metro input.metro propertychange.metro cut.metro paste.metro copy.metro",
+        dragstart: "dragstart.metro",
+        dragend: "dragend.metro",
+        dragenter: "dragenter.metro",
+        dragover: "dragover.metro",
+        dragleave: "dragleave.metro",
+        drop: 'drop.metro',
+        drag: 'drag.metro'
     },
 
     keyCode: {
@@ -202,6 +244,7 @@ var Metro = {
 
     media_queries: {
         FS: "(min-width: 0px)",
+        XS: "(min-width: 360px)",
         SM: "(min-width: 576px)",
         MD: "(min-width: 768px)",
         LG: "(min-width: 992px)",
@@ -211,7 +254,9 @@ var Metro = {
 
     media_sizes: {
         FS: 0,
+        XS: 360,
         SM: 576,
+        LD: 640,
         MD: 768,
         LG: 992,
         XL: 1200,
@@ -220,12 +265,15 @@ var Metro = {
 
     media_mode: {
         FS: "fs",
+        XS: "xs",
         SM: "sm",
         MD: "md",
         LG: "lg",
         XL: "xl",
         XXL: "xxl"
     },
+
+    media_modes: ["fs","xs","sm","md","lg","xl","xxl"],
 
     actions: {
         REMOVE: 1,
@@ -234,19 +282,32 @@ var Metro = {
 
     hotkeys: [],
 
-    about: function(f){
-        console.log("Metro 4 Components Library - v" + (f === true ? this.versionFull : this.version));
+    about: function(){
+        console.log("Metro 4 - v" + this.version +". "+ this.showCompileTime());
     },
 
-    aboutDlg: function(f){
-        alert("Metro 4 Components Library - v" + (f === true ? this.versionFull : this.version));
+    showCompileTime: function(){
+        return "Built at: " + this.compileTime;
     },
 
-    ver: function(f){
-        return (f === true ? this.versionFull : this.version);
+    aboutDlg: function(){
+        alert("Metro 4 - v" + this.version +". "+ this.showCompileTime());
+    },
+
+    ver: function(){
+        return this.version;
+    },
+
+    build: function(){
+        return this.build;
+    },
+
+    compile: function(){
+        return this.compileTime;
     },
 
     observe: function(){
+        'use strict';
         var observer, observerCallback;
         var observerConfig = {
             childList: true,
@@ -257,38 +318,45 @@ var Metro = {
             mutations.map(function(mutation){
 
                 if (mutation.type === 'attributes' && mutation.attributeName !== "data-role") {
-                    var element = $(mutation.target);
-                    var mc = element.data('metroComponent');
-                    if (mc !== undefined) {
-                        $.each(mc, function(){
-                            var plug = element.data(this);
-                            if (plug) plug.changeAttribute(mutation.attributeName);
-                        });
+                    if (mutation.attributeName === 'data-hotkey') {
+
+                        Metro.initHotkeys([mutation.target], true);
+
+                    } else {
+                        var element = $(mutation.target);
+                        var mc = element.data('metroComponent');
+                        if (mc !== undefined) {
+                            $.each(mc, function(){
+                                var plug = element.data(this);
+                                if (plug) plug.changeAttribute(mutation.attributeName);
+                            });
+                        }
                     }
                 } else
 
                 if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
-                    var i, obj, widgets = {}, plugins = {};
-                    var nodes = mutation.addedNodes;
+                    var i, widgets = [];
+                    var $node, node, nodes = mutation.addedNodes;
 
-                    for(i = 0; i < nodes.length; i++) {
+                    if (nodes.length) {
+                        for(i = 0; i < nodes.length; i++) {
+                            node = nodes[i];
+                            $node = $(node);
 
-                        var node = mutation.addedNodes[i];
+                            if ($node.attr("data-role") !== undefined) {
+                                widgets.push(node);
+                            }
 
-                        if (node.tagName === 'SCRIPT' || node.tagName === 'STYLE') {
-                            return;
+                            $.each($node.find("[data-role]"), function(){
+                                var o = this;
+                                if (widgets.indexOf(o) !== -1) {
+                                    return;
+                                }
+                                widgets.push(o);
+                            });
                         }
-                        obj = $(mutation.addedNodes[i]);
 
-                        plugins = obj.find("[data-role]");
-                        if (obj.data('role') !== undefined) {
-                            widgets = $.merge(plugins, obj);
-                        } else {
-                            widgets = plugins;
-                        }
-                        if (widgets.length) {
-                            Metro.initWidgets(widgets);
-                        }
+                        if (widgets.length) Metro.initWidgets(widgets, "observe");
                     }
 
                 } else  {
@@ -313,10 +381,6 @@ var Metro = {
 
         this.sheet = Utils.newCssSheet();
 
-        this.observe();
-
-        this.initHotkeys(hotkeys);
-        this.initWidgets(widgets);
 
         window.METRO_MEDIA = [];
         $.each(Metro.media_queries, function(key, query){
@@ -325,12 +389,27 @@ var Metro = {
             }
         });
 
-        this.about(true);
+        this.observe();
+
+        this.initHotkeys(hotkeys);
+        this.initWidgets(widgets, "init");
+
+        if (METRO_SHOW_ABOUT) this.about(true);
+
+        if (METRO_CLOAK_REMOVE !== "fade") {
+            $(".m4-cloak").removeClass("m4-cloak");
+        } else {
+            $(".m4-cloak").animate({
+                opacity: 1
+            }, METRO_CLOAK_REMOVE, function(){
+                $(".m4-cloak").removeClass("m4-cloak");
+            })
+        }
 
         return this;
     },
 
-    initHotkeys: function(hotkeys){
+    initHotkeys: function(hotkeys, redefine){
         $.each(hotkeys, function(){
             var element = $(this);
             var hotkey = element.data('hotkey') ? element.data('hotkey').toLowerCase() : false;
@@ -339,8 +418,12 @@ var Metro = {
                 return;
             }
 
-            if (element.data('hotKeyBonded') === true ) {
+            if (element.data('hotKeyBonded') === true && !Utils.bool(redefine)) {
                 return;
+            }
+
+            if (element.data('hotKeyBonded') === true && Utils.bool(redefine)) {
+                $(document).off(Metro.events.keyup, null, hotkey);
             }
 
             Metro.hotkeys.push(hotkey);
@@ -363,25 +446,31 @@ var Metro = {
         });
     },
 
-    initWidgets: function(widgets) {
-        var that = this;
-
+    initWidgets: function(widgets, a) {
         $.each(widgets, function () {
             var $this = $(this), w = this;
             var roles = $this.data('role').split(/\s*,\s*/);
             roles.map(function (func) {
+
+                // console.log(a, func, Utils.bool($this.attr("data-role-"+func)));
+
                 if ($.fn[func] !== undefined && $this.attr("data-role-"+func) === undefined) {
-                    $.fn[func].call($this);
-                    $this.attr("data-role-"+func, true);
+                    try {
+                        $.fn[func].call($this);
+                        $this.attr("data-role-"+func, true);
 
-                    var mc = $this.data('metroComponent');
+                        var mc = $this.data('metroComponent');
 
-                    if (mc === undefined) {
-                        mc = [func];
-                    } else {
-                        mc.push(func);
+                        if (mc === undefined) {
+                            mc = [func];
+                        } else {
+                            mc.push(func);
+                        }
+                        $this.data('metroComponent', mc);
+                    } catch (e) {
+                        console.log(e.message + " in " + e.stack);
+                        throw e;
                     }
-                    $this.data('metroComponent', mc);
                 }
             });
         });
@@ -401,7 +490,7 @@ var Metro = {
         p = $(element).data(name);
 
         if (!Utils.isValue(p)) {
-            throw new Error("Component can not be destroyed: the element is not a Ьуекщ 4 component.");
+            throw new Error("Component can not be destroyed: the element is not a Metro 4 component.");
         }
 
         if (!Utils.isFunc(p['destroy'])) {
@@ -421,6 +510,7 @@ var Metro = {
         var mc = $(element).data("metroComponent");
 
         if (mc !== undefined && mc.length > 0) $.each(mc, function(){
+            'use strict';
             Metro.destroyPlugin(element, this);
         });
     },
@@ -455,6 +545,7 @@ var Metro = {
         var mc = $(element).data("metroComponent");
 
         if (mc !== undefined && mc.length > 0) $.each(mc, function(){
+            'use strict';
             Metro.reinitPlugin(element, this);
         });
     },
@@ -514,6 +605,7 @@ $(window).on(Metro.events.resize, function(){
 
 
 // Source: js/utils/animation.js
+
 var Animation = {
 
     duration: METRO_ANIMATION_DURATION,
@@ -529,7 +621,8 @@ var Animation = {
         if (duration === undefined) {duration = this.duration;}
         if (func === undefined) {func = this.func;}
         current.css("z-index", 1).animate({
-            top: -h
+            top: -h,
+            opacity: 0
         }, duration, func);
 
         next.css({
@@ -537,7 +630,8 @@ var Animation = {
             left: 0,
             zIndex: 2
         }).animate({
-            top: 0
+            top: 0,
+            opacity: 1
         }, duration, func);
     },
 
@@ -546,7 +640,8 @@ var Animation = {
         if (duration === undefined) {duration = this.duration;}
         if (func === undefined) {func = this.func;}
         current.css("z-index", 1).animate({
-            top: h
+            top: h,
+            opacity: 0
         }, duration, func);
 
         next.css({
@@ -554,7 +649,8 @@ var Animation = {
             top: -h,
             zIndex: 2
         }).animate({
-            top: 0
+            top: 0,
+            opacity: 1
         }, duration, func);
     },
 
@@ -563,14 +659,16 @@ var Animation = {
         if (duration === undefined) {duration = this.duration;}
         if (func === undefined) {func = this.func;}
         current.css("z-index", 1).animate({
-            left: -w
+            left: -w,
+            opacity: 0
         }, duration, func);
 
         next.css({
             left: w,
             zIndex: 2
         }).animate({
-            left: 0
+            left: 0,
+            opacity: 1
         }, duration, func);
     },
 
@@ -579,14 +677,16 @@ var Animation = {
         if (duration === undefined) {duration = this.duration;}
         if (func === undefined) {func = this.func;}
         current.css("z-index", 1).animate({
-            left: w
+            left: w,
+            opacity: 0
         }, duration, func);
 
         next.css({
             left: -w,
             zIndex: 2
         }).animate({
-            left: 0
+            left: 0,
+            opacity: 1
         }, duration, func);
     },
 
@@ -608,6 +708,7 @@ var Animation = {
 Metro['animation'] = Animation;
 
 // Source: js/utils/colors.js
+
 function RGB(r, g, b){
     this.r = r || 0;
     this.g = g || 0;
@@ -1487,6 +1588,7 @@ var Colors = {
 Metro['colors'] = Colors.init();
 
 // Source: js/utils/easing.js
+
 $.easing['jswing'] = $.easing['swing'];
 
 $.extend($.easing, {
@@ -1644,6 +1746,7 @@ $.extend($.easing, {
 
 
 // Source: js/utils/export.js
+
 var Export = {
 
     init: function(){
@@ -1758,6 +1861,7 @@ Metro['export'] = Export.init();
 
 
 // Source: js/utils/extensions.js
+
 $.fn.extend({
     toggleAttr: function(a, v){
         return this.each(function(){
@@ -1773,9 +1877,20 @@ $.fn.extend({
             }
         });
     },
+
     clearClasses: function(){
         return this.each(function(){
             this.className = "";
+        });
+    },
+
+    fire: function(eventName, data){
+        return this.each(function(){
+            var el = this;
+            var e = document.createEvent('Events');
+            e.detail = data;
+            e.initEvent(eventName, true, false);
+            el.dispatchEvent(e);
         });
     }
 });
@@ -1812,13 +1927,38 @@ Array.prototype.unique = function () {
     return a;
 };
 
+if (!Array.from) {
+    Array.from = function(val) {
+        var i, a = [];
+
+        if (val.length === undefined && typeof val === "object") {
+            return Object.values(val);
+        }
+
+        if (val.length !== undefined) {
+            for(i = 0; i < val.length; i++) {
+                a.push(val[i]);
+            }
+            return a;
+        }
+
+        throw new Error("Value can not be converted to array");
+    };
+}
+
+if (typeof Array.contains !== "function") {
+    Array.prototype.contains = function(val, from){
+        return this.indexOf(val, from) > -1;
+    }
+}
+
 /**
  * Number.prototype.format(n, x, s, c)
  *
- * @param integer n: length of decimal
- * @param integer x: length of whole part
- * @param mixed   s: sections delimiter
- * @param mixed   c: decimal delimiter
+ * @param  n: length of decimal
+ * @param  x: length of whole part
+ * @param  s: sections delimiter
+ * @param  c: decimal delimiter
  */
 Number.prototype.format = function(n, x, s, c) {
     var re = '\\d(?=(\\d{' + (x || 3) + '})+' + (n > 0 ? '\\D' : '$') + ')',
@@ -1835,20 +1975,59 @@ String.prototype.contains = function() {
     return !!~String.prototype.indexOf.apply(this, arguments);
 };
 
-String.prototype.toDate = function(format)
-{
-    var normalized, normalizedFormat, formatItems, dateItems;
+String.prototype.toDate = function(format, locale) {
+    var result;
+    var normalized, normalizedFormat, formatItems, dateItems, checkValue;
     var monthIndex, dayIndex, yearIndex, hourIndex, minutesIndex, secondsIndex;
-    var today, year, month, day, hour, minute, second;
+    var year, month, day, hour, minute, second;
+    var parsedMonth;
 
-    if (!Utils.isValue(format)) {
-        format = "yyyy-mm-dd";
+    locale = locale || "en-US";
+
+    var monthNameToNumber = function(month){
+        var d, months, index, i;
+
+        month = month.substr(0, 3);
+
+        if (
+               locale !== undefined
+            && locale !== "en-US"
+            && Locales !== undefined
+            && Locales[locale] !== undefined
+            && Locales[locale]['calendar'] !== undefined
+            && Locales[locale]['calendar']['months'] !== undefined
+        ) {
+            months = Locales[locale]['calendar']['months'];
+            for(i = 12; i < months.length; i++) {
+                if (months[i].toLowerCase() === month.toLowerCase()) {
+                    index = i - 12;
+                    break;
+                }
+            }
+            month = Locales["en-US"]['calendar']['months'][index];
+        }
+
+        d = Date.parse(month + " 1, 1972");
+        if(!isNaN(d)){
+            return new Date(d).getMonth() + 1;
+        }
+        return -1;
+    };
+
+    if (format === undefined || format === null || format === "") {
+        return new Date(this);
     }
 
-    normalized      = this.replace(/[^a-zA-Z0-9%]/g, '-');
+    // normalized      = this.replace(/[^a-zA-Z0-9%]/g, '-');
+    normalized      = this.replace(/[\/,.:\s]/g, '-');
     normalizedFormat= format.toLowerCase().replace(/[^a-zA-Z0-9%]/g, '-');
     formatItems     = normalizedFormat.split('-');
     dateItems       = normalized.split('-');
+    checkValue      = normalized.replace(/\-/g,"");
+
+    if (checkValue.trim() === "") {
+        return "Invalid Date";
+    }
 
     monthIndex  = formatItems.indexOf("mm") > -1 ? formatItems.indexOf("mm") : formatItems.indexOf("%m");
     dayIndex    = formatItems.indexOf("dd") > -1 ? formatItems.indexOf("dd") : formatItems.indexOf("%d");
@@ -1857,17 +2036,59 @@ String.prototype.toDate = function(format)
     minutesIndex  = formatItems.indexOf("ii") > -1 ? formatItems.indexOf("ii") : formatItems.indexOf("mi") > -1 ? formatItems.indexOf("mi") : formatItems.indexOf("%i");
     secondsIndex  = formatItems.indexOf("ss") > -1 ? formatItems.indexOf("ss") : formatItems.indexOf("%s");
 
-    today = new Date();
+    if (monthIndex > -1 && dateItems[monthIndex] !== "") {
+        if (isNaN(parseInt(dateItems[monthIndex]))) {
+            dateItems[monthIndex] = monthNameToNumber(dateItems[monthIndex]);
+            if (dateItems[monthIndex] === -1) {
+                return "Invalid Date";
+            }
+        } else {
+            parsedMonth = parseInt(dateItems[monthIndex]);
+            if (parsedMonth < 1 || parsedMonth > 12) {
+                return "Invalid Date";
+            }
+        }
+    } else {
+        return "Invalid Date";
+    }
 
-    year  = yearIndex >-1 ? dateItems[yearIndex] : today.getFullYear();
-    month = monthIndex >-1 ? dateItems[monthIndex]-1 : today.getMonth()-1;
-    day   = dayIndex >-1 ? dateItems[dayIndex] : today.getDate();
+    year  = yearIndex >-1 && dateItems[yearIndex] !== "" ? dateItems[yearIndex] : null;
+    month = monthIndex >-1 && dateItems[monthIndex] !== "" ? dateItems[monthIndex] : null;
+    day   = dayIndex >-1 && dateItems[dayIndex] !== "" ? dateItems[dayIndex] : null;
 
-    hour    = hourIndex >-1 ? dateItems[hourIndex] : today.getHours();
-    minute  = minutesIndex>-1 ? dateItems[minutesIndex] : today.getMinutes();
-    second  = secondsIndex>-1 ? dateItems[secondsIndex] : today.getSeconds();
+    hour    = hourIndex >-1 && dateItems[hourIndex] !== "" ? dateItems[hourIndex] : null;
+    minute  = minutesIndex>-1 && dateItems[minutesIndex] !== "" ? dateItems[minutesIndex] : null;
+    second  = secondsIndex>-1 && dateItems[secondsIndex] !== "" ? dateItems[secondsIndex] : null;
 
-    return new Date(year,month,day,hour,minute,second);
+    result = new Date(year,month-1,day,hour,minute,second);
+
+    return result;
+};
+
+String.prototype.toArray = function(delimiter, type, format){
+    var str = this;
+    var a;
+
+    type = type || "string";
+    delimiter = delimiter || ",";
+    format = format === undefined || format === null ? false : format;
+
+    a = (""+str).split(delimiter);
+
+    return a.map(function(s){
+        var result;
+
+        switch (type) {
+            case "int":
+            case "integer": result = parseInt(s); break;
+            case "number":
+            case "float": result = parseFloat(s); break;
+            case "date": result = !format ? new Date(s) : s.toDate(format); break;
+            default: result = s.trim();
+        }
+
+        return result;
+    });
 };
 
 Date.prototype.getWeek = function (dowOffset) {
@@ -1905,7 +2126,7 @@ Date.prototype.format = function(format, locale){
         locale = "en-US";
     }
 
-    var cal = (Metro.locales[locale] !== undefined ? Metro.locales[locale] : Metro.locales["en-US"])['calendar'];
+    var cal = (Metro.locales !== undefined && Metro.locales[locale] !== undefined ? Metro.locales[locale] : Metro.locales["en-US"])['calendar'];
 
     var date = this;
     var nDay = date.getDay(),
@@ -2001,6 +2222,7 @@ Date.prototype.addYears = function(n) {
 
 
 // Source: js/utils/hotkeys.js
+
 var hotkeys = {
 
     specialKeys: {
@@ -2183,6 +2405,7 @@ $.each(["keydown", "keyup", "keypress"], function() {
 
 
 // Source: js/utils/i18n.js
+
 var Locales = {
     'en-US': {
         "calendar": {
@@ -2511,6 +2734,7 @@ Metro['locales'] = Locales;
 
 
 // Source: js/utils/md5.js
+
 var hexcase = 0;
 /* hex output format. 0 - lowercase; 1 - uppercase        */
 var b64pad = "";
@@ -2860,6 +3084,7 @@ function bit_rol(num, cnt) {
 //$.Metro['md5'] = hex_md5;
 
 // Source: js/utils/mousewheel.js
+
 var toFix  = ['wheel', 'mousewheel', 'DOMMouseScroll', 'MozMousePixelScroll'],
     toBind = ( 'onwheel' in document || document.documentMode >= 9 ) ?
         ['wheel'] : ['mousewheel', 'DomMouseScroll', 'MozMousePixelScroll'],
@@ -3061,7 +3286,114 @@ function shouldAdjustOldDeltas(orgEvent, absDelta) {
     return $.event.special.mousewheel.settings.adjustOldDeltas && orgEvent.type === 'mousewheel' && absDelta % 120 === 0;
 }
 
+// Source: js/utils/pagination.js
+
+var createPagination = function(c){
+    var defConf = {
+        length: 0,
+        rows: 0,
+        current: 0,
+        target: "body",
+        clsPagination: "",
+        prevTitle: "Prev",
+        nextTitle: "Next",
+        distance: 5
+    }, conf;
+    var pagination;
+    var pagination_wrapper;
+    var i, prev, next;
+    var shortDistance;
+
+    conf = $.extend( {}, defConf, c);
+
+    shortDistance = parseInt(conf.distance);
+    pagination_wrapper = $(conf.target);
+    pagination_wrapper.html("");
+    pagination = $("<ul>").addClass("pagination").addClass(conf.clsPagination).appendTo(pagination_wrapper);
+
+    if (conf.length === 0) {
+        return ;
+    }
+
+    if (conf.rows === -1) {
+        return ;
+    }
+
+    conf.pages = Math.ceil(conf.length / conf.rows);
+
+    var add_item = function(item_title, item_type, data){
+        var li, a;
+
+        li = $("<li>").addClass("page-item").addClass(item_type);
+        a  = $("<a>").addClass("page-link").html(item_title);
+        a.data("page", data);
+        a.appendTo(li);
+
+        return li;
+    };
+
+    prev = add_item(conf.prevTitle, "service prev-page", "prev");
+    pagination.append(prev);
+
+    pagination.append(add_item(1, conf.current === 1 ? "active" : "", 1));
+
+    if (shortDistance === 0 || conf.pages <= 7) {
+        for (i = 2; i < conf.pages; i++) {
+            pagination.append(add_item(i, i === conf.current ? "active" : "", i));
+        }
+    } else {
+        if (conf.current < shortDistance) {
+            for (i = 2; i <= shortDistance; i++) {
+                pagination.append(add_item(i, i === conf.current ? "active" : "", i));
+            }
+
+            if (conf.pages > shortDistance) {
+                pagination.append(add_item("...", "no-link", null));
+            }
+        } else if (conf.current <= conf.pages && conf.current > conf.pages - shortDistance + 1) {
+            if (conf.pages > shortDistance) {
+                pagination.append(add_item("...", "no-link", null));
+            }
+
+            for (i = conf.pages - shortDistance + 1; i < conf.pages; i++) {
+                pagination.append(add_item(i, i === conf.current ? "active" : "", i));
+            }
+        } else {
+            pagination.append(add_item("...", "no-link", null));
+
+            pagination.append(add_item(conf.current - 1, "", conf.current - 1));
+            pagination.append(add_item(conf.current, "active", conf.current));
+            pagination.append(add_item(conf.current + 1, "", conf.current + 1));
+
+            pagination.append(add_item("...", "no-link", null));
+        }
+    }
+
+    if (conf.pages > 1 || conf.current < conf.pages) pagination.append(add_item(conf.pages, conf.current === conf.pages ? "active" : "", conf.pages));
+
+    next = add_item(conf.nextTitle, "service next-page", "next");
+    pagination.append(next);
+
+    if (conf.current === 1) {
+        prev.addClass("disabled");
+    }
+
+    if (conf.current === conf.pages) {
+        next.addClass("disabled");
+    }
+
+    if (conf.length === 0) {
+        pagination.addClass("disabled");
+        pagination.children().addClass("disabled");
+    }
+
+    return pagination;
+};
+
+Metro['pagination'] = createPagination;
+
 // Source: js/utils/scroll-events.js
+
 var dispatch = $.event.dispatch || $.event.handle;
 var special = jQuery.event.special,
     uid1 = 'D' + (+new Date()),
@@ -3129,97 +3461,15 @@ special.scrollstop = {
 };
 
 
-// Source: js/utils/session-storage.js
-var SessionStorage = {
-    key: "METRO:APP",
-
-    init: function( options ) {
-        this.options = $.extend( {}, this.options, options );
-
-        return this;
-    },
-
-    nvl: function(data, other){
-        return data === undefined || data === null ? other : data;
-    },
-
-    setKey: function(key){
-        this.key = key;
-    },
-
-    getKey: function(){
-        return this.key;
-    },
-
-    setItem: function(key, value){
-        window.sessionStorage.setItem(this.key + ":" + key, JSON.stringify(value));
-    },
-
-    getItem: function(key, default_value, reviver){
-        var result, value;
-
-        value = this.nvl(window.sessionStorage.getItem(this.key + ":" + key), default_value);
-
-        try {
-            result = JSON.parse(value, reviver);
-        } catch (e) {
-            result = null;
-        }
-        return result;
-    },
-
-    getItemPart: function(key, sub_key, default_value, reviver){
-        var i;
-        var val = this.getItem(key, default_value, reviver);
-
-        sub_key = sub_key.split("->");
-        for(i = 0; i < sub_key.length; i++) {
-            val = val[sub_key[i]];
-        }
-        return val;
-    },
-
-    delItem: function(key){
-        window.sessionStorage.removeItem(this.key + ":" + key)
-    },
-
-    size: function(unit){
-        var divider;
-        switch (unit) {
-            case 'm':
-            case 'M': {
-                divider = 1024 * 1024;
-                break;
-            }
-            case 'k':
-            case 'K': {
-                divider = 1024;
-                break;
-            }
-            default: divider = 1;
-        }
-        return JSON.stringify(window.sessionStorage).length / divider;
-    }
-};
-
-Metro['session'] = SessionStorage.init();
-
 // Source: js/utils/storage.js
-var Storage = {
-    key: "METRO:APP",
 
-    init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+var Storage = function(type){
+    return new Storage.init(type);
+};
 
-        return this;
-    },
-
-    nvl: function(data, other){
-        return data === undefined || data === null ? other : data;
-    },
-
+Storage.prototype = {
     setKey: function(key){
-        this.key = key;
+        this.key = key
     },
 
     getKey: function(){
@@ -3227,20 +3477,20 @@ var Storage = {
     },
 
     setItem: function(key, value){
-        window.localStorage.setItem(this.key + ":" + key, JSON.stringify(value));
+        this.storage.setItem(this.key + ":" + key, JSON.stringify(value));
     },
 
     getItem: function(key, default_value, reviver){
         var result, value;
 
-        value = this.nvl(window.localStorage.getItem(this.key + ":" + key), default_value);
+        value = this.storage.getItem(this.key + ":" + key);
 
         try {
             result = JSON.parse(value, reviver);
         } catch (e) {
             result = null;
         }
-        return result;
+        return Utils.nvl(result, default_value);
     },
 
     getItemPart: function(key, sub_key, default_value, reviver){
@@ -3255,7 +3505,7 @@ var Storage = {
     },
 
     delItem: function(key){
-        window.localStorage.removeItem(this.key + ":" + key)
+        this.storage.removeItem(this.key + ":" + key)
     },
 
     size: function(unit){
@@ -3273,15 +3523,28 @@ var Storage = {
             }
             default: divider = 1;
         }
-        return JSON.stringify(window.localStorage).length / divider;
+        return JSON.stringify(this.storage).length / divider;
     }
 };
 
-Metro['storage'] = Storage.init();
+Storage.init = function(type){
+
+    this.key = "";
+    this.storage = type ? type : window.localStorage;
+
+    return this;
+};
+
+Storage.init.prototype = Storage.prototype;
+
+Metro['storage'] = Storage(window.localStorage);
+Metro['session'] = Storage(window.sessionStorage);
+
 
 // Source: js/utils/tpl.js
-var TemplateEngine = function(html, options) {
-    var re = /<%(.+?)%>/g,
+
+var TemplateEngine = function(html, options, conf) {
+    var ReEx, re = '<%(.+?)%>',
         reExp = /(^( )?(var|if|for|else|switch|case|break|{|}|;))(.*)?/g,
         code = 'with(obj) { var r=[];\n',
         cursor = 0,
@@ -3292,9 +3555,23 @@ var TemplateEngine = function(html, options) {
             (code += line !== '' ? 'r.push("' + line.replace(/"/g, '\\"') + '");\n' : '');
         return add;
     };
-    while(match = re.exec(html)) {
+
+    if (Utils.isValue(conf)) {
+        if ((conf.hasOwnProperty('beginToken'))) {
+            re = re.replace('<%', conf.beginToken);
+        }
+        if ((conf.hasOwnProperty('endToken'))) {
+            re = re.replace('%>', conf.endToken);
+        }
+    }
+
+    ReEx = new RegExp(re, 'g');
+    match = ReEx.exec(html);
+
+    while(match) {
         add(html.slice(cursor, match.index))(match[1], true);
         cursor = match.index + match[0].length;
+        match = ReEx.exec(html);
     }
     add(html.substr(cursor, html.length - cursor));
     code = (code + 'return r.join(""); }').replace(/[\r\t\n]/g, ' ');
@@ -3307,6 +3584,7 @@ Metro['template'] = TemplateEngine;
 
 
 // Source: js/utils/utilities.js
+
 var Utils = {
     isUrl: function (val) {
         return /^(ftp|http|https):\/\/(\w+:{0,1}\w*@)?(\S+)(:[0-9]+)?(\/|\/([\w#!:.?+=&%@\-\/]))?/.test(val);
@@ -3323,8 +3601,11 @@ var Utils = {
     isEmbedObject: function(val){
         var embed = ["iframe", "object", "embed", "video"];
         var result = false;
-        $.each(embed, function(){
-            if (val.indexOf(this) !== -1) {
+        $.each(embed, function(i, v){
+            'use strict';
+            if (typeof val === "string" && val.toLowerCase() === v) {
+                result = true;
+            } else if (val.nodeType !== undefined && val.tagName.toLowerCase() === v) {
                 result = true;
             }
         });
@@ -3349,6 +3630,10 @@ var Utils = {
         }
 
         return result !== "Invalid Date";
+    },
+
+    isDateObject: function(v){
+        return typeof v === 'object' && v['getMonth'] !== undefined;
     },
 
     isInt: function(n){
@@ -3407,6 +3692,10 @@ var Utils = {
         }
 
         if (typeof o === 'string' && o.indexOf("[") !== -1) {
+            return false;
+        }
+
+        if (typeof o === "number" && t.toLowerCase() !== "number") {
             return false;
         }
 
@@ -3488,7 +3777,8 @@ var Utils = {
     },
 
     uniqueId: function () {
-var d = new Date().getTime();
+        "use strict";
+        var d = new Date().getTime();
         return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
             var r = (d + Math.random() * 16) % 16 | 0;
             d = Math.floor(d / 16);
@@ -3582,6 +3872,22 @@ var d = new Date().getTime();
         return el.getBoundingClientRect();
     },
 
+    getCursorPosition: function(el, e){
+        var a = Utils.rect(el);
+        return {
+            x: Utils.pageXY(e).x - a.left - window.pageXOffset,
+            y: Utils.pageXY(e).y - a.top - window.pageYOffset
+        };
+    },
+
+    getCursorPositionX: function(el, e){
+        return Utils.getCursorPosition(el, e).x;
+    },
+
+    getCursorPositionY: function(el, e){
+        return Utils.getCursorPosition(el, e).y;
+    },
+
     objectLength: function(obj){
         return Object.keys(obj).length;
     },
@@ -3622,8 +3928,17 @@ var d = new Date().getTime();
         if (obj[key] !== undefined) delete obj[key];
     },
 
+    arrayDeleteByMultipleKeys: function(arr, keys){
+        keys.forEach(function(ind){
+            delete arr[ind];
+        });
+        return arr.filter(function(item){
+            return item !== undefined;
+        })
+    },
+
     arrayDelete: function(arr, val){
-        arr.splice(arr.indexOf(val), 1);
+        if (arr.indexOf(val) > -1) arr.splice(arr.indexOf(val), 1);
     },
 
     arrayDeleteByKey: function(arr, key){
@@ -3936,7 +4251,9 @@ var d = new Date().getTime();
             var result;
 
             switch (type) {
+                case "int":
                 case "integer": result = parseInt(s); break;
+                case "number":
                 case "float": result = parseFloat(s); break;
                 case "date": result = !Utils.isValue(format) ? new Date(s) : s.toDate(format); break;
                 default: result = s.trim();
@@ -3962,8 +4279,8 @@ var d = new Date().getTime();
         return Object.values(obj).indexOf(value) > -1;
     },
 
-    keyInObject: function(){
-        return Object.keys(obj).indexOf(value) > -1;
+    keyInObject: function(obj, key){
+        return Object.keys(obj).indexOf(key) > -1;
     },
 
     inObject: function(obj, key, val){
@@ -4013,6 +4330,10 @@ var d = new Date().getTime();
         return val !== undefined && val !== null && val !== "";
     },
 
+    isNull: function(val){
+        return val === undefined || val === null;
+    },
+
     isNegative: function(val){
         return parseFloat(val) < 0;
     },
@@ -4031,6 +4352,14 @@ var d = new Date().getTime();
 
     parseMoney: function(val){
         return Number(parseFloat(val.replace(/[^0-9-.]/g, '')));
+    },
+
+    parseCard: function(val){
+        return val.replace(/[^0-9]/g, '');
+    },
+
+    parsePhone: function(val){
+        return Utils.parseCard(val);
     },
 
     isVisible: function(el){
@@ -4100,37 +4429,119 @@ var d = new Date().getTime();
         } else if (document.selection) {  // IE?
             document.selection.empty();
         }
+    },
+
+    isLocalhost: function(){
+        return (location.hostname === "localhost" || location.hostname === "127.0.0.1" || location.hostname === "")
+    },
+
+    formData: function(form){
+        if (Utils.isNull(form)) {
+            return ;
+        }
+        if (Utils.isJQueryObject(form)) {
+            form = form[0];
+        }
+        if (!form || form.nodeName !== "FORM") {
+            return;
+        }
+        var i, j, q = {};
+        for (i = form.elements.length - 1; i >= 0; i = i - 1) {
+            if (form.elements[i].name === "") {
+                continue;
+            }
+            switch (form.elements[i].nodeName) {
+                case 'INPUT':
+                    switch (form.elements[i].type) {
+                        case 'text':
+                        case 'hidden':
+                        case 'password':
+                        case 'button':
+                        case 'reset':
+                        case 'submit':
+                            q[form.elements[i].name] = form.elements[i].value;
+                            break;
+                        case 'checkbox':
+                        case 'radio':
+                            if (form.elements[i].checked) {
+                                q[form.elements[i].name] = form.elements[i].value;
+                            }
+                            break;
+                    }
+                    break;
+                case 'file':
+                    break;
+                case 'TEXTAREA':
+                    q[form.elements[i].name] = form.elements[i].value;
+                    break;
+                case 'SELECT':
+                    switch (form.elements[i].type) {
+                        case 'select-one':
+                            q[form.elements[i].name] = form.elements[i].value;
+                            break;
+                        case 'select-multiple':
+                            q[form.elements[i].name] = [];
+                            for (j = form.elements[i].options.length - 1; j >= 0; j = j - 1) {
+                                if (form.elements[i].options[j].selected) {
+                                    q[form.elements[i].name].push(form.elements[i].options[j].value);
+                                }
+                            }
+                            break;
+                    }
+                    break;
+                case 'BUTTON':
+                    switch (form.elements[i].type) {
+                        case 'reset':
+                        case 'submit':
+                        case 'button':
+                            q[form.elements[i].name] = form.elements[i].value;
+                            break;
+                    }
+                    break;
+            }
+        }
+        return q;
     }
 };
 
 Metro['utils'] = Utils;
 
 // Source: js/plugins/accordion.js
+
+var AccordionDefaultConfig = {
+    showMarker: true,
+    material: false,
+    duration: METRO_ANIMATION_DURATION,
+    oneFrame: true,
+    showActive: true,
+    activeFrameClass: "",
+    activeHeadingClass: "",
+    activeContentClass: "",
+    onFrameOpen: Metro.noop,
+    onFrameBeforeOpen: Metro.noop_true,
+    onFrameClose: Metro.noop,
+    onFrameBeforeClose: Metro.noop_true,
+    onAccordionCreate: Metro.noop
+};
+
+Metro.accordionSetup = function(options){
+    AccordionDefaultConfig = $.extend({}, AccordionDefaultConfig, options);
+};
+
+if (typeof window.metroAccordionSetup !== undefined) {
+    Metro.accordionSetup(window.metroAccordionSetup);
+}
+
 var Accordion = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, AccordionDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
 
         this._setOptionsFromDOM();
         this._create();
 
-        Utils.exec(this.options.onAccordionCreate, [this.element]);
-
         return this;
-    },
-    options: {
-        duration: METRO_ANIMATION_DURATION,
-        oneFrame: true,
-        showActive: true,
-        activeFrameClass: "",
-        activeHeadingClass: "",
-        activeContentClass: "",
-        onFrameOpen: Metro.noop,
-        onFrameBeforeOpen: Metro.noop_true,
-        onFrameClose: Metro.noop,
-        onFrameBeforeClose: Metro.noop_true,
-        onAccordionCreate: Metro.noop
     },
 
     _setOptionsFromDOM: function(){
@@ -4148,12 +4559,30 @@ var Accordion = {
     },
 
     _create: function(){
+        var element = this.element, o = this.options;
+
+        this._createStructure();
+        this._createEvents();
+
+        Utils.exec(o.onAccordionCreate, [element]);
+        element.fire("accordioncreate");
+    },
+
+    _createStructure: function(){
         var that = this, element = this.element, o = this.options;
         var frames = element.children(".frame");
         var active = element.children(".frame.active");
         var frame_to_open;
 
         element.addClass("accordion");
+
+        if (o.showMarker === true) {
+            element.addClass("marker-on");
+        }
+
+        if (o.material === true) {
+            element.addClass("material");
+        }
 
         if (active.length === 0) {
             frame_to_open = frames[0];
@@ -4163,11 +4592,15 @@ var Accordion = {
 
         this._hideAll();
 
-        if (o.showActive === true || o.oneFrame === true) {
-            this._openFrame(frame_to_open);
+        if (o.showActive === true) {
+            if (o.oneFrame === true) {
+                this._openFrame(frame_to_open);
+            } else {
+                $.each(active, function(){
+                    that._openFrame(this);
+                })
+            }
         }
-
-        this._createEvents();
     },
 
     _createEvents: function(){
@@ -4190,17 +4623,14 @@ var Accordion = {
             } else {
                 that._openFrame(frame);
             }
-
-            element.trigger("open", {frame: frame});
         });
     },
 
     _openFrame: function(f){
-        var that = this, element = this.element, o = this.options;
-        var frames = element.children(".frame");
+        var element = this.element, o = this.options;
         var frame = $(f);
 
-        if (Utils.exec(o.onFrameBeforeOpen, [frame], element[0]) === false) {
+        if (Utils.exec(o.onFrameBeforeOpen, [frame[0]], element[0]) === false) {
             return false;
         }
 
@@ -4212,14 +4642,22 @@ var Accordion = {
         frame.children(".heading").addClass(o.activeHeadingClass);
         frame.children(".content").addClass(o.activeContentClass).slideDown(o.duration);
 
-        Utils.exec(o.onFrameOpen, [frame], element[0]);
+        Utils.exec(o.onFrameOpen, [frame[0]], element[0]);
+
+        element.fire("frameopen", {
+            frame: frame[0]
+        });
     },
 
     _closeFrame: function(f){
         var that = this, element = this.element, o = this.options;
         var frame = $(f);
 
-        if (Utils.exec(o.onFrameBeforeClose, [frame], element[0]) === false) {
+        if (!frame.hasClass("active")) {
+            return ;
+        }
+
+        if (Utils.exec(o.onFrameBeforeClose, [frame[0]], element[0]) === false) {
             return ;
         }
 
@@ -4227,7 +4665,11 @@ var Accordion = {
         frame.children(".heading").removeClass(o.activeHeadingClass);
         frame.children(".content").removeClass(o.activeContentClass).slideUp(o.duration);
 
-        Utils.callback(o.onFrameClose, [frame], element[0]);
+        Utils.callback(o.onFrameClose, [frame[0]], element[0]);
+
+        element.fire("frameclose", {
+            frame: frame[0]
+        });
     },
 
     _closeAll: function(){
@@ -4268,30 +4710,37 @@ var Accordion = {
 Metro.plugin('accordion', Accordion);
 
 // Source: js/plugins/activity.js
+
+var ActivityDefaultConfig = {
+    type: "ring",
+    style: "light",
+    size: 64,
+    radius: 20,
+    onActivityCreate: Metro.noop
+};
+
+Metro.activitySetup = function(options){
+    ActivityDefaultConfig = $.extend({}, ActivityDefaultConfig, options);
+};
+
+if (typeof window.metroActivitySetup !== undefined) {
+    Metro.activitySetup(window.metroActivitySetup);
+}
+
 var Activity = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, ActivityDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
 
         this._setOptionsFromDOM();
         this._create();
 
-        Utils.exec(this.options.onActivityCreate, [this.element]);
-
         return this;
     },
 
-    options: {
-        type: "ring",
-        style: "light",
-        size: 64,
-        radius: 20,
-        onActivityCreate: Metro.noop
-    },
-
     _setOptionsFromDOM: function(){
-        var that = this, element = this.element, o = this.options;
+        var element = this.element, o = this.options;
 
         $.each(element.data(), function(key, value){
             if (key in o) {
@@ -4305,7 +4754,7 @@ var Activity = {
     },
 
     _create: function(){
-        var that = this, element = this.element, o = this.options;
+        var element = this.element, o = this.options;
         var i, wrap;
 
         element
@@ -4347,6 +4796,9 @@ var Activity = {
             case 'simple': _simple(); break;
             default: _ring();
         }
+
+        Utils.exec(this.options.onActivityCreate, [this.element]);
+        element.fire("activitycreate")
     },
 
     changeAttribute: function(attributeName){
@@ -4354,7 +4806,7 @@ var Activity = {
     },
 
     destroy: function(){
-        var that = this, element = this.element, o = this.options;
+        var element = this.element, o = this.options;
 
         element.html('')
             .removeClass(o.style + "-style")
@@ -4389,9 +4841,25 @@ Metro['activity'] = {
 };
 
 // Source: js/plugins/app-bar.js
+
+var AppBarDefaultConfig = {
+    expand: false,
+    expandPoint: null,
+    duration: 100,
+    onAppBarCreate: Metro.noop
+};
+
+Metro.appBarSetup = function(options){
+    AppBarDefaultConfig = $.extend({}, AppBarDefaultConfig, options);
+};
+
+if (typeof window.metroAppBarSetup !== undefined) {
+    Metro.appBarSetup(window.metroAppBarSetup);
+}
+
 var AppBar = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, AppBarDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
 
@@ -4399,11 +4867,6 @@ var AppBar = {
         this._create();
 
         return this;
-    },
-
-    options: {
-        duration: 100,
-        onAppBarCreate: Metro.noop
     },
 
     _setOptionsFromDOM: function(){
@@ -4427,6 +4890,7 @@ var AppBar = {
         this._createEvents();
 
         Utils.exec(o.onAppBarCreate, [element]);
+        element.fire("appbarcreate");
     },
 
     _createStructure: function(){
@@ -4452,7 +4916,7 @@ var AppBar = {
         menu = element.find(".app-bar-menu");
 
         if (menu.length === 0) {
-            hamburger.hide();
+            hamburger.css("display", "none");
         } else {
             Utils.addCssRule(Metro.sheet, ".app-bar-menu li", "list-style: none!important;"); // This special for IE11 and Edge
         }
@@ -4466,6 +4930,16 @@ var AppBar = {
             hamburger.removeClass("hidden");
         } else {
             hamburger.addClass("hidden");
+        }
+
+        if (o.expand === true) {
+            element.addClass("app-bar-expand");
+            hamburger.addClass("hidden");
+        } else {
+            if (Utils.isValue(o.expandPoint) && Utils.mediaExist(o.expandPoint)) {
+                element.addClass("app-bar-expand");
+                hamburger.addClass("hidden");
+            }
         }
     },
 
@@ -4485,6 +4959,15 @@ var AppBar = {
         });
 
         $(window).on(Metro.events.resize+"-"+element.attr("id"), function(){
+
+            if (o.expand !== true) {
+                if (Utils.isValue(o.expandPoint) && Utils.mediaExist(o.expandPoint)) {
+                    element.addClass("app-bar-expand");
+                } else {
+                    element.removeClass("app-bar-expand");
+                }
+            }
+
             if (menu.length === 0) return ;
 
             if (hamburger.css('display') !== 'block') {
@@ -4537,9 +5020,73 @@ var AppBar = {
 Metro.plugin('appbar', AppBar);
 
 // Source: js/plugins/audio.js
+
+var AudioDefaultConfig = {
+    playlist: null,
+    src: null,
+
+    volume: .5,
+    loop: false,
+    autoplay: false,
+
+    showLoop: true,
+    showPlay: true,
+    showStop: true,
+    showMute: true,
+    showFull: true,
+    showStream: true,
+    showVolume: true,
+    showInfo: true,
+
+    showPlaylist: true,
+    showNext: true,
+    showPrev: true,
+    showFirst: true,
+    showLast: true,
+    showForward: true,
+    showBackward: true,
+    showShuffle: true,
+    showRandom: true,
+
+    loopIcon: "<span class='default-icon-loop'></span>",
+    stopIcon: "<span class='default-icon-stop'></span>",
+    playIcon: "<span class='default-icon-play'></span>",
+    pauseIcon: "<span class='default-icon-pause'></span>",
+    muteIcon: "<span class='default-icon-mute'></span>",
+    volumeLowIcon: "<span class='default-icon-low-volume'></span>",
+    volumeMediumIcon: "<span class='default-icon-medium-volume'></span>",
+    volumeHighIcon: "<span class='default-icon-high-volume'></span>",
+
+    playlistIcon: "<span class='default-icon-playlist'></span>",
+    nextIcon: "<span class='default-icon-next'></span>",
+    prevIcon: "<span class='default-icon-prev'></span>",
+    firstIcon: "<span class='default-icon-first'></span>",
+    lastIcon: "<span class='default-icon-last'></span>",
+    forwardIcon: "<span class='default-icon-forward'></span>",
+    backwardIcon: "<span class='default-icon-backward'></span>",
+    shuffleIcon: "<span class='default-icon-shuffle'></span>",
+    randomIcon: "<span class='default-icon-random'></span>",
+
+    onPlay: Metro.noop,
+    onPause: Metro.noop,
+    onStop: Metro.noop,
+    onEnd: Metro.noop,
+    onMetadata: Metro.noop,
+    onTime: Metro.noop,
+    onAudioCreate: Metro.noop
+};
+
+Metro.audioSetup = function(options){
+    AudioDefaultConfig = $.extend({}, AudioDefaultConfig, options);
+};
+
+if (typeof window.metroAudioSetup !== undefined) {
+    Metro.audioSetup(window.metroAudioSetup);
+}
+
 var Audio = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, AudioDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
         this.preloader = null;
@@ -4554,61 +5101,6 @@ var Audio = {
         this._create();
 
         return this;
-    },
-
-    options: {
-        playlist: null,
-        src: null,
-
-        volume: .5,
-        loop: false,
-        autoplay: false,
-
-        showLoop: true,
-        showPlay: true,
-        showStop: true,
-        showMute: true,
-        showFull: true,
-        showStream: true,
-        showVolume: true,
-        showInfo: true,
-
-        showPlaylist: true,
-        showNext: true,
-        showPrev: true,
-        showFirst: true,
-        showLast: true,
-        showForward: true,
-        showBackward: true,
-        showShuffle: true,
-        showRandom: true,
-
-        loopIcon: "<span class='default-icon-loop'></span>",
-        stopIcon: "<span class='default-icon-stop'></span>",
-        playIcon: "<span class='default-icon-play'></span>",
-        pauseIcon: "<span class='default-icon-pause'></span>",
-        muteIcon: "<span class='default-icon-mute'></span>",
-        volumeLowIcon: "<span class='default-icon-low-volume'></span>",
-        volumeMediumIcon: "<span class='default-icon-medium-volume'></span>",
-        volumeHighIcon: "<span class='default-icon-high-volume'></span>",
-
-        playlistIcon: "<span class='default-icon-playlist'></span>",
-        nextIcon: "<span class='default-icon-next'></span>",
-        prevIcon: "<span class='default-icon-prev'></span>",
-        firstIcon: "<span class='default-icon-first'></span>",
-        lastIcon: "<span class='default-icon-last'></span>",
-        forwardIcon: "<span class='default-icon-forward'></span>",
-        backwardIcon: "<span class='default-icon-backward'></span>",
-        shuffleIcon: "<span class='default-icon-shuffle'></span>",
-        randomIcon: "<span class='default-icon-random'></span>",
-
-        onPlay: Metro.noop,
-        onPause: Metro.noop,
-        onStop: Metro.noop,
-        onEnd: Metro.noop,
-        onMetadata: Metro.noop,
-        onTime: Metro.noop,
-        onAudioCreate: Metro.noop
     },
 
     _setOptionsFromDOM: function(){
@@ -4636,7 +5128,8 @@ var Audio = {
             this.play();
         }
 
-        Utils.exec(o.onAudioCreate, [element, this.player]);
+        Utils.exec(o.onAudioCreate, [element, this.player], element[0]);
+        element.fire("audiocreate");
     },
 
     _createPlayer: function(){
@@ -4788,7 +5281,7 @@ var Audio = {
         element.on("loadedmetadata", function(){
             that.duration = audio.duration.toFixed(0);
             that._setInfo(0, that.duration);
-            Utils.exec(o.onMetadata, [audio, player]);
+            Utils.exec(o.onMetadata, [audio, player], element[0]);
         });
 
         element.on("canplay", function(){
@@ -4804,7 +5297,7 @@ var Audio = {
             var position = Math.round(audio.currentTime * 100 / that.duration);
             that._setInfo(audio.currentTime, that.duration);
             that.stream.data('slider').val(position);
-            Utils.exec(o.onTime, [audio.currentTime, that.duration, audio, player]);
+            Utils.exec(o.onTime, [audio.currentTime, that.duration, audio, player], element[0]);
         });
 
         element.on("waiting", function(){
@@ -4817,22 +5310,22 @@ var Audio = {
 
         element.on("play", function(){
             player.find(".play").html(o.pauseIcon);
-            Utils.exec(o.onPlay, [audio, player]);
+            Utils.exec(o.onPlay, [audio, player], element[0]);
         });
 
         element.on("pause", function(){
             player.find(".play").html(o.playIcon);
-            Utils.exec(o.onPause, [audio, player]);
+            Utils.exec(o.onPause, [audio, player], element[0]);
         });
 
         element.on("stop", function(){
             that.stream.data('slider').val(0);
-            Utils.exec(o.onStop, [audio, player]);
+            Utils.exec(o.onStop, [audio, player], element[0]);
         });
 
         element.on("ended", function(){
             that.stream.data('slider').val(0);
-            Utils.exec(o.onEnd, [audio, player]);
+            Utils.exec(o.onEnd, [audio, player], element[0]);
         });
 
         element.on("volumechange", function(){
@@ -5004,10 +5497,191 @@ var Audio = {
 
 Metro.plugin('audio', Audio);
 
+// Source: js/plugins/bottom-sheet.js
+
+var BottomSheetDefaultConfig = {
+    mode: "list",
+    toggle: null,
+    onOpen: Metro.noop,
+    onClose: Metro.noop,
+    onBottomSheetCreate: Metro.noop
+};
+
+Metro.bottomSheetSetup = function(options){
+    BottomSheetDefaultConfig = $.extend({}, BottomSheetDefaultConfig, options);
+};
+
+if (typeof window.metroBottomSheetSetup !== undefined) {
+    Metro.bottomSheetSetup(window.metroBottomSheetSetup);
+}
+
+var BottomSheet = {
+    init: function( options, elem ) {
+        this.options = $.extend( {}, BottomSheetDefaultConfig, options );
+        this.elem  = elem;
+        this.element = $(elem);
+        this.toggle = null;
+
+        this._setOptionsFromDOM();
+        this._create();
+
+        return this;
+    },
+
+    _setOptionsFromDOM: function(){
+        var that = this, element = this.element, o = this.options;
+
+        $.each(element.data(), function(key, value){
+            if (key in o) {
+                try {
+                    o[key] = JSON.parse(value);
+                } catch (e) {
+                    o[key] = value;
+                }
+            }
+        });
+    },
+
+    _create: function(){
+        var that = this, element = this.element, o = this.options;
+
+        this._createStructure();
+        this._createEvents();
+
+        Utils.exec(o.onBottomSheetCreate, [element], element[0]);
+        element.fire("bottomsheetcreate");
+    },
+
+    _createStructure: function(){
+        var that = this, element = this.element, o = this.options;
+
+        element
+            .addClass("bottom-sheet")
+            .addClass(o.mode+"-list");
+
+        if (Utils.isValue(o.toggle) && $(o.toggle).length > 0) {
+            this.toggle = $(o.toggle);
+        }
+    },
+
+    _createEvents: function(){
+        var that = this, element = this.element, o = this.options;
+
+        if (Utils.isValue(this.toggle)) {
+            this.toggle.on(Metro.events.click, function(){
+                that.toggle();
+            });
+        }
+
+        element.on(Metro.events.click, "li", function(){
+            that.close();
+        });
+    },
+
+    isOpen: function(){
+        return this.element.hasClass("opened");
+    },
+
+    open: function(mode){
+        var element = this.element, o = this.options;
+
+        if (Utils.isValue(mode)) {
+            element.removeClass("list-style grid-style").addClass(mode+"-style");
+        }
+
+        this.element.addClass("opened");
+        Utils.exec(o.onOpen, [element], element[0]);
+        element.fire("open");
+    },
+
+    close: function(){
+        var element = this.element, o = this.options;
+
+        element.removeClass("opened");
+        Utils.exec(o.onClose, [element], element[0]);
+        element.fire("close");
+    },
+
+    toggle: function(mode){
+        if (this.isOpen()) {
+            this.close();
+        } else {
+            this.open(mode);
+        }
+    },
+
+    changeAttribute: function(attributeName){
+
+    },
+
+    destroy: function(){}
+};
+
+Metro.plugin('bottomsheet', BottomSheet);
+
+Metro['bottomsheet'] = {
+    isBottomSheet: function(el){
+        return Utils.isMetroObject(el, "bottomsheet");
+    },
+
+    open: function(el, as){
+        if (!this.isBottomSheet(el)) {
+            return false;
+        }
+        var sheet = $(el).data("bottomsheet");
+        sheet.open(as);
+    },
+
+    close: function(el){
+        if (!this.isBottomSheet(el)) {
+            return false;
+        }
+        var sheet = $(el).data("bottomsheet");
+        sheet.close();
+    },
+
+    toggle: function(el, as){
+        if (!this.isBottomSheet(el)) {
+            return false;
+        }
+        if (this.isOpen(el)) {
+            this.close(el);
+        } else {
+            this.open(el, as);
+        }
+    },
+
+    isOpen: function(el){
+        if (!this.isBottomSheet(el)) {
+            return false;
+        }
+        var sheet = $(el).data("bottomsheet");
+        return sheet.isOpen();
+    }
+};
+
 // Source: js/plugins/button-group.js
+
+var ButtonGroupDefaultConfig = {
+    targets: "button",
+    clsActive: "active",
+    requiredButton: false,
+    mode: Metro.groupMode.ONE,
+    onButtonClick: Metro.noop,
+    onButtonsGroupCreate: Metro.noop
+};
+
+Metro.buttonGroupSetup = function(options){
+    ButtonGroupDefaultConfig = $.extend({}, ButtonGroupDefaultConfig, options);
+};
+
+if (typeof window.metroButtonGroupSetup !== undefined) {
+    Metro.buttonGroupSetup(window.metroButtonGroupSetup);
+}
+
 var ButtonGroup = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, ButtonGroupDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
         this.active = null;
@@ -5016,15 +5690,6 @@ var ButtonGroup = {
         this._create();
 
         return this;
-    },
-
-    options: {
-        targets: "button",
-        clsActive: "active",
-        requiredButton: false,
-        mode: Metro.groupMode.ONE,
-        onButtonClick: Metro.noop,
-        onButtonsGroupCreate: Metro.noop
     },
 
     _setOptionsFromDOM: function(){
@@ -5048,6 +5713,7 @@ var ButtonGroup = {
         this._createEvents();
 
         Utils.exec(o.onButtonsGroupCreate, [element]);
+        element.fire("buttongroupcreate");
     },
 
     _createGroup: function(){
@@ -5082,6 +5748,9 @@ var ButtonGroup = {
             var el = $(this);
 
             Utils.exec(o.onButtonClick, [el], this);
+            element.fire("buttonclick", {
+                button: this
+            });
 
             if (o.mode === Metro.groupMode.ONE && el.hasClass(o.clsActive)) {
                 return ;
@@ -5112,9 +5781,80 @@ var ButtonGroup = {
 Metro.plugin('buttongroup', ButtonGroup);
 
 // Source: js/plugins/calendar.js
+
+var CalendarDefaultConfig = {
+    dayBorder: false,
+    excludeDay: null,
+    prevMonthIcon: "<span class='default-icon-chevron-left'></span>",
+    nextMonthIcon: "<span class='default-icon-chevron-right'></span>",
+    prevYearIcon: "<span class='default-icon-chevron-left'></span>",
+    nextYearIcon: "<span class='default-icon-chevron-right'></span>",
+    compact: false,
+    wide: false,
+    widePoint: null,
+    pickerMode: false,
+    show: null,
+    locale: METRO_LOCALE,
+    weekStart: METRO_WEEK_START,
+    outside: true,
+    buttons: 'cancel, today, clear, done',
+    yearsBefore: 100,
+    yearsAfter: 100,
+    headerFormat: "%A, %b %e",
+    showHeader: true,
+    showFooter: true,
+    showTimeField: true,
+    showWeekNumber: false,
+    clsCalendar: "",
+    clsCalendarHeader: "",
+    clsCalendarContent: "",
+    clsCalendarFooter: "",
+    clsCalendarMonths: "",
+    clsCalendarYears: "",
+    clsToday: "",
+    clsSelected: "",
+    clsExcluded: "",
+    clsCancelButton: "",
+    clsTodayButton: "",
+    clsClearButton: "",
+    clsDoneButton: "",
+    isDialog: false,
+    ripple: false,
+    rippleColor: "#cccccc",
+    exclude: null,
+    preset: null,
+    minDate: null,
+    maxDate: null,
+    weekDayClick: false,
+    weekNumberClick: false,
+    multiSelect: false,
+    special: null,
+    format: METRO_DATE_FORMAT,
+    inputFormat: null,
+    onCancel: Metro.noop,
+    onToday: Metro.noop,
+    onClear: Metro.noop,
+    onDone: Metro.noop,
+    onDayClick: Metro.noop,
+    onDayDraw: Metro.noop,
+    onWeekDayClick: Metro.noop,
+    onWeekNumberClick: Metro.noop,
+    onMonthChange: Metro.noop,
+    onYearChange: Metro.noop,
+    onCalendarCreate: Metro.noop
+};
+
+Metro.calendarSetup = function (options) {
+    CalendarDefaultConfig = $.extend({}, CalendarDefaultConfig, options);
+};
+
+if (typeof window.metroCalendarSetup !== undefined) {
+    Metro.calendarSetup(window.metroCalendarSetup);
+}
+
 var Calendar = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, CalendarDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
         this.today = new Date();
@@ -5130,6 +5870,7 @@ var Calendar = {
         this.selected = [];
         this.exclude = [];
         this.special = [];
+        this.excludeDay = [];
         this.min = null;
         this.max = null;
         this.locale = null;
@@ -5141,55 +5882,6 @@ var Calendar = {
         this._create();
 
         return this;
-    },
-
-    options: {
-        pickerMode: false,
-        show: null,
-        locale: METRO_LOCALE,
-        weekStart: METRO_WEEK_START,
-        outside: true,
-        buttons: 'cancel, today, clear, done',
-        yearsBefore: 100,
-        yearsAfter: 100,
-        headerFormat: "%A, %b %e",
-        showHeader: true,
-        showFooter: true,
-        showTimeField: true,
-        clsCalendar: "",
-        clsCalendarHeader: "",
-        clsCalendarContent: "",
-        clsCalendarFooter: "",
-        clsCalendarMonths: "",
-        clsCalendarYears: "",
-        clsToday: "",
-        clsSelected: "",
-        clsExcluded: "",
-        clsCancelButton: "",
-        clsTodayButton: "",
-        clsClearButton: "",
-        clsDoneButton: "",
-        isDialog: false,
-        ripple: false,
-        rippleColor: "#cccccc",
-        exclude: null,
-        preset: null,
-        minDate: null,
-        maxDate: null,
-        weekDayClick: false,
-        multiSelect: false,
-        special: null,
-        format: METRO_DATE_FORMAT,
-        inputFormat: null,
-        onCancel: Metro.noop,
-        onToday: Metro.noop,
-        onClear: Metro.noop,
-        onDone: Metro.noop,
-        onDayClick: Metro.noop,
-        onWeekDayClick: Metro.noop,
-        onMonthChange: Metro.noop,
-        onYearChange: Metro.noop,
-        onCalendarCreate: Metro.noop
     },
 
     _setOptionsFromDOM: function(){
@@ -5209,7 +5901,15 @@ var Calendar = {
     _create: function(){
         var that = this, element = this.element, o = this.options;
 
-        element.html("").addClass("calendar").addClass(o.clsCalendar);
+        element.html("").addClass("calendar " + (o.compact === true ? "compact" : "")).addClass(o.clsCalendar);
+
+        if (o.dayBorder === true) {
+            element.addClass("day-border");
+        }
+
+        if (Utils.isValue(o.excludeDay)) {
+            this.excludeDay = (""+o.excludeDay).toArray(",", "int");
+        }
 
         if (Utils.isValue(o.preset)) {
             this._dates2array(o.preset, 'selected');
@@ -5241,7 +5941,7 @@ var Calendar = {
 
         if (o.show !== null && Utils.isDate(o.show, o.inputFormat)) {
             this.show = Utils.isValue(o.inputFormat) ? o.show.toDate(o.inputFormat) : (new Date(o.show));
-
+            this.show.setHours(0,0,0,0);
             this.current = {
                 year: this.show.getFullYear(),
                 month: this.show.getMonth(),
@@ -5251,29 +5951,19 @@ var Calendar = {
 
         this.locale = Metro.locales[o.locale] !== undefined ? Metro.locales[o.locale] : Metro.locales["en-US"];
 
-        this._build();
-    },
-
-    _dates2array: function(val, category){
-        var that = this, o = this.options;
-
-        $.each(Utils.strToArray(val), function(){
-            var _d = Utils.isValue(o.inputFormat) ? this.toDate(o.inputFormat) : new Date(this);
-            if (Utils.isDate(_d) === false) {
-                return ;
-            }
-            _d.setHours(0,0,0,0);
-            that[category].push(_d.getTime());
-        });
-    },
-
-    _build: function(){
-        var element = this.element;
-
         this._drawCalendar();
-        this._bindEvents();
+        this._createEvents();
 
-        if (this.options.ripple === true) {
+        if (o.wide === true) {
+            element.addClass("calendar-wide");
+        } else {
+            if (!Utils.isNull(o.widePoint) && Utils.mediaExist(o.widePoint)) {
+                element.addClass("calendar-wide");
+            }
+        }
+
+
+        if (o.ripple === true && Utils.isFunc(element.ripple) !== false) {
             element.ripple({
                 rippleTarget: ".button, .prev-month, .next-month, .prev-year, .next-year, .day",
                 rippleColor: this.options.rippleColor
@@ -5281,10 +5971,48 @@ var Calendar = {
         }
 
         Utils.exec(this.options.onCalendarCreate, [this.element]);
+        element.fire("calendarcreate");
     },
 
-    _bindEvents: function(){
+    _dates2array: function(val, category){
+        var that = this, o = this.options;
+        var dates;
+
+        if (Utils.isNull(val)) {
+            return ;
+        }
+
+        dates = typeof val === 'string' ? Utils.strToArray(val) : val;
+
+        $.each(dates, function(){
+            var _d;
+
+            if (!Utils.isDateObject(this)) {
+                _d = Utils.isValue(o.inputFormat) ? this.toDate(o.inputFormat) : new Date(this);
+                if (Utils.isDate(_d) === false) {
+                    return ;
+                }
+                _d.setHours(0,0,0,0);
+            } else {
+                _d = this;
+            }
+
+            that[category].push(_d.getTime());
+        });
+    },
+
+    _createEvents: function(){
         var that = this, element = this.element, o = this.options;
+
+        $(window).on(Metro.events.resize, function(){
+            if (o.wide !== true) {
+                if (!Utils.isNull(o.widePoint) && Utils.mediaExist(o.widePoint)) {
+                    element.addClass("calendar-wide");
+                } else {
+                    element.removeClass("calendar-wide");
+                }
+            }
+        });
 
         element.on(Metro.events.click, ".prev-month, .next-month, .prev-year, .next-year", function(e){
             var new_date, el = $(this);
@@ -5323,11 +6051,17 @@ var Calendar = {
                 that._drawContent();
                 if (el.hasClass("prev-month") || el.hasClass("next-month")) {
                     Utils.exec(o.onMonthChange, [that.current, element], element[0]);
+                    element.fire("monthchange", {
+                        current: that.current
+                    });
                 }
                 if (el.hasClass("prev-year") || el.hasClass("next-year")) {
                     Utils.exec(o.onYearChange, [that.current, element], element[0]);
+                    element.fire("yearchange", {
+                        current: that.current
+                    });
                 }
-            }, o.ripple ? 300 : 0);
+            }, o.ripple ? 300 : 1);
 
             e.preventDefault();
             e.stopPropagation();
@@ -5336,6 +6070,9 @@ var Calendar = {
         element.on(Metro.events.click, ".button.today", function(e){
             that.toDay();
             Utils.exec(o.onToday, [that.today, element]);
+            element.fire("today", {
+                today: that.today
+            });
 
             e.preventDefault();
             e.stopPropagation();
@@ -5345,6 +6082,7 @@ var Calendar = {
             that.selected = [];
             that._drawContent();
             Utils.exec(o.onClear, [element]);
+            element.fire("clear");
 
             e.preventDefault();
             e.stopPropagation();
@@ -5353,6 +6091,7 @@ var Calendar = {
         element.on(Metro.events.click, ".button.cancel", function(e){
             that._drawContent();
             Utils.exec(o.onCancel, [element]);
+            element.fire("cancel");
 
             e.preventDefault();
             e.stopPropagation();
@@ -5361,30 +6100,76 @@ var Calendar = {
         element.on(Metro.events.click, ".button.done", function(e){
             that._drawContent();
             Utils.exec(o.onDone, [that.selected, element]);
+            element.fire("done");
 
             e.preventDefault();
             e.stopPropagation();
         });
 
-        element.on(Metro.events.click, ".week-days .day", function(e){
-            if (o.weekDayClick === false || o.multiSelect === false) {
-                return ;
-            }
-            var day = $(this);
-            var index = day.index();
-            var days = o.outside === true ? element.find(".days-row .day:nth-child("+(index + 1)+")") : element.find(".days-row .day:not(.outside):nth-child("+(index + 1)+")");
-            $.each(days, function(){
-                var d = $(this);
-                var dd = d.data('day');
-                Utils.arrayDelete(that.selected, dd);
-                that.selected.push(dd);
-                d.addClass("selected").addClass(o.clsSelected);
+        if (o.weekDayClick === true) {
+            element.on(Metro.events.click, ".week-days .day", function (e) {
+                var day, index, days;
+
+                day = $(this);
+                index = day.index();
+
+                if (o.multiSelect === true) {
+                    days = o.outside === true ? element.find(".days-row .day:nth-child(" + (index + 1) + ")") : element.find(".days-row .day:not(.outside):nth-child(" + (index + 1) + ")");
+                    $.each(days, function () {
+                        var d = $(this);
+                        var dd = d.data('day');
+
+                        if (d.hasClass("disabled") || d.hasClass("excluded")) return;
+
+                        if (!that.selected.contains(dd))
+                            that.selected.push(dd);
+                        d.addClass("selected").addClass(o.clsSelected);
+                    });
+                }
+
+                Utils.exec(o.onWeekDayClick, [that.selected, day], element[0]);
+                element.fire("weekdayclick", {
+                    day: day,
+                    selected: that.selected
+                });
+
+                e.preventDefault();
+                e.stopPropagation();
             });
-            Utils.exec(o.onWeekDayClick, [that.selected, day, element]);
+        }
 
-            e.preventDefault();
-            e.stopPropagation();
-        });
+        if (o.weekNumberClick) {
+            element.on(Metro.events.click, ".days-row .week-number", function (e) {
+                var weekNumElement, weekNumber, days;
+
+                weekNumElement = $(this);
+                weekNumber = weekNumElement.text();
+
+                if (o.multiSelect === true) {
+                    days = $(this).siblings(".day");
+                    $.each(days, function () {
+                        var d = $(this);
+                        var dd = d.data('day');
+
+                        if (d.hasClass("disabled") || d.hasClass("excluded")) return;
+
+                        if (!that.selected.contains(dd))
+                            that.selected.push(dd);
+                        d.addClass("selected").addClass(o.clsSelected);
+                    });
+                }
+
+                Utils.exec(o.onWeekNumberClick, [that.selected, weekNumber, weekNumElement], element[0]);
+                element.fire("weeknumberclick", {
+                    el: this,
+                    num: weekNumber,
+                    selected: that.selected
+                });
+
+                e.preventDefault();
+                e.stopPropagation();
+            });
+        }
 
         element.on(Metro.events.click, ".days-row .day", function(e){
             var day = $(this);
@@ -5404,29 +6189,37 @@ var Calendar = {
                 return ;
             }
 
-            if (o.pickerMode === true) {
-                that.selected = [date];
-                that.today = new Date(date);
-                that.current.year = that.today.getFullYear();
-                that.current.month = that.today.getMonth();
-                that.current.day = that.today.getDate();
-                that._drawHeader();
-                that._drawContent();
-            } else {
-                if (index === -1) {
-                    if (o.multiSelect === false) {
-                        element.find(".days-row .day").removeClass("selected").removeClass(o.clsSelected);
-                        that.selected = [];
-                    }
-                    that.selected.push(date);
-                    day.addClass("selected").addClass(o.clsSelected);
+            if (!day.hasClass("disabled")) {
+
+                if (o.pickerMode === true) {
+                    that.selected = [date];
+                    that.today = new Date(date);
+                    that.current.year = that.today.getFullYear();
+                    that.current.month = that.today.getMonth();
+                    that.current.day = that.today.getDate();
+                    that._drawHeader();
+                    that._drawContent();
                 } else {
-                    day.removeClass("selected").removeClass(o.clsSelected);
-                    Utils.arrayDelete(that.selected, date);
+                    if (index === -1) {
+                        if (o.multiSelect === false) {
+                            element.find(".days-row .day").removeClass("selected").removeClass(o.clsSelected);
+                            that.selected = [];
+                        }
+                        that.selected.push(date);
+                        day.addClass("selected").addClass(o.clsSelected);
+                    } else {
+                        day.removeClass("selected").removeClass(o.clsSelected);
+                        Utils.arrayDelete(that.selected, date);
+                    }
                 }
+
             }
 
             Utils.exec(o.onDayClick, [that.selected, day, element]);
+            element.fire("dayclick", {
+                day: day,
+                selected: that.selected
+            });
 
             e.preventDefault();
             e.stopPropagation();
@@ -5456,6 +6249,9 @@ var Calendar = {
             that.current.month = $(this).index();
             that._drawContent();
             Utils.exec(o.onMonthChange, [that.current, element], element[0]);
+            element.fire("monthchange", {
+                current: that.current
+            });
             element.find(".calendar-months").removeClass("open");
             e.preventDefault();
             e.stopPropagation();
@@ -5485,6 +6281,9 @@ var Calendar = {
             that.current.year = $(this).text();
             that._drawContent();
             Utils.exec(o.onYearChange, [that.current, element], element[0]);
+            element.fire("yearchange", {
+                current: that.current
+            });
             element.find(".calendar-years").removeClass("open");
             e.preventDefault();
             e.stopPropagation();
@@ -5583,6 +6382,7 @@ var Calendar = {
         if (content.length === 0) {
             content = $("<div>").addClass("calendar-content").addClass(o.clsCalendarContent).appendTo(element);
         }
+
         content.html("");
 
         toolbar = $("<div>").addClass("calendar-toolbar").appendTo(content);
@@ -5590,18 +6390,25 @@ var Calendar = {
         /**
          * Calendar toolbar
          */
-        $("<span>").addClass("prev-month").appendTo(toolbar);
+        $("<span>").addClass("prev-month").html(o.prevMonthIcon).appendTo(toolbar);
         $("<span>").addClass("curr-month").html(calendar_locale['months'][this.current.month]).appendTo(toolbar);
-        $("<span>").addClass("next-month").appendTo(toolbar);
+        $("<span>").addClass("next-month").html(o.nextMonthIcon).appendTo(toolbar);
 
-        $("<span>").addClass("prev-year").appendTo(toolbar);
+        $("<span>").addClass("prev-year").html(o.prevYearIcon).appendTo(toolbar);
         $("<span>").addClass("curr-year").html(this.current.year).appendTo(toolbar);
-        $("<span>").addClass("next-year").appendTo(toolbar);
+        $("<span>").addClass("next-year").html(o.nextYearIcon).appendTo(toolbar);
 
         /**
          * Week days
          */
         var week_days = $("<div>").addClass("week-days").appendTo(content);
+        var day_class = "day";
+
+        if (o.showWeekNumber === true) {
+            $("<span>").addClass("week-number").html("#").appendTo(week_days);
+            day_class += " and-week-number";
+        }
+
         for (i = 0; i < 7; i++) {
             if (o.weekStart === 0) {
                 j = i;
@@ -5609,7 +6416,7 @@ var Calendar = {
                 j = i + 1;
                 if (j === 7) j = 0;
             }
-            $("<span>").addClass("day").html(calendar_locale["days"][j + 7]).appendTo(week_days);
+            $("<span>").addClass(day_class).html(calendar_locale["days"][j + 7]).appendTo(week_days);
         }
 
         /**
@@ -5628,9 +6435,13 @@ var Calendar = {
             year = this.current.year;
         }
 
+        if (o.showWeekNumber === true) {
+            $("<div>").addClass("week-number").html((new Date(year, month, prev_month_days - first_day + 1)).getWeek(o.weekStart)).appendTo(days_row);
+        }
+
         for(i = 0; i < first_day; i++) {
             var v = prev_month_days - first_day + i + 1;
-            d = $("<div>").addClass("day outside").appendTo(days_row);
+            d = $("<div>").addClass(day_class+" outside").appendTo(days_row);
 
             s = new Date(year, month, v);
             s.setHours(0,0,0,0);
@@ -5640,24 +6451,17 @@ var Calendar = {
             if (o.outside === true) {
                 d.html(v);
 
-                if (this.special.length === 0) {
-                    if (this.selected.indexOf(s.getTime()) !== -1) {
-                        d.addClass("selected").addClass(o.clsSelected);
-                    }
-                    if (this.exclude.indexOf(s.getTime()) !== -1) {
-                        d.addClass("disabled excluded").addClass(o.clsExcluded);
-                    }
-                    if (this.min !== null && s < this.min) {
-                        d.addClass("disabled excluded").addClass(o.clsExcluded);
-                    }
-                    if (this.max !== null && s > this.max) {
-                        d.addClass("disabled excluded").addClass(o.clsExcluded);
-                    }
-                } else {
-                    if (this.special.indexOf(s.getTime()) === -1) {
+                if (this.excludeDay.length > 0) {
+                    if (this.excludeDay.indexOf(s.getDay()) > -1) {
                         d.addClass("disabled excluded").addClass(o.clsExcluded);
                     }
                 }
+
+                Utils.exec(o.onDayDraw, [s], d[0]);
+                element.fire("daydraw", {
+                    cell: d[0],
+                    date: s
+                });
             }
 
             counter++;
@@ -5665,19 +6469,18 @@ var Calendar = {
 
         first.setHours(0,0,0,0);
         while(first.getMonth() === this.current.month) {
-            d = $("<div>").addClass("day").html(first.getDate()).appendTo(days_row);
+
+            d = $("<div>").addClass(day_class).html(first.getDate()).appendTo(days_row);
 
             d.data('day', first.getTime());
 
-            if (this.show.format("%d-%m-%Y") === first.format("%d-%m-%Y")) {
+            // console.log(this.show.getTime() === first.getTime());
+            if (this.show.getTime() === first.getTime()) {
                 d.addClass("showed");
             }
 
-            if (
-                this.today.getFullYear() === first.getFullYear() &&
-                this.today.getMonth() === first.getMonth() &&
-                this.today.getDate() === first.getDate()
-            ) {
+            // console.log(this.today.getTime() === first.getTime());
+            if (this.today.getTime() === first.getTime()) {
                 d.addClass("today").addClass(o.clsToday);
             }
 
@@ -5697,6 +6500,11 @@ var Calendar = {
                     d.addClass("disabled excluded").addClass(o.clsExcluded);
                 }
 
+                if (this.excludeDay.length > 0) {
+                    if (this.excludeDay.indexOf(first.getDay()) > -1) {
+                        d.addClass("disabled excluded").addClass(o.clsExcluded);
+                    }
+                }
             } else {
 
                 if (this.special.indexOf(first.getTime()) === -1) {
@@ -5705,9 +6513,18 @@ var Calendar = {
 
             }
 
+            Utils.exec(o.onDayDraw, [first], d[0]);
+            element.fire("daydraw", {
+                cell: d[0],
+                date: first
+            });
+
             counter++;
             if (counter % 7 === 0) {
                 days_row = $("<div>").addClass("days-row").appendTo(days);
+                if (o.showWeekNumber === true) {
+                    $("<div>").addClass("week-number").html((new Date(first.getFullYear(), first.getMonth(), first.getDate() + 1)).getWeek(o.weekStart)).appendTo(days_row);
+                }
             }
             first.setDate(first.getDate() + 1);
             first.setHours(0,0,0,0);
@@ -5724,43 +6541,39 @@ var Calendar = {
         }
 
         if (first_day > 0) for(i = 0; i < 7 - first_day; i++) {
-            d = $("<div>").addClass("day outside").appendTo(days_row);
+            d = $("<div>").addClass(day_class+" outside").appendTo(days_row);
             s = new Date(year, month, i + 1);
             s.setHours(0,0,0,0);
             d.data('day', s.getTime());
             if (o.outside === true) {
                 d.html(i + 1);
 
-                if (this.special.length === 0) {
-
-                    if (this.selected.indexOf(s.getTime()) !== -1) {
-                        d.addClass("selected").addClass(o.clsSelected);
-                    }
-                    if (this.exclude.indexOf(s.getTime()) !== -1) {
-                        d.addClass("disabled excluded").addClass(o.clsExcluded);
-                    }
-                    if (this.min !== null && s.getTime() < this.min.getTime()) {
-                        d.addClass("disabled excluded").addClass(o.clsExcluded);
-                    }
-                    if (this.max !== null && s.getTime() > this.max.getTime()) {
-                        d.addClass("disabled excluded").addClass(o.clsExcluded);
-                    }
-                } else {
-                    if (this.special.indexOf(s.getTime()) === -1) {
+                if (this.excludeDay.length > 0) {
+                    if (this.excludeDay.indexOf(s.getDay()) > -1) {
                         d.addClass("disabled excluded").addClass(o.clsExcluded);
                     }
                 }
+
+                Utils.exec(o.onDayDraw, [s], d[0]);
+                element.fire("daydraw", {
+                    cell: d[0],
+                    date: s
+                });
+
             }
         }
     },
 
     _drawCalendar: function(){
-        this.element.html("");
-        this._drawHeader();
-        this._drawContent();
-        this._drawFooter();
-        this._drawMonths();
-        this._drawYears();
+        var that = this;
+        setTimeout(function(){
+            that.element.html("");
+            that._drawHeader();
+            that._drawContent();
+            that._drawFooter();
+            that._drawMonths();
+            that._drawYears();
+        }, 0);
     },
 
     getPreset: function(){
@@ -5790,6 +6603,7 @@ var Calendar = {
 
     toDay: function(){
         this.today = new Date();
+        this.today.setHours(0,0,0,0);
         this.current = {
             year: this.today.getFullYear(),
             month: this.today.getMonth(),
@@ -5801,93 +6615,50 @@ var Calendar = {
 
     setExclude: function(exclude){
         var that = this, element = this.element, o = this.options;
-
-        o.exclude = exclude !== undefined ? exclude : element.attr("data-exclude");
-
-        if (o.exclude !== null) {
-            if (Array.isArray(o.exclude) === false) {
-                o.exclude = o.exclude.split(",").map(function(item){
-                    return item.trim();
-                });
-            }
-
-            $.each(o.exclude, function(){
-                if (Utils.isDate(this) === false) {
-                    return ;
-                }
-                that.exclude.push((new Date(this)).getTime());
-            });
+        if (Utils.isNull(exclude) && Utils.isNull(element.attr("data-exclude"))) {
+            return ;
         }
-
+        o.exclude = !Utils.isNull(exclude) ? exclude : element.attr("data-exclude");
+        this._dates2array(o.exclude, 'exclude');
         this._drawContent();
     },
 
     setPreset: function(preset){
         var that = this, element = this.element, o = this.options;
-
-        o.preset = preset !== undefined ? preset : element.attr("data-preset");
-
-        if (o.preset !== null) {
-
-            that.selected = [];
-
-            if (Array.isArray(o.preset) === false) {
-                o.preset = o.preset.split(",").map(function(item){
-                    return item.trim();
-                });
-            }
-
-            $.each(o.preset, function(){
-                if (Utils.isDate(this) === false) {
-                    return ;
-                }
-                that.selected.push((new Date(this)).getTime());
-            });
+        if (Utils.isNull(preset) && Utils.isNull(element.attr("data-preset"))) {
+            return ;
         }
 
+        o.preset = !Utils.isNull(preset) ? preset : element.attr("data-preset");
+        this._dates2array(o.preset, 'selected');
         this._drawContent();
     },
 
     setSpecial: function(special){
         var that = this, element = this.element, o = this.options;
-
-        o.special = special !== undefined ? special : element.attr("data-special");
-
-        if (o.special !== null) {
-
-            that.special = [];
-
-            if (Array.isArray(o.special) === false) {
-                o.special = o.special.split(",").map(function(item){
-                    return item.trim();
-                });
-            }
-
-            $.each(o.special, function(){
-                if (Utils.isDate(this) === false) {
-                    return ;
-                }
-                that.special.push((new Date(this)).getTime());
-            });
+        if (Utils.isNull(special) && Utils.isNull(element.attr("data-special"))) {
+            return ;
         }
-
+        o.special = !Utils.isNull(special) ? special : element.attr("data-special");
+        this._dates2array(o.exclude, 'special');
         this._drawContent();
     },
 
     setShow: function(show){
         var that = this, element = this.element, o = this.options;
 
-        o.show = show !== null ? show : element.attr("data-show");
-
-        if (o.show !== null && Utils.isDate(o.show)) {
-            this.show = new Date(o.show);
-            this.show.setHours(0,0,0,0);
-            this.current = {
-                year: this.show.getFullYear(),
-                month: this.show.getMonth(),
-                day: this.show.getDate()
-            }
+        if (Utils.isNull(show) && Utils.isNull(element.attr("data-show"))) {
+            return ;
         }
+        o.show = !Utils.isNull(show) ? show : element.attr("data-show");
+
+        this.show = Utils.isDateObject(show) ? show : Utils.isValue(o.inputFormat) ? o.show.toDate(o.inputFormat) : new Date(o.show);
+        this.show.setHours(0,0,0,0);
+        this.current = {
+            year: this.show.getFullYear(),
+            month: this.show.getMonth(),
+            day: this.show.getDate()
+        };
 
         this._drawContent();
     },
@@ -5909,10 +6680,12 @@ var Calendar = {
     },
 
     setToday: function(val){
-        if (Utils.isDate(val) === false) {
-            return ;
+        var that = this, element = this.element, o = this.options;
+
+        if (!Utils.isValue(val)) {
+            val = new Date();
         }
-        this.today = new Date(val);
+        this.today = Utils.isDateObject(val) ? val : Utils.isValue(o.inputFormat) ? val.toDate(o.inputFormat) : new Date(val);
         this.today.setHours(0,0,0,0);
         this._drawHeader();
         this._drawContent();
@@ -5982,71 +6755,95 @@ $(document).on(Metro.events.click, function(e){
 Metro.plugin('calendar', Calendar);
 
 // Source: js/plugins/calendarpicker.js
+
+var CalendarPickerDefaultConfig = {
+    nullValue: true,
+
+    prepend: "",
+
+    calendarWide: false,
+    calendarWidePoint: null,
+
+
+    dialogMode: false,
+    dialogPoint: 360,
+    dialogOverlay: true,
+    overlayColor: '#000000',
+    overlayAlpha: .5,
+
+    locale: METRO_LOCALE,
+    size: "100%",
+    format: METRO_DATE_FORMAT,
+    inputFormat: null,
+    headerFormat: "%A, %b %e",
+    clearButton: false,
+    calendarButtonIcon: "<span class='default-icon-calendar'></span>",
+    clearButtonIcon: "<span class='default-icon-cross'></span>",
+    copyInlineStyles: false,
+    clsPicker: "",
+    clsInput: "",
+
+    yearsBefore: 100,
+    yearsAfter: 100,
+    weekStart: METRO_WEEK_START,
+    outside: true,
+    ripple: false,
+    rippleColor: "#cccccc",
+    exclude: null,
+    minDate: null,
+    maxDate: null,
+    special: null,
+    showHeader: true,
+
+    clsCalendar: "",
+    clsCalendarHeader: "",
+    clsCalendarContent: "",
+    clsCalendarMonths: "",
+    clsCalendarYears: "",
+    clsToday: "",
+    clsSelected: "",
+    clsExcluded: "",
+
+    onDayClick: Metro.noop,
+    onCalendarPickerCreate: Metro.noop,
+    onCalendarShow: Metro.noop,
+    onCalendarHide: Metro.noop,
+    onChange: Metro.noop,
+    onMonthChange: Metro.noop,
+    onYearChange: Metro.noop
+};
+
+Metro.calendarPickerSetup = function (options) {
+    CalendarPickerDefaultConfig = $.extend({}, CalendarPickerDefaultConfig, options);
+};
+
+if (typeof window.metroCalendarPickerSetup !== undefined) {
+    Metro.calendarPickerSetup(window.metroCalendarPickerSetup);
+}
+
 var CalendarPicker = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, CalendarPickerDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
         this.value = null;
         this.value_date = null;
         this.calendar = null;
+        this.overlay = null;
 
         this._setOptionsFromDOM();
         this._create();
 
         Utils.exec(this.options.onCalendarPickerCreate, [this.element], this.elem);
+        $(elem).fire("calendarpickercreate");
 
         return this;
     },
 
     dependencies: ['calendar'],
 
-    options: {
-        locale: METRO_LOCALE,
-        size: "100%",
-        format: METRO_DATE_FORMAT,
-        inputFormat: null,
-        headerFormat: "%A, %b %e",
-        clearButton: false,
-        calendarButtonIcon: "<span class='default-icon-calendar'></span>",
-        clearButtonIcon: "<span class='default-icon-cross'></span>",
-        copyInlineStyles: false,
-        clsPicker: "",
-        clsInput: "",
-
-        yearsBefore: 100,
-        yearsAfter: 100,
-        weekStart: METRO_WEEK_START,
-        outside: true,
-        clsCalendar: "",
-        clsCalendarHeader: "",
-        clsCalendarContent: "",
-        clsCalendarFooter: "",
-        clsCalendarMonths: "",
-        clsCalendarYears: "",
-        clsToday: "",
-        clsSelected: "",
-        clsExcluded: "",
-        ripple: false,
-        rippleColor: "#cccccc",
-        exclude: null,
-        minDate: null,
-        maxDate: null,
-        special: null,
-        showHeader: true,
-        showFooter: true,
-
-        onDayClick: Metro.noop,
-        onCalendarPickerCreate: Metro.noop,
-        onCalendarShow: Metro.noop,
-        onCalendarHide: Metro.noop,
-        onChange: Metro.noop,
-        onMonthChange: Metro.noop,
-        onYearChange: Metro.noop
-    },
-
     _setOptionsFromDOM: function(){
-        var that = this, element = this.element, o = this.options;
+        var element = this.element, o = this.options;
 
         $.each(element.data(), function(key, value){
             if (key in o) {
@@ -6060,24 +6857,33 @@ var CalendarPicker = {
     },
 
     _create: function(){
+
+        this._createStructure();
+        this._createEvents();
+    },
+
+    _createStructure: function(){
         var that = this, element = this.element, o = this.options;
         var prev = element.prev();
         var parent = element.parent();
         var container = $("<div>").addClass("input " + element[0].className + " calendar-picker");
         var buttons = $("<div>").addClass("button-group");
         var calendarButton, clearButton, cal = $("<div>").addClass("drop-shadow");
+        var curr = element.val().trim();
 
         if (element.attr("type") === undefined) {
             element.attr("type", "text");
         }
 
-        this.value = Utils.isValue(o.inputFormat) === false ? element.val() : (element.val().toDate(o.inputFormat)).format("%Y/%m/%d");
-
-        if (Utils.isDate(this.value)) {
-            this.value_date = new Date(this.value);
-            this.value_date.setHours(0,0,0,0);
-            element.val(this.value_date.format(o.format));
+        if (!Utils.isValue(curr)) {
+            //this.value = new Date();
+        } else {
+            this.value = Utils.isValue(o.inputFormat) === false ? new Date(curr) : curr.toDate(o.inputFormat);
         }
+
+        if (Utils.isValue(this.value)) this.value.setHours(0,0,0,0);
+
+        element.val(!Utils.isValue(curr) && o.nullValue === true ? "" : this.value.format(o.format));
 
         if (prev.length === 0) {
             parent.prepend(container);
@@ -6090,6 +6896,9 @@ var CalendarPicker = {
         cal.appendTo(container);
 
         cal.calendar({
+            wide: o.calendarWide,
+            widePoint: o.calendarWidePoint,
+
             format: o.format,
             inputFormat: o.inputFormat,
             pickerMode: true,
@@ -6099,15 +6908,17 @@ var CalendarPicker = {
             outside: o.outside,
             buttons: false,
             headerFormat: o.headerFormat,
+
             clsCalendar: o.clsCalendar,
             clsCalendarHeader: o.clsCalendarHeader,
             clsCalendarContent: o.clsCalendarContent,
-            clsCalendarFooter: o.clsCalendarFooter,
+            clsCalendarFooter: "d-none",
             clsCalendarMonths: o.clsCalendarMonths,
             clsCalendarYears: o.clsCalendarYears,
             clsToday: o.clsToday,
             clsSelected: o.clsSelected,
             clsExcluded: o.clsExcluded,
+
             ripple: o.ripple,
             rippleColor: o.rippleColor,
             exclude: o.exclude,
@@ -6117,65 +6928,48 @@ var CalendarPicker = {
             yearsAfter: o.yearsAfter,
             special: o.special,
             showHeader: o.showHeader,
-            showFooter: o.showFooter,
+            showFooter: false,
             onDayClick: function(sel, day, el){
                 var date = new Date(sel[0]);
-                that.value = date.format(Metro.utils.isValue(o.inputFormat) ? o.inputFormat : "%Y/%m/%d");
-                that.value_date = date;
+                date.setHours(0,0,0,0);
+
+                that._removeOverlay();
+
+                that.value = date;
                 element.val(date.format(o.format, o.locale));
                 element.trigger("change");
                 cal.removeClass("open open-up");
                 cal.hide();
-                Utils.exec(o.onChange, [that.value, that.value_date, element], element[0]);
+
+                Utils.exec(o.onChange, [that.value], element[0]);
+                element.fire("change", {
+                    val: that.value
+                });
+
                 Utils.exec(o.onDayClick, [sel, day, el], element[0]);
+                element.fire("dayclick", {
+                    sel: sel,
+                    day: day,
+                    el: el
+                })
             },
             onMonthChange: o.onMonthChange,
             onYearChange: o.onYearChange
         });
 
-        cal.hide();
-
         this.calendar = cal;
+
+        if (o.clearButton === true) {
+            clearButton = $("<button>").addClass("button input-clear-button").attr("tabindex", -1).attr("type", "button").html(o.clearButtonIcon);
+            clearButton.appendTo(buttons);
+        }
 
         calendarButton = $("<button>").addClass("button").attr("tabindex", -1).attr("type", "button").html(o.calendarButtonIcon);
         calendarButton.appendTo(buttons);
-        container.on(Metro.events.click, "button, input", function(e){
-            if (Utils.isDate(that.value, o.inputFormat) && (cal.hasClass("open") === false && cal.hasClass("open-up") === false)) {
-                cal.css({
-                    visibility: "hidden",
-                    display: "block"
-                });
-                cal.data('calendar').setPreset(that.value);
-                cal.data('calendar').setShow(that.value);
-                cal.data('calendar').setToday(that.value);
-                cal.css({
-                    visibility: "visible",
-                    display: "none"
-                });
-            }
-            if (cal.hasClass("open") === false && cal.hasClass("open-up") === false) {
-                $(".calendar-picker .calendar").removeClass("open open-up").hide();
-                cal.addClass("open");
-                if (Utils.isOutsider(cal) === false) {
-                    cal.addClass("open-up");
-                }
-                cal.show();
-                Utils.exec(o.onCalendarShow, [element, cal]);
-            } else {
-                cal.removeClass("open open-up");
-                cal.hide();
-                Utils.exec(o.onCalendarHide, [element, cal]);
-            }
-            e.preventDefault();
-            e.stopPropagation();
-        });
 
-        if (o.clearButton === true) {
-            clearButton = $("<button>").addClass("button").attr("tabindex", -1).attr("type", "button").html(o.clearButtonIcon);
-            clearButton.on(Metro.events.click, function () {
-                element.val("").trigger('change');
-            });
-            clearButton.appendTo(buttons);
+        if (o.prepend !== "") {
+            var prepend = $("<div>").html(o.prepend);
+            prepend.addClass("prepend").addClass(o.clsPrepend).appendTo(container);
         }
 
         if (element.attr('dir') === 'rtl' ) {
@@ -6204,31 +6998,131 @@ var CalendarPicker = {
         container.addClass(o.clsPicker);
         element.addClass(o.clsInput);
 
+        if (o.dialogOverlay === true) {
+            this.overlay = that._overlay();
+        }
+
+        if (o.dialogMode === true) {
+            container.addClass("dialog-mode");
+        } else {
+            if (Utils.media("(max-width: "+o.dialogPoint+"px)")) {
+                container.addClass("dialog-mode");
+            }
+        }
+
+        if (element.is(":disabled")) {
+            this.disable();
+        } else {
+            this.enable();
+        }
+
+    },
+
+    _createEvents: function(){
+        var that = this, element = this.element, o = this.options;
+        var container = element.parent();
+        var clear = container.find(".input-clear-button");
+        var cal = this.calendar;
+        var cal_plugin = cal.data('calendar');
+
+        $(window).on(Metro.events.resize, function(){
+            if (o.dialogMode !== true) {
+                if (Utils.media("(max-width: " + o.dialogPoint + "px)")) {
+                    container.addClass("dialog-mode");
+                } else {
+                    container.removeClass("dialog-mode");
+                }
+            }
+        });
+
+        if (clear.length > 0) clear.on(Metro.events.click, function(e){
+            element.val("").trigger('change').blur();
+            that.value = null;
+            e.preventDefault();
+            e.stopPropagation();
+        });
+
+        container.on(Metro.events.click, "button, input", function(e){
+
+            var value = Utils.isValue(that.value) ? that.value : new Date();
+
+            value.setHours(0,0,0,0);
+
+            if (cal.hasClass("open") === false && cal.hasClass("open-up") === false) {
+
+                $(".calendar-picker .calendar").removeClass("open open-up").hide();
+
+                cal_plugin.setPreset([value]);
+                cal_plugin.setShow(value);
+                cal_plugin.setToday(value);
+
+                if (container.hasClass("dialog-mode")) {
+                    that.overlay.appendTo($('body'));
+                }
+                cal.addClass("open");
+                if (Utils.isOutsider(cal) === false) {
+                    cal.addClass("open-up");
+                }
+                Utils.exec(o.onCalendarShow, [element, cal], cal);
+                element.fire("calendarshow", {
+                    calendar: cal
+                });
+
+            } else {
+
+                that._removeOverlay();
+                cal.removeClass("open open-up");
+                Utils.exec(o.onCalendarHide, [element, cal], cal);
+                element.fire("calendarhide", {
+                    calendar: cal
+                });
+
+            }
+            e.preventDefault();
+            e.stopPropagation();
+        });
+
         element.on(Metro.events.blur, function(){container.removeClass("focused");});
         element.on(Metro.events.focus, function(){container.addClass("focused");});
         element.on(Metro.events.change, function(){
-            Utils.exec(o.onChange, [that.value_date, that.value, element], element[0]);
+            Utils.exec(o.onChange, [that.value], element[0]);
         });
     },
 
-    val: function(v){
-        var that = this, element = this.element, o = this.options;
+    _overlay: function(){
+        var o = this.options;
 
-        if (v === undefined) {
-            return this.value_date;
+        var overlay = $("<div>");
+        overlay.addClass("overlay for-calendar-picker").addClass(o.clsOverlay);
+
+        if (o.overlayColor === 'transparent') {
+            overlay.addClass("transparent");
+        } else {
+            overlay.css({
+                background: Utils.hex2rgba(o.overlayColor, o.overlayAlpha)
+            });
         }
 
-        if (Utils.isDate(v) === true) {
-            this.value_date = new Date(v);
-            this.value = this.value_date.format(o.format);
-            element.val(this.value_date.format(o.format));
-            element.trigger("change");
-        }
+        return overlay;
     },
 
-    changeValue: function(){
-        var that = this, element = this.element, o = this.options;
-        this.val(element.attr("value"));
+    _removeOverlay: function(){
+        $('body').find('.overlay.for-calendar-picker').remove();
+    },
+
+    val: function(v){
+        var element = this.element, o = this.options;
+
+        if (Utils.isNull(v)) {
+            return this.value;
+        }
+
+        if (Utils.isDate(v, o.inputFormat) === true) {
+            this.calendar.data("calendar").clearSelected();
+            this.value = typeof v === 'string' ? v.toDate(o.inputFormat) : v;
+            element.val(this.value.format(o.format));
+            element.trigger("change");
+        }
     },
 
     disable: function(){
@@ -6242,7 +7136,7 @@ var CalendarPicker = {
     },
 
     toggleState: function(){
-        if (this.element.data("disabled") === false) {
+        if (this.elem.disabled) {
             this.disable();
         } else {
             this.enable();
@@ -6250,8 +7144,8 @@ var CalendarPicker = {
     },
 
     i18n: function(val){
-        var that = this, element = this.element, o = this.options;
-        var hidden = false;
+        var o = this.options;
+        var hidden;
         var cal = this.calendar;
         if (val === undefined) {
             return o.locale;
@@ -6276,59 +7170,118 @@ var CalendarPicker = {
         }
     },
 
-    changeAttrLocale: function(){
-        var that = this, element = this.element, o = this.options;
-        this.i18n(element.attr("data-locale"));
-    },
-
-    changeAttrSpecial: function(){
-        var that = this, element = this.element, o = this.options;
-        var cal = this.calendar.data("calendar");
-        cal.setSpecial(element.attr("data-special"));
-    },
-
-    changeAttrExclude: function(){
-        var that = this, element = this.element, o = this.options;
-        var cal = this.calendar.data("calendar");
-        cal.setExclude(element.attr("data-exclude"));
-    },
-
-    changeAttrMinDate: function(){
-        var that = this, element = this.element, o = this.options;
-        var cal = this.calendar.data("calendar");
-        cal.setMinDate(element.attr("data-min-date"));
-    },
-
-    changeAttrMaxDate: function(){
-        var that = this, element = this.element, o = this.options;
-        var cal = this.calendar.data("calendar");
-        cal.setMaxDate(element.attr("data-max-date"));
-    },
-
     changeAttribute: function(attributeName){
+        var that = this, element = this.element, o = this.options;
+        var cal = this.calendar.data("calendar");
+
+        var changeAttrLocale = function(){
+            that.i18n(element.attr("data-locale"));
+        };
+
+        var changeAttrSpecial = function(){
+            cal.setSpecial(element.attr("data-special"));
+        };
+
+        var changeAttrExclude = function(){
+            cal.setExclude(element.attr("data-exclude"));
+        };
+
+        var changeAttrMinDate = function(){
+            cal.setMinDate(element.attr("data-min-date"));
+        };
+
+        var changeAttrMaxDate = function(){
+            cal.setMaxDate(element.attr("data-max-date"));
+        };
+
+        var changeAttrValue = function(){
+            that.val(element.attr("value"));
+        };
+
         switch (attributeName) {
-            case "value": this.changeValue(); break;
+            case "value": changeAttrValue(); break;
             case 'disabled': this.toggleState(); break;
-            case 'data-locale': this.changeAttrLocale(); break;
-            case 'data-special': this.changeAttrSpecial(); break;
-            case 'data-exclude': this.changeAttrExclude(); break;
-            case 'data-min-date': this.changeAttrMinDate(); break;
-            case 'data-max-date': this.changeAttrMaxDate(); break;
+            case 'data-locale': changeAttrLocale(); break;
+            case 'data-special': changeAttrSpecial(); break;
+            case 'data-exclude': changeAttrExclude(); break;
+            case 'data-min-date': changeAttrMinDate(); break;
+            case 'data-max-date': changeAttrMaxDate(); break;
         }
     }
 };
 
 Metro.plugin('calendarpicker', CalendarPicker);
 
-$(document).on(Metro.events.click, function(e){
-    $(".calendar-picker .calendar").removeClass("open open-up").hide();
+$(document).on(Metro.events.click, ".overlay.for-calendar-picker",function(){
+    $(this).remove();
+});
+
+$(document).on(Metro.events.click, function(){
+    $(".calendar-picker .calendar").removeClass("open open-up");
 });
 
 
 // Source: js/plugins/carousel.js
+
+var CarouselDefaultConfig = {
+    autoStart: false,
+    width: "100%",
+    height: "16/9", // 3/4, 21/9
+    effect: "slide", // slide, fade, switch, slowdown, custom
+    effectFunc: "linear",
+    direction: "left", //left, right
+    duration: METRO_ANIMATION_DURATION,
+    period: 5000,
+    stopOnMouse: true,
+
+    controls: true,
+    bullets: true,
+    bulletsStyle: "square", // square, circle, rect, diamond
+    bulletsSize: "default", // default, mini, small, large
+
+    controlsOnMouse: false,
+    controlsOutside: false,
+    bulletsPosition: "default", // default, left, right
+
+    controlPrev: '&#x23F4',
+    controlNext: '&#x23F5',
+    clsCarousel: "",
+    clsSlides: "",
+    clsSlide: "",
+    clsControls: "",
+    clsControlNext: "",
+    clsControlPrev: "",
+    clsBullets: "",
+    clsBullet: "",
+    clsBulletOn: "",
+    clsThumbOn: "",
+
+    onStop: Metro.noop,
+    onStart: Metro.noop,
+    onPlay: Metro.noop,
+    onSlideClick: Metro.noop,
+    onBulletClick: Metro.noop,
+    onThumbClick: Metro.noop,
+    onMouseEnter: Metro.noop,
+    onMouseLeave: Metro.noop,
+    onNextClick: Metro.noop,
+    onPrevClick: Metro.noop,
+    onSlideShow: Metro.noop,
+    onSlideHide: Metro.noop,
+    onCarouselCreate: Metro.noop
+};
+
+Metro.carouselSetup = function (options) {
+    CarouselDefaultConfig = $.extend({}, CarouselDefaultConfig, options);
+};
+
+if (typeof window.metroCarouselSetup !== undefined) {
+    Metro.carouselSetup(window.metroCarouselSetup);
+}
+
 var Carousel = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, CarouselDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
         this.height = 0;
@@ -6344,50 +7297,6 @@ var Carousel = {
         this._create();
 
         return this;
-    },
-
-    options: {
-        autoStart: false,
-        width: "100%",
-        height: "16/9", // 3/4, 21/9
-        effect: "slide", // slide, fade, switch, slowdown, custom
-        effectFunc: "linear",
-        direction: "left", //left, right
-        duration: METRO_ANIMATION_DURATION,
-        period: 5000,
-        stopOnMouse: true,
-
-        controls: true,
-        bullets: true,
-        bulletStyle: "square", // square, circle, rect, diamond
-        controlsOnMouse: false,
-        controlsOutside: false,
-        bulletsPosition: "default", // default, left, right
-
-        controlPrev: '&#x23F4',
-        controlNext: '&#x23F5',
-        clsCarousel: "",
-        clsSlides: "",
-        clsSlide: "",
-        clsControls: "",
-        clsControlNext: "",
-        clsControlPrev: "",
-        clsBullets: "",
-        clsBullet: "",
-        clsBulletOn: "",
-        clsThumbOn: "",
-
-        onStop: Metro.noop,
-        onStart: Metro.noop,
-        onPlay: Metro.noop,
-        onSlideClick: Metro.noop,
-        onBulletClick: Metro.noop,
-        onThumbClick: Metro.noop,
-        onMouseEnter: Metro.noop,
-        onMouseLeave: Metro.noop,
-        onNextClick: Metro.noop,
-        onPrevClick: Metro.noop,
-        onCarouselCreate: Metro.noop
     },
 
     _setOptionsFromDOM: function(){
@@ -6428,26 +7337,33 @@ var Carousel = {
         slides.addClass(o.clsSlides);
 
         if (slides.length === 0) {
-            Utils.exec(this.options.onCarouselCreate, [this.element]);
-            return ;
+        } else {
+
+            this._createSlides();
+            this._createControls();
+            this._createBullets();
+            this._createEvents();
+            this._resize();
+
+            if (o.controlsOnMouse === true) {
+                element.find("[class*=carousel-switch]").hide();
+                element.find(".carousel-bullets").hide();
+            }
+
+            if (o.autoStart === true) {
+                this._start();
+            } else {
+                Utils.exec(o.onSlideShow, [this.slides[this.currentIndex][0], undefined], this.slides[this.currentIndex][0]);
+                element.fire("slideshow", {
+                    current: this.slides[this.currentIndex][0],
+                    prev: undefined
+                });
+            }
+
         }
 
-        this._createSlides();
-        this._createControls();
-        this._createBullets();
-        this._createEvents();
-        this._resize();
-
-        if (o.controlsOnMouse === true) {
-            element.find("[class*=carousel-switch]").hide();
-            element.find(".carousel-bullets").hide();
-        }
-
-        if (o.autoStart === true) {
-            this._start();
-        }
-
-        Utils.exec(this.options.onCarouselCreate, [this.element]);
+        Utils.exec(o.onCarouselCreate, [element]);
+        element.fire("carouselcreate");
     },
 
     _start: function(){
@@ -6467,7 +7383,8 @@ var Carousel = {
             var t = o.direction === 'left' ? 'next' : 'prior';
             that._slideTo(t, true);
         }, period);
-        Utils.exec(o.onStart, [element]);
+        Utils.exec(o.onStart, [element], element[0]);
+        element.fire("start");
     },
 
     _stop: function(){
@@ -6575,7 +7492,7 @@ var Carousel = {
             return ;
         }
 
-        bullets = $('<div>').addClass("carousel-bullets").addClass("bullet-style-"+o.bulletStyle).addClass(o.clsBullets);
+        bullets = $('<div>').addClass("carousel-bullets").addClass(o.bulletsSize+"-size").addClass("bullet-style-"+o.bulletsStyle).addClass(o.clsBullets);
         if (o.bulletsPosition === 'default' || o.bulletsPosition === 'center') {
             bullets.addClass("flex-justify-center");
         } else if (o.bulletsPosition === 'left') {
@@ -6602,21 +7519,30 @@ var Carousel = {
             var bullet = $(this);
             if (that.isAnimate === false) {
                 that._slideToSlide(bullet.data('slide'));
-                Utils.exec(o.onBulletClick, [bullet,  element, e])
+                Utils.exec(o.onBulletClick, [bullet,  element, e]);
+                element.fire("bulletclick", {
+                    bullet: bullet
+                });
             }
         });
 
         element.on(Metro.events.click, ".carousel-switch-next", function(e){
             if (that.isAnimate === false) {
                 that._slideTo("next", false);
-                Utils.exec(o.onNextClick, [element, e])
+                Utils.exec(o.onNextClick, [element, e]);
+                element.fire("nextclick", {
+                    button: this
+                });
             }
         });
 
         element.on(Metro.events.click, ".carousel-switch-prev", function(e){
             if (that.isAnimate === false) {
                 that._slideTo("prev", false);
-                Utils.exec(o.onPrevClick, [element, e])
+                Utils.exec(o.onPrevClick, [element, e]);
+                element.fire("prevclick", {
+                    button: this
+                });
             }
         });
 
@@ -6627,7 +7553,7 @@ var Carousel = {
                     element.find(".carousel-bullets").fadeIn();
                 }
                 that._stop();
-                Utils.exec(o.onMouseEnter, [element, e])
+                Utils.exec(o.onMouseEnter, [element, e]);
             });
             element.on(Metro.events.leave, function (e) {
                 if (o.controlsOnMouse === true) {
@@ -6652,7 +7578,10 @@ var Carousel = {
 
         element.on(Metro.events.click, ".slide", function(e){
             var slide = $(this);
-            Utils.exec(o.onSlideClick, [slide, element, e])
+            Utils.exec(o.onSlideClick, [slide, element, e]);
+            element.fire("slideclick", {
+                slide: slide
+            });
         });
 
         $(window).on(Metro.events.resize + "-" + element.attr("id"), function(){
@@ -6754,6 +7683,22 @@ var Carousel = {
             default: Animation['switch'](current, next);
         }
 
+        setTimeout(function(){
+            Utils.exec(o.onSlideShow, [next[0], current[0]], next[0]);
+            element.fire("slideshow", {
+                current: next[0],
+                prev: current[0]
+            });
+        }, duration);
+
+        setTimeout(function(){
+            Utils.exec(o.onSlideHide, [current[0], next[0]], current[0]);
+            element.fire("slidehide", {
+                current: current[0],
+                next: next[0]
+            });
+        }, duration);
+
         if (interval === true) {
 
             if (next.data('period') !== undefined) {
@@ -6781,12 +7726,14 @@ var Carousel = {
 
     stop: function () {
         clearInterval(this.interval);
-        Utils.exec(this.options.onStop, [this.element])
+        Utils.exec(this.options.onStop, [this.element]);
+        this.element.fire("stop");
     },
 
     play: function(){
         this._start();
-        Utils.exec(this.options.onPlay, [this.element])
+        Utils.exec(this.options.onPlay, [this.element]);
+        this.element.fire("play");
     },
 
     changeAttribute: function(attributeName){
@@ -6823,9 +7770,28 @@ var Carousel = {
 Metro.plugin('carousel', Carousel);
 
 // Source: js/plugins/charms.js
+
+var CharmsDefaultConfig = {
+    position: "right",
+    opacity: 1,
+    clsCharms: "",
+    onCharmCreate: Metro.noop,
+    onOpen: Metro.noop,
+    onClose: Metro.noop,
+    onToggle: Metro.noop
+};
+
+Metro.charmsSetup = function (options) {
+    CharmsDefaultConfig = $.extend({}, CharmsDefaultConfig, options);
+};
+
+if (typeof window.metroCharmsSetup !== undefined) {
+    Metro.charmsSetup(window.metroCharmsSetup);
+}
+
 var Charms = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, CharmsDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
         this.origin = {
@@ -6836,15 +7802,6 @@ var Charms = {
         this._create();
 
         return this;
-    },
-
-    options: {
-        position: "right",
-        opacity: 1,
-        clsCharms: "",
-        onCharmCreate: Metro.noop,
-        onOpen: Metro.noop,
-        onClose: Metro.noop
     },
 
     _setOptionsFromDOM: function(){
@@ -6868,6 +7825,7 @@ var Charms = {
         this._createEvents();
 
         Utils.exec(o.onCharmCreate, [element]);
+        element.fire("charmcreate");
     },
 
     _createStructure: function(){
@@ -6897,7 +7855,8 @@ var Charms = {
 
         element.addClass("open");
 
-        Utils.exec(o.onOpen, [element]);
+        Utils.exec(o.onOpen, null, element[0]);
+        element.fire("open");
     },
 
     close: function(){
@@ -6905,19 +7864,21 @@ var Charms = {
 
         element.removeClass("open");
 
-        Utils.exec(o.onClose, [element]);
+        Utils.exec(o.onClose, null, element[0]);
+        element.fire("close");
     },
 
     toggle: function(){
         var element = this.element, o = this.options;
 
-        element.toggleClass("open");
-
         if (element.hasClass("open") === true) {
-            Utils.exec(o.onOpen, [element]);
+            this.close();
         } else {
-            Utils.exec(o.onClose, [element]);
+            this.open();
         }
+
+        Utils.exec(o.onToggle, null, element[0]);
+        element.fire("toggle");
     },
 
     opacity: function(v){
@@ -7017,37 +7978,62 @@ Metro['charms'] = {
     }
 };
 
-// Source: js/plugins/checkbox.js
-var Checkbox = {
+// Source: js/plugins/chat.js
+
+var defaultAvatar = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD//gA7Q1JFQVRPUjogZ2QtanBlZyB2MS4wICh1c2luZyBJSkcgSlBFRyB2NjIpLCBxdWFsaXR5ID0gOTAK/9sAQwADAgIDAgIDAwMDBAMDBAUIBQUEBAUKBwcGCAwKDAwLCgsLDQ4SEA0OEQ4LCxAWEBETFBUVFQwPFxgWFBgSFBUU/9sAQwEDBAQFBAUJBQUJFA0LDRQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQU/8AAEQgAUABQAwEiAAIRAQMRAf/EAB8AAAEFAQEBAQEBAAAAAAAAAAABAgMEBQYHCAkKC//EALUQAAIBAwMCBAMFBQQEAAABfQECAwAEEQUSITFBBhNRYQcicRQygZGhCCNCscEVUtHwJDNicoIJChYXGBkaJSYnKCkqNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6g4SFhoeIiYqSk5SVlpeYmZqio6Slpqeoqaqys7S1tre4ubrCw8TFxsfIycrS09TV1tfY2drh4uPk5ebn6Onq8fLz9PX29/j5+v/EAB8BAAMBAQEBAQEBAQEAAAAAAAABAgMEBQYHCAkKC//EALURAAIBAgQEAwQHBQQEAAECdwABAgMRBAUhMQYSQVEHYXETIjKBCBRCkaGxwQkjM1LwFWJy0QoWJDThJfEXGBkaJicoKSo1Njc4OTpDREVGR0hJSlNUVVZXWFlaY2RlZmdoaWpzdHV2d3h5eoKDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uLj5OXm5+jp6vLz9PX29/j5+v/aAAwDAQACEQMRAD8A+t+KKPxo/GgA70Yo/Gj8aADFH4VesdC1HUl3WtjcXCf344yV/PGKW+0HUtNXddWNzbp/fkjIX88YoAofhR+FH40fjQAfhR+FH40fjQAUUUUAFepeAPh5D9li1LVYhK8g3Q27j5VXszDuT6f5HA+FtOXVvEWn2rjMcko3j1UckfkDX0MBgYHAoARVCKFUBVHAA6ClZQwKkZBGCDS0UAec+Pvh3BJay6lpUQimjBeW3QYVx3Kjsfbv/PyqvpuvnvxfpqaT4l1C1QbY0lJUDsrfMB+RoAyKKKKACiiigDa8GXq6f4p02eQgIJQpJ7Bvlz+tfQP4V8yDg17P4A8cw65ZxWV5IE1KMbfmP+uA7j39R+NAHaUfhSUUAL+FeA+OL1NQ8WalNGQU83YCO+0Bf6V6b498cQ6BZyWlrIJNSkXaApz5QP8AEff0FeKk5OTyTQAUUUUAH40fjRU1naTX93DbQIXmlYIijuTQBc0Dw/eeI74W1mm49XkbhUHqTXsHhz4eaXoCpI8YvbscmaYZAP8Asr0H8/etHwv4cg8M6XHaxANIfmllxy7dz9PStigA/Gk/GlooA5bxJ8PdL19XkWMWd43PnwjGT/tL0P8AP3rx/X/D954cvjbXibT1SReVceoNfRFZHijw5B4m0uS1lAWQfNFLjlG7H6etAHz5+NH41NeWk1hdzW06FJonKMp7EGoaACvQfhBowudTudRkXK2y7I8j+Nup/Afzrz6vafhRaCDwmkgHM8zufwO3/wBloA7Kiij8KACkpaSgBaSj8KKAPJvi/owttTttRjXC3K7JMf3l6H8R/KvPq9p+K1qJ/CbyEcwTI4P1O3/2avFqAP/Z";
+
+var ChatDefaultConfig = {
+    inputTimeFormat: "%m-%d-%y",
+    timeFormat: "%d %b %l:%M %p",
+    name: "John Doe",
+    avatar: defaultAvatar,
+    welcome: null,
+    title: null,
+    width: "100%",
+    height: "auto",
+    randomColor: false,
+    messages: null,
+    sendButtonTitle: "Send",
+
+    clsChat: "",
+    clsName: "",
+    clsTime: "",
+    clsInput: "",
+    clsSendButton: "",
+    clsMessageLeft: "default",
+    clsMessageRight: "default",
+
+    onMessage: Metro.noop,
+    onSend: Metro.noop,
+    onSendButtonClick: Metro.noop,
+    onChatCreate: Metro.noop
+};
+
+Metro.chatSetup = function (options) {
+    ChatDefaultConfig = $.extend({}, ChatDefaultConfig, options);
+};
+
+if (typeof window.metroChatSetup !== undefined) {
+    Metro.chatSetup(window.metroChatSetup);
+}
+
+var Chat = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, ChatDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
-        this.origin = {
-            className: ""
-        };
+        this.input = null;
+        this.classes = "primary secondary success alert warning yellow info dark light".split(" ");
+        this.lastMessage = null;
 
         this._setOptionsFromDOM();
         this._create();
 
-        Utils.exec(this.options.onCheckboxCreate, [this.element]);
-
         return this;
-    },
-    options: {
-        style: 1,
-        caption: "",
-        indeterminate: false,
-        captionPosition: "right",
-        disabled: false,
-        clsElement: "",
-        clsCheck: "",
-        clsCaption: "",
-        onCheckboxCreate: Metro.noop
     },
 
     _setOptionsFromDOM: function(){
-        var that = this, element = this.element, o = this.options;
+        var element = this.element, o = this.options;
 
         $.each(element.data(), function(key, value){
             if (key in o) {
@@ -7061,9 +8047,276 @@ var Checkbox = {
     },
 
     _create: function(){
+        var element = this.element, o = this.options;
+
+        this._createStructure();
+        this._createEvents();
+
+        Utils.exec(o.onChatCreate, [element]);
+        element.fire("chatcreate");
+    },
+
+    _createStructure: function(){
         var that = this, element = this.element, o = this.options;
-        var prev = element.prev();
-        var parent = element.parent();
+        var messages, messageInput, input;
+        var customButtons = [
+            {
+                html: o.sendButtonTitle,
+                cls: o.clsSendButton+" js-chat-send-button",
+                onclick: o.onSendButtonClick
+            }
+        ];
+
+        element.addClass("chat").addClass(o.clsChat);
+
+        element.css({
+            width: o.width,
+            height: o.height
+        });
+
+        if (Utils.isValue(o.title)) {
+            $("<div>").addClass("title").html(o.title).appendTo(element);
+        }
+
+        messages = $("<div>").addClass("messages");
+        messages.appendTo(element);
+        messageInput = $("<div>").addClass("message-input").appendTo(element);
+        input = $("<input type='text'>");
+        input.appendTo(messageInput);
+        input.input({
+            customButtons: customButtons,
+            clsInput: o.clsInput
+        });
+
+        if (o.welcome) {
+            this.add({
+                text: o.welcome,
+                time: (new Date()),
+                position: "left",
+                name: "Welcome",
+                avatar: defaultAvatar
+            })
+        }
+
+        if (Utils.isValue(o.messages) && typeof o.messages === "string") {
+            o.messages = Utils.isObject(o.messages);
+        }
+
+        if (!Utils.isNull(o.messages) && typeof o.messages === "object" && Utils.objectLength(o.messages) > 0) {
+            $.each(o.messages, function(){
+                that.add(this);
+            });
+        }
+    },
+
+    _createEvents: function(){
+        var that = this, element = this.element, o = this.options;
+        var sendButton = element.find(".js-chat-send-button");
+        var input = element.find("input[type=text]");
+
+        var send = function(){
+            var msg = ""+input.val(), m;
+            if (msg.trim() === "") {return false;}
+            m = {
+                id: Utils.elementId(""),
+                name: o.name,
+                avatar: o.avatar,
+                text: msg,
+                position: "right",
+                time: (new Date())
+            };
+            that.add(m);
+            Utils.exec(o.onSend, [m], element[0]);
+            element.fire("send", {
+                msg: m
+            });
+            input.val("");
+        };
+
+        sendButton.on(Metro.events.click, function () {
+            send();
+        });
+
+        input.on(Metro.events.keyup, function(e){
+            if (e.keyCode === Metro.keyCode.ENTER) {
+                send();
+            }
+        })
+    },
+
+    add: function(msg){
+        var that = this, element = this.element, o = this.options;
+        var index, message, sender, time, item, avatar, text;
+        var messages = element.find(".messages");
+        var messageDate;
+
+        messageDate = typeof msg.time === 'string' ? msg.time.toDate(o.inputTimeFormat) : msg.time;
+
+        message = $("<div>").addClass("message").addClass(msg.position).appendTo(messages);
+        sender = $("<div>").addClass("message-sender").addClass(o.clsName).html(msg.name).appendTo(message);
+        time = $("<div>").addClass("message-time").addClass(o.clsTime).html(messageDate.format(o.timeFormat)).appendTo(message);
+        item = $("<div>").addClass("message-item").appendTo(message);
+        avatar = $("<img>").attr("src", msg.avatar).addClass("message-avatar").appendTo(item);
+        text = $("<div>").addClass("message-text").html(msg.text).appendTo(item);
+
+        if (Utils.isValue(msg.id)) {
+            message.attr("id", msg.id);
+        }
+
+        if (o.randomColor === true) {
+            index = Utils.random(0, that.classes.length - 1);
+            text.addClass(that.classes[index]);
+        } else {
+            if (msg.position === 'left' && Utils.isValue(o.clsMessageLeft)) {
+                text.addClass(o.clsMessageLeft);
+            }
+            if (msg.position === 'right' && Utils.isValue(o.clsMessageRight)) {
+                text.addClass(o.clsMessageRight);
+            }
+        }
+
+        Utils.exec(o.onMessage, [msg, {
+            message: message,
+            sender: sender,
+            time: time,
+            item: item,
+            avatar: avatar,
+            text: text
+        }], message[0]);
+
+        element.fire("message", {
+            msg: msg,
+            el: {
+                message: message,
+                sender: sender,
+                time: time,
+                item: item,
+                avatar: avatar,
+                text: text
+            }
+        });
+
+        setImmediate(function(){
+            element.fire("onmessage", {
+                message: msg,
+                element: message[0]
+            });
+        });
+
+        messages.animate({
+            scrollTop: messages[0].scrollHeight
+        }, 1000);
+
+        this.lastMessage = msg;
+
+        return this;
+    },
+
+    addMessages: function(messages){
+        var that = this;
+
+        if (Utils.isValue(messages) && typeof messages === "string") {
+            messages = Utils.isObject(messages);
+        }
+
+        if (typeof messages === "object" && Utils.objectLength(messages) > 0) {
+            $.each(messages, function(){
+                that.add(this);
+            });
+        }
+
+        return this;
+    },
+
+    delMessage: function(id){
+        var element = this.element;
+
+        element.find(".messages").find("#"+id).remove();
+
+        return this;
+    },
+
+    updMessage: function(msg){
+        var element = this.element;
+        var message = element.find(".messages").find("#"+msg.id);
+
+        if (message.length === 0) return this;
+
+        message.find(".message-text").html(msg.text);
+        message.find(".message-time").html(msg.time);
+
+        return this;
+    },
+
+    clear: function(){
+        var element = this.element;
+        var messages = element.find(".messages");
+        messages.html("");
+        this.lastMessage = null;
+    },
+
+    changeAttribute: function(attributeName){
+
+    },
+
+    destroy: function(){}
+};
+
+Metro.plugin('chat', Chat);
+
+// Source: js/plugins/checkbox.js
+
+var CheckboxDefaultConfig = {
+    transition: true,
+    style: 1,
+    caption: "",
+    captionPosition: "right",
+    indeterminate: false,
+    clsCheckbox: "",
+    clsCheck: "",
+    clsCaption: "",
+    onCheckboxCreate: Metro.noop
+};
+
+Metro.checkboxSetup = function (options) {
+    CheckboxDefaultConfig = $.extend({}, CheckboxDefaultConfig, options);
+};
+
+if (typeof window.metroCheckboxSetup !== undefined) {
+    Metro.checkboxSetup(window.metroCheckboxSetup);
+}
+
+var Checkbox = {
+    init: function( options, elem ) {
+        this.options = $.extend( {}, CheckboxDefaultConfig, options );
+        this.elem  = elem;
+        this.element = $(elem);
+        this.origin = {
+            className: ""
+        };
+
+        this._setOptionsFromDOM();
+        this._create();
+
+        return this;
+    },
+
+    _setOptionsFromDOM: function(){
+        var element = this.element, o = this.options;
+
+        $.each(element.data(), function(key, value){
+            if (key in o) {
+                try {
+                    o[key] = JSON.parse(value);
+                } catch (e) {
+                    o[key] = value;
+                }
+            }
+        });
+    },
+
+    _create: function(){
+        var element = this.element, o = this.options;
         var checkbox = $("<label>").addClass("checkbox " + element[0].className).addClass(o.style === 2 ? "style2" : "");
         var check = $("<span>").addClass("check");
         var caption = $("<span>").addClass("caption").html(o.caption);
@@ -7075,16 +8328,16 @@ var Checkbox = {
         checkbox.attr('for', element.attr('id'));
 
         element.attr("type", "checkbox");
+
+        checkbox.insertBefore(element);
+
         element.appendTo(checkbox);
-
-        if (prev.length === 0) {
-            parent.prepend(checkbox);
-        } else {
-            checkbox.insertAfter(prev);
-        }
-
         check.appendTo(checkbox);
         caption.appendTo(checkbox);
+
+        if (o.transition === true) {
+            checkbox.addClass("transition-on");
+        }
 
         if (o.captionPosition === 'left') {
             checkbox.addClass("caption-left");
@@ -7093,7 +8346,7 @@ var Checkbox = {
         this.origin.className = element[0].className;
         element[0].className = '';
 
-        checkbox.addClass(o.clsElement);
+        checkbox.addClass(o.clsCheckbox);
         caption.addClass(o.clsCaption);
         check.addClass(o.clsCheck);
 
@@ -7101,11 +8354,14 @@ var Checkbox = {
             element[0].indeterminate = true;
         }
 
-        if (o.disabled === true && element.is(':disabled')) {
+        if (element.is(':disabled')) {
             this.disable();
         } else {
             this.enable();
         }
+
+        Utils.exec(o.onCheckboxCreate, [element]);
+        element.fire("checkboxcreate");
     },
 
     indeterminate: function(){
@@ -7123,19 +8379,15 @@ var Checkbox = {
     },
 
     toggleState: function(){
-        if (this.element.data("disabled") === false) {
+        if (this.elem.disabled) {
             this.disable();
         } else {
             this.enable();
         }
     },
 
-    toggleIndeterminate: function(){
-        this.element[0].indeterminate = JSON.parse(this.element.attr("data-indeterminate")) === true;
-    },
-
     changeAttribute: function(attributeName){
-        var that = this, element = this.element, o = this.options;
+        var element = this.element, o = this.options;
         var parent = element.parent();
 
         var changeStyle = function(){
@@ -7147,15 +8399,19 @@ var Checkbox = {
             parent.removeClass("style1 style2").addClass("style"+new_style);
         };
 
+        var indeterminateState = function(){
+            element[0].indeterminate = JSON.parse(element.attr("data-indeterminate")) === true;
+        };
+
         switch (attributeName) {
             case 'disabled': this.toggleState(); break;
-            case 'data-indeterminate': this.toggleIndeterminate(); break;
+            case 'data-indeterminate': indeterminateState(); break;
             case 'data-style': changeStyle(); break;
         }
     },
 
     destroy: function(){
-        var that = this, element = this.element, o = this.options;
+        var element = this.element;
         var parent = element.parent();
 
         element[0].className = this.origin.className;
@@ -7168,27 +8424,37 @@ var Checkbox = {
 Metro.plugin('checkbox', Checkbox);
 
 // Source: js/plugins/clock.js
+
+var ClockDefaultConfig = {
+    showTime: true,
+    showDate: true,
+    timeFormat: '24',
+    dateFormat: 'american',
+    divider: "&nbsp;&nbsp;",
+    leadingZero: true,
+    dateDivider: '-',
+    timeDivider: ":",
+    onClockCreate: Metro.noop
+};
+
+Metro.clockSetup = function (options) {
+    ClockDefaultConfig = $.extend({}, ClockDefaultConfig, options);
+};
+
+if (typeof window.metroClockSetup !== undefined) {
+    Metro.clockSetup(window.metroClockSetup);
+}
+
 var Clock = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, ClockDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
         this._clockInterval = null;
         this._setOptionsFromDOM();
         this._create();
 
-        Utils.exec(this.options.onClockCreate, [this.element]);
-
         return this;
-    },
-
-    options: {
-        showTime: true,
-        showDate: true,
-        timeFormat: '24',
-        dateFormat: 'american',
-        divider: "&nbsp;&nbsp;",
-        onClockCreate: Metro.noop
     },
 
     _setOptionsFromDOM: function(){
@@ -7206,9 +8472,13 @@ var Clock = {
     },
 
     _create: function(){
-        var that = this;
+        var that = this, element = this.element;
 
         this._tick();
+
+        Utils.exec(this.options.onClockCreate, [this.element]);
+        element.fire("clockcreate");
+
         this._clockInterval = setInterval(function(){
             that._tick();
         }, 500);
@@ -7232,31 +8502,34 @@ var Clock = {
             y = timestamp.getFullYear(),
             a = '';
 
-        if (o.timeFormat === '12') {
+        if (parseInt(o.timeFormat) === 12) {
             a = " AM";
             if (h > 11) { a = " PM"; }
             if (h > 12) { h = h - 12; }
             if (h === 0) { h = 12; }
         }
 
-        h = this._addLeadingZero(h);
         i = this._addLeadingZero(i);
         s = this._addLeadingZero(s);
-        m = this._addLeadingZero(m);
-        d = this._addLeadingZero(d);
+
+        if (o.leadingZero) {
+            h = this._addLeadingZero(h);
+            m = this._addLeadingZero(m);
+            d = this._addLeadingZero(d);
+        }
 
         if (o.showDate) {
             if (o.dateFormat === 'american') {
                 result += "<span class='date-month'>" + m + "</span>";
-                result += "<span class='date-divider'>-</span>";
+                result += "<span class='date-divider'>" + o.dateDivider + "</span>";
                 result += "<span class='date-day'>" + d + "</span>";
-                result += "<span class='date-divider'>-</span>";
+                result += "<span class='date-divider'>" + o.dateDivider + "</span>";
                 result += "<span class='date-year'>" + y + "</span>";
             } else {
                 result += "<span class='date-day'>" + d + "</span>";
-                result += "<span class='date-divider'>-</span>";
+                result += "<span class='date-divider'>" + o.dateDivider + "</span>";
                 result += "<span class='date-month'>" + m + "</span>";
-                result += "<span class='date-divider'>-</span>";
+                result += "<span class='date-divider'>" + o.dateDivider + "</span>";
                 result += "<span class='date-year'>" + y + "</span>";
             }
             result += o.divider;
@@ -7264,10 +8537,11 @@ var Clock = {
 
         if (o.showTime) {
             result += "<span class='clock-hour'>" + h + "</span>";
-            result += "<span class='clock-divider'>:</span>";
+            result += "<span class='clock-divider'>" + o.timeDivider + "</span>";
             result += "<span class='clock-minute'>" + i + "</span>";
-            result += "<span class='clock-divider'>:</span>";
+            result += "<span class='clock-divider'>" + o.timeDivider + "</span>";
             result += "<span class='clock-second'>" + s + "</span>";
+            result += "<span class='clock-suffix'>" + a + "</span>";
         }
 
         element.html(result);
@@ -7287,9 +8561,27 @@ var Clock = {
 Metro.plugin('clock', Clock);
 
 // Source: js/plugins/collapse.js
+
+var CollapseDefaultConfig = {
+    collapsed: false,
+    toggleElement: false,
+    duration: 100,
+    onExpand: Metro.noop,
+    onCollapse: Metro.noop,
+    onCollapseCreate: Metro.noop
+};
+
+Metro.collapseSetup = function (options) {
+    CollapseDefaultConfig = $.extend({}, CollapseDefaultConfig, options);
+};
+
+if (typeof window.metroCollapseSetup !== undefined) {
+    Metro.collapseSetup(window.metroCollapseSetup);
+}
+
 var Collapse = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, CollapseDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
         this.toggle = null;
@@ -7297,18 +8589,7 @@ var Collapse = {
         this._setOptionsFromDOM();
         this._create();
 
-        Utils.exec(this.options.onCollapseCreate, [this.element]);
-
         return this;
-    },
-
-    options: {
-        collapsed: false,
-        toggleElement: false,
-        duration: METRO_ANIMATION_DURATION,
-        onExpand: Metro.noop,
-        onCollapse: Metro.noop,
-        onCollapseCreate: Metro.noop
     },
 
     _setOptionsFromDOM: function(){
@@ -7342,8 +8623,6 @@ var Collapse = {
                 that._open(element);
             }
 
-            console.log(e.target.tagName);
-
             if (["INPUT"].indexOf(e.target.tagName) === -1) {
                 e.preventDefault();
             }
@@ -7351,51 +8630,61 @@ var Collapse = {
         });
 
         this.toggle = toggle;
+
+        Utils.exec(this.options.onCollapseCreate, [this.element]);
+        element.fire("collapsecreate");
     },
 
-    _close: function(el){
-
-        if (Utils.isJQueryObject(el) === false) {
-            el = $(el);
-        }
-
-        var dropdown  = el.data("collapse");
+    _close: function(el, immediate){
+        var elem = $(el);
+        var dropdown  = elem.data("collapse");
         var options = dropdown.options;
+        var func = immediate ? 'show' : 'slideUp';
+        var dur = immediate ? 0 : options.duration;
 
         this.toggle.removeClass("active-toggle");
 
-        el.slideUp(options.duration, function(){
+        elem[func](dur, function(){
             el.trigger("onCollapse", null, el);
             el.data("collapsed", true);
             el.addClass("collapsed");
-            Utils.exec(options.onCollapse, [el]);
+            Utils.exec(options.onCollapse, null, elem[0]);
+            elem.fire("collapse");
         });
     },
 
-    _open: function(el){
-        if (Utils.isJQueryObject(el) === false) {
-            el = $(el);
-        }
-
-        var dropdown  = el.data("collapse");
+    _open: function(el, immediate){
+        var elem = $(el);
+        var dropdown  = elem.data("collapse");
         var options = dropdown.options;
+        var func = immediate ? 'show' : 'slideDown';
+        var dur = immediate ? 0 : options.duration;
 
         this.toggle.addClass("active-toggle");
 
-        el.slideDown(options.duration, function(){
+        elem[func](dur, function(){
             el.trigger("onExpand", null, el);
             el.data("collapsed", false);
             el.removeClass("collapsed");
-            Utils.exec(options.onExpand, [el]);
+            Utils.exec(options.onExpand, null, elem[0]);
+            elem.fire("expand");
         });
     },
 
-    collapse: function(){
-        this._close(this.element);
+    collapse: function(immediate){
+        this._close(this.element, immediate);
     },
 
-    expand: function(){
-        this._open(this.element);
+    expand: function(immediate){
+        this._open(this.element, immediate);
+    },
+
+    close: function(immediate){
+        this._close(this.element, immediate);
+    },
+
+    open: function(immediate){
+        this._open(this.element, immediate);
     },
 
     isCollapsed: function(){
@@ -7427,14 +8716,48 @@ var Collapse = {
 Metro.plugin('collapse', Collapse);
 
 // Source: js/plugins/countdown.js
+
+var CountdownDefaultConfig = {
+    stopOnBlur: true,
+    animate: "none",
+    animationFunc: "swing",
+    inputFormat: null,
+    locale: METRO_LOCALE,
+    days: 0,
+    hours: 0,
+    minutes: 0,
+    seconds: 0,
+    date: null,
+    start: true,
+    clsCountdown: "",
+    clsPart: "",
+    clsZero: "",
+    clsAlarm: "",
+    clsDays: "",
+    clsHours: "",
+    clsMinutes: "",
+    clsSeconds: "",
+    onAlarm: Metro.noop,
+    onTick: Metro.noop,
+    onZero: Metro.noop,
+    onBlink: Metro.noop,
+    onCountdownCreate: Metro.noop
+};
+
+Metro.countdownSetup = function (options) {
+    CountdownDefaultConfig = $.extend({}, CountdownDefaultConfig, options);
+};
+
+if (typeof window.metroCountdownSetup !== undefined) {
+    Metro.countdownSetup(window.metroCountdownSetup);
+}
+
 var Countdown = {
     init: function( options, elem ) {
-        var that = this;
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, CountdownDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
-        this.timepoint = (new Date()).getTime();
-        this.breakpoint = null;
+        this.breakpoint = (new Date()).getTime();
         this.blinkInterval = null;
         this.tickInterval = null;
 
@@ -7443,33 +8766,20 @@ var Countdown = {
         this.zeroMinutesFired = false;
         this.zeroSecondsFired = false;
 
+        this.fontSize = parseInt(Utils.getStyleOne(elem, "font-size"));
+
+        this.current = {
+            d: 0, h: 0, m: 0, s: 0
+        };
+
         this.locale = null;
+
+        this.inactiveTab = false;
 
         this._setOptionsFromDOM();
         this._create();
 
         return this;
-    },
-
-    options: {
-        locale: METRO_LOCALE,
-        days: 0,
-        hours: 0,
-        minutes: 0,
-        seconds: 0,
-        date: null,
-        start: true,
-        clsCountdown: "",
-        clsZero: "",
-        clsAlarm: "",
-        clsDays: "",
-        clsHours: "",
-        clsMinutes: "",
-        clsSeconds: "",
-        onCountdownCreate: Metro.noop,
-        onAlarm: Metro.noop,
-        onTick: Metro.noop,
-        onZero: Metro.noop
     },
 
     _setOptionsFromDOM: function(){
@@ -7490,21 +8800,18 @@ var Countdown = {
         var o = this.options;
         this.locale = Metro.locales[o.locale] !== undefined ? Metro.locales[o.locale] : Metro.locales["en-US"];
         this._build();
+        this._createEvents();
     },
 
-    _build: function(){
-        var that = this, element = this.element, o = this.options;
-        var parts = ["days", "hours", "minutes", "seconds"];
-        var dm = 24*60*60*1000, hm = 60*60*1000, mm = 60*1000, sm = 1000;
-        var delta_days, delta_hours, delta_minutes;
+    _setBreakpoint: function(){
+        var o = this.options;
+        var dm = 86400000, hm = 3600000, mm = 60000, sm = 1000;
 
-        element.addClass("countdown").addClass(o.clsCountdown);
+        this.breakpoint = (new Date()).getTime();
 
-        if (o.date !== null && Utils.isDate(o.date) !== false) {
-            this.timepoint = (new Date(o.date)).getTime();
+        if (Utils.isValue(o.date) && Utils.isDate(o.date, o.inputFormat)) {
+            this.breakpoint = Utils.isValue(o.inputFormat) ? (o.date.toDate(o.inputFormat)).getTime() : (new Date(o.date)).getTime();
         }
-
-        this.breakpoint = this.timepoint;
 
         if (parseInt(o.days) > 0) {
             this.breakpoint += parseInt(o.days) * dm;
@@ -7518,28 +8825,28 @@ var Countdown = {
         if (parseInt(o.seconds) > 0) {
             this.breakpoint += parseInt(o.seconds) * sm;
         }
+    },
 
-        delta_days = Math.round((that.breakpoint - that.timepoint) / dm);
-        delta_hours = Math.round((that.breakpoint - that.timepoint) / hm);
-        delta_minutes = Math.round((that.breakpoint - that.timepoint) / mm);
+    _build: function(){
+        var that = this, element = this.element, o = this.options;
+        var parts = ["days", "hours", "minutes", "seconds"];
+        var dm = 24*60*60*1000;
+        var delta_days;
+        var now = (new Date()).getTime();
+        var digit;
+
+        if (!Utils.isValue(element.attr("id"))) {
+            element.attr("id", Utils.elementId("countdown"));
+        }
+
+        element.addClass("countdown").addClass(o.clsCountdown);
+
+        this._setBreakpoint();
+
+        delta_days = Math.round((that.breakpoint - now) / dm);
 
         $.each(parts, function(){
-            if (this === "days" && delta_days === 0) {
-                return ;
-            }
-
-            if (this === "hours" && delta_days === 0 && delta_hours === 0) {
-                return ;
-            }
-
-            if (this === "minutes" && delta_days === 0 && delta_hours === 0 && delta_minutes === 0) {
-                return ;
-            }
-
-            if (this === "seconds") {
-            }
-
-            var part = $("<div>").addClass("part " + this).attr("data-label", that.locale["calendar"]["time"][this]).appendTo(element);
+            var part = $("<div>").addClass("part " + this).addClass(o.clsPart).attr("data-label", that.locale["calendar"]["time"][this]).appendTo(element);
 
             if (this === "days") {part.addClass(o.clsDays);}
             if (this === "hours") {part.addClass(o.clsHours);}
@@ -7551,133 +8858,280 @@ var Countdown = {
 
             if (this === "days" && delta_days >= 100) {
 
-                for(var i = 0; i < String(delta_days/100).length; i++) {
+                for(var i = 0; i < String(Math.round(delta_days/100)).length; i++) {
                     $("<div>").addClass("digit").appendTo(part);
                 }
-
             }
+
         });
 
-        element.find(".digit").html("0");
+        digit = element.find(".digit");
+        digit.append($("<span class='digit-placeholder'>").html("0"));
+        digit.append($("<span class='digit-value'>").html("0"));
 
-        Utils.exec(this.options.onCountdownCreate, [this.element]);
 
-        if (this.options.start === true) {
+        Utils.exec(o.onCountdownCreate, [element], element[0]);
+        element.fire("countdowncreate");
+
+        if (o.start === true) {
             this.start();
+        } else {
+            this.tick();
         }
     },
 
+    _createEvents: function(){
+        var that = this, element = this.element, o = this.options;
+        document.addEventListener("visibilitychange", function() {
+            if (document.hidden) {
+                that.pause();
+            } else {
+                that.resume();
+            }
+        });
+    },
+
     blink: function(){
-        this.element.toggleClass("blink");
+        var element = this.element, o = this.options;
+        element.toggleClass("blink");
+        Utils.exec(o.onBlink, [this.current], element[0]);
+        element.fire("blink", {
+            time: this.current
+        })
     },
 
     tick: function(){
-        var that = this, element = this.element, o = this.options;
+        var element = this.element, o = this.options;
         var dm = 24*60*60, hm = 60*60, mm = 60, sm = 1;
         var left, now = (new Date()).getTime();
         var d, h, m, s;
+        var days = element.find(".days"),
+            hours = element.find(".hours"),
+            minutes = element.find(".minutes"),
+            seconds = element.find(".seconds");
 
         left = Math.floor((this.breakpoint - now)/1000);
 
-        if (left <= 0) {
+        if (left <= -1) {
             this.stop();
-            if (o.clsZero !== "") {
-                element.find(".part").removeClass(o.clsZero);
-            }
             element.addClass(o.clsAlarm);
-            Utils.exec(o.onAlarm, [now, element]);
+            Utils.exec(o.onAlarm, [now], element[0]);
+            element.fire("alarm", {
+                time: now
+            });
             return ;
         }
 
         d = Math.floor(left / dm);
         left -= d * dm;
-        this.draw("days", d);
+        if (this.current.d !== d) {
+            this.current.d = d;
+            this.draw("days", d);
+        }
 
         if (d === 0) {
-            if (o.clsDays !== "") {
-                element.find(".days").removeClass(o.clsDays);
-            }
             if (this.zeroDaysFired === false) {
                 this.zeroDaysFired = true;
-                element.find(".days").addClass(o.clsZero);
-                Utils.exec(o.onZero, ["days", element]);
+                days.addClass(o.clsZero);
+                Utils.exec(o.onZero, ["days", days], element[0]);
+                element.fire("zero", {
+                    parts: ["days", days]
+                });
             }
         }
 
         h = Math.floor(left / hm);
         left -= h*hm;
-        this.draw("hours", h);
+        if (this.current.h !== h) {
+            this.current.h = h;
+            this.draw("hours", h);
+        }
 
         if (d === 0 && h === 0) {
-            if (o.clsHours !== "") {
-                element.find(".hours").removeClass(o.clsHours);
-            }
             if (this.zeroHoursFired === false) {
                 this.zeroHoursFired = true;
-                element.find(".hours").addClass(o.clsZero);
-                Utils.exec(o.onZero, ["hours", element]);
+                hours.addClass(o.clsZero);
+                Utils.exec(o.onZero, ["hours", hours], element[0]);
+                element.fire("zero", {
+                    parts: ["hours", hours]
+                });
             }
         }
 
         m = Math.floor(left / mm);
         left -= m*mm;
-        this.draw("minutes", m);
+        if (this.current.m !== m) {
+            this.current.m = m;
+            this.draw("minutes", m);
+        }
 
         if (d === 0 && h === 0 && m === 0) {
-            if (o.clsMinutes !== "") {
-                element.find(".minutes").removeClass(o.clsMinutes);
-            }
             if (this.zeroMinutesFired === false) {
                 this.zeroMinutesFired = true;
-                element.find(".minutes").addClass(o.clsZero);
-                Utils.exec(o.onZero, ["minutes", element]);
+                minutes.addClass(o.clsZero);
+                Utils.exec(o.onZero, ["minutes", minutes], element[0]);
+                element.fire("zero", {
+                    parts: ["minutes", minutes]
+                });
+
             }
         }
 
         s = Math.floor(left / sm);
-        this.draw("seconds", s);
+        if (this.current.s !== s) {
+            this.current.s = s;
+            this.draw("seconds", s);
+        }
 
         if (d === 0 && h === 0 && m === 0 && s === 0) {
-            if (o.clsSeconds !== "") {
-                element.find(".seconds").removeClass(o.clsSeconds);
-            }
             if (this.zeroSecondsFired === false) {
                 this.zeroSecondsFired = true;
-                element.find(".seconds").addClass(o.clsZero);
-                Utils.exec(o.onZero, ["seconds", element]);
+                seconds.addClass(o.clsZero);
+                Utils.exec(o.onZero, ["seconds", seconds], element[0]);
+                element.fire("zero", {
+                    parts: ["seconds", seconds]
+                });
+
             }
         }
 
-        Utils.exec(o.onTick, [{days:d, hours:h, minutes:m, seconds:s}, element]);
+        Utils.exec(o.onTick, [{days:d, hours:h, minutes:m, seconds:s}], element[0]);
+        element.fire("tick", {
+            days:d, hours:h, minutes:m, seconds:s
+        });
     },
 
     draw: function(part, value){
         var that = this, element = this.element, o = this.options;
-        var digit_value;
-        var len = String(value).length;
+        var digits, digits_length, digit_value, digit_current, digit, digit_copy;
+        var len, i, duration = 900, height;
 
-        var digits = element.find("."+part+" .digit").html("0");
-        var digits_length = digits.length;
+        var removeOldDigit = function(_digit){
+            if (!document.hidden) {
+                setTimeout(function(){
+                    _digit.remove();
+                }, 500);
+            } else {
+                _digit.remove();
+            }
+        };
 
-        for(var i = 0; i < len; i++){
-            digit_value = Math.floor( value / Math.pow(10, i) ) % 10;
-            element.find("." + part + " .digit:eq("+ (digits_length - 1) +")").html(digit_value);
+        var slideDigit = function(digit){
+            var digit_copy, height = digit.height();
+            digit_copy = digit.clone().appendTo(digit.parent());
+            digit_copy.css({
+                top: -1 * height,
+                opacity: .5
+            });
+
+            digit.addClass("-old-digit").animate({
+                top: height,
+                opacity: 0
+            }, duration, o.animationFunc, removeOldDigit(digit));
+
+            digit_copy.html(digit_value).animate({
+                top: 0,
+                opacity: 1
+            }, duration, o.animationFunc);
+        };
+
+        var fadeDigit = function(digit){
+            var digit_copy;
+            digit_copy = digit.clone().appendTo(digit.parent());
+            digit_copy.css({
+                opacity: 0
+            });
+
+            digit.addClass("-old-digit").animate({
+                opacity: 0
+            }, duration, o.animationFunc, removeOldDigit(digit));
+
+            digit_copy.html(digit_value).animate({
+                opacity: 1
+            }, duration, o.animationFunc);
+        };
+
+        var zoomDigit = function(digit){
+            var digit_copy,
+                height = digit.height(),
+                width = digit.width(),
+                fs = parseInt(Utils.getStyleOne(digit, "font-size"));
+
+            if (fs === 0 && fs < that.fontSize) {
+                fs = that.fontSize;
+                digit.css({
+                    fontSize: that.fontSize
+                });
+            }
+
+            digit_copy = digit.clone().appendTo(digit.parent());
+            digit_copy.css({
+                opacity: 0,
+                fontSize: 0,
+                top: height/2,
+                left: width/2
+            });
+
+            digit.addClass("-old-digit").animate({
+                opacity: 0,
+                fontSize: 0,
+                top: height,
+                left: width/2
+            }, duration, o.animationFunc, removeOldDigit(digit));
+
+            digit_copy.html(digit_value).animate({
+                opacity: 1,
+                fontSize: fs,
+                top: 0,
+                left: 0
+            }, duration, o.animationFunc);
+        };
+
+        value = ""+value;
+
+        if (value.length === 1) {
+            value = '0'+value;
+        }
+
+        len = value.length;
+
+        digits = element.find("."+part+" .digit");
+        digits_length = digits.length;
+
+        for(i = 0; i < len; i++){
+            digit = element.find("." + part + " .digit:eq("+ (digits_length - 1) +") .digit-value");
+            digit_value = Math.floor( parseInt(value) / Math.pow(10, i) ) % 10;
+            digit_current = parseInt(digit.text());
+
+            if (parseInt(digit_current) !== 0 && digit_current === digit_value) {
+                continue;
+            }
+
+            switch (String(o.animate).toLowerCase()) {
+                case "slide": slideDigit(digit); break;
+                case "fade": fadeDigit(digit); break;
+                case "zoom": zoomDigit(digit); break;
+                default: digit.html(digit_value);
+            }
+
             digits_length--;
         }
     },
 
     start: function(){
-        var that = this;
+        var that = this, element = this.element;
 
-        if (this.element.data("paused") === false) {
+        if (element.data("paused") === false) {
             return;
         }
+
 
         clearInterval(this.blinkInterval);
         clearInterval(this.tickInterval);
 
-        this.element.data("paused", false);
+        element.data("paused", false);
 
+        this._setBreakpoint();
         this.tick();
 
         this.blinkInterval = setInterval(function(){that.blink();}, 500);
@@ -7685,17 +9139,47 @@ var Countdown = {
     },
 
     stop: function(){
-        var that = this, element = this.element, o = this.options;
-        element.data("paused", true);
-        element.find(".digit").html("0");
+        var element = this.element;
         clearInterval(this.blinkInterval);
         clearInterval(this.tickInterval);
+        element.data("paused", true);
+        element.find(".digit").html("0");
+        this.current = {
+            d: 0, h:0, m: 0, s:0
+        };
     },
 
     pause: function(){
-        this.element.data("paused", true);
         clearInterval(this.blinkInterval);
         clearInterval(this.tickInterval);
+        this.element.data("paused", true);
+    },
+
+    resume: function(){
+        var that = this;
+
+        this.element.data("paused", false);
+        this.blinkInterval = setInterval(function(){that.blink();}, 500);
+        this.tickInterval = setInterval(function(){that.tick();}, 1000);
+    },
+
+    reset: function(){
+        var that = this, element = this.element, o = this.options;
+
+        clearInterval(this.blinkInterval);
+        clearInterval(this.tickInterval);
+
+        element.find(".part").removeClass(o.clsZero);
+        element.find(".digit").html("0");
+
+        this._setBreakpoint();
+
+        element.data("paused", false);
+
+        this.tick();
+
+        this.blinkInterval = setInterval(function(){that.blink();}, 500);
+        this.tickInterval = setInterval(function(){that.tick();}, 1000);
     },
 
     togglePlay: function(){
@@ -7708,10 +9192,6 @@ var Countdown = {
 
     isPaused: function(){
         return this.element.data("paused");
-    },
-
-    getTimepoint: function(asDate){
-        return asDate === true ? new Date(this.timepoint) : this.timepoint;
     },
 
     getBreakpoint: function(asDate){
@@ -7776,9 +9256,30 @@ var Countdown = {
 Metro.plugin('countdown', Countdown);
 
 // Source: js/plugins/counter.js
+
+var CounterDefaultConfig = {
+    delay: 10,
+    step: 1,
+    value: 0,
+    timeout: null,
+    delimiter: ",",
+    onStart: Metro.noop,
+    onStop: Metro.noop,
+    onTick: Metro.noop,
+    onCounterCreate: Metro.noop
+};
+
+Metro.counterSetup = function (options) {
+    CounterDefaultConfig = $.extend({}, CounterDefaultConfig, options);
+};
+
+if (typeof window.metroCounterSetup !== undefined) {
+    Metro.counterSetup(window.metroCounterSetup);
+}
+
 var Counter = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, CounterDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
         this.numbers = [];
@@ -7788,18 +9289,6 @@ var Counter = {
         this._create();
 
         return this;
-    },
-
-    options: {
-        delay: 10,
-        step: 1,
-        value: 0,
-        timeout: null,
-        delimiter: ",",
-        onStart: Metro.noop,
-        onStop: Metro.noop,
-        onTick: Metro.noop,
-        onCounterCreate: Metro.noop
     },
 
     _setOptionsFromDOM: function(){
@@ -7822,6 +9311,7 @@ var Counter = {
         this._calcArray();
 
         Utils.exec(o.onCounterCreate, [element], this.elem);
+        element.fire("countercreate");
 
         if (o.timeout !== null && Utils.isInt(o.timeout)) {
             setTimeout(function () {
@@ -7849,19 +9339,23 @@ var Counter = {
         var tick = function(){
             if (that.numbers.length === 0) {
                 Utils.exec(o.onStop, [element], element[0]);
+                element.fire("stop");
                 return ;
             }
             var n = that.numbers.shift();
             Utils.exec(o.onTick, [n, element], element[0]);
+            element.fire("tick");
             element.html(Number(n).format(0, 0, o.delimiter));
             if (that.numbers.length > 0) {
                 setTimeout(tick, o.delay);
             } else {
                 Utils.exec(o.onStop, [element], element[0]);
+                element.fire("stop");
             }
         };
 
         Utils.exec(o.onStart, [element], element[0]);
+        element.fire("start");
 
         setTimeout(tick, o.delay);
     },
@@ -7888,9 +9382,53 @@ var Counter = {
 Metro.plugin('counter', Counter);
 
 // Source: js/plugins/cube.js
+
+var CubeDefaultConfig = {
+    rules: null,
+    color: null,
+    flashColor: null,
+    flashInterval: 1000,
+    numbers: false,
+    offBefore: true,
+    attenuation: .3,
+    stopOnBlur: false,
+    cells: 4,
+    margin: 8,
+    showAxis: false,
+    axisStyle: "arrow", //line
+    cellClick: false,
+    autoRestart: 5000,
+
+    clsCube: "",
+    clsCell: "",
+    clsSide: "",
+    clsSideLeft: "",
+    clsSideRight: "",
+    clsSideTop: "",
+    clsSideLeftCell: "",
+    clsSideRightCell: "",
+    clsSideTopCell: "",
+    clsAxis: "",
+    clsAxisX: "",
+    clsAxisY: "",
+    clsAxisZ: "",
+
+    custom: Metro.noop,
+    onTick: Metro.noop,
+    onCubeCreate: Metro.noop
+};
+
+Metro.cubeSetup = function (options) {
+    CubeDefaultConfig = $.extend({}, CubeDefaultConfig, options);
+};
+
+if (typeof window.metroCubeSetup !== undefined) {
+    Metro.cubeSetup(window.metroCubeSetup);
+}
+
 var Cube = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, CubeDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
         this.id = null;
@@ -7941,41 +9479,6 @@ var Cube = {
         }
     ],
 
-    options: {
-        rules: null,
-        color: null,
-        flashColor: null,
-        flashInterval: 1000,
-        numbers: false,
-        offBefore: true,
-        attenuation: .3,
-        stopOnBlur: false,
-        cells: 4,
-        margin: 8,
-        showAxis: false,
-        axisStyle: "arrow", //line
-        cellClick: false,
-        autoRestart: 5000,
-
-        clsCube: "",
-        clsCell: "",
-        clsSide: "",
-        clsSideLeft: "",
-        clsSideRight: "",
-        clsSideTop: "",
-        clsSideLeftCell: "",
-        clsSideRightCell: "",
-        clsSideTopCell: "",
-        clsAxis: "",
-        clsAxisX: "",
-        clsAxisY: "",
-        clsAxisZ: "",
-
-        custom: Metro.noop,
-        onTick: Metro.noop,
-        onCubeCreate: Metro.noop
-    },
-
     _setOptionsFromDOM: function(){
         var that = this, element = this.element, o = this.options;
 
@@ -8003,6 +9506,7 @@ var Cube = {
         this._createEvents();
 
         Utils.exec(o.onCubeCreate, [element]);
+        element.fire("cubecreate");
     },
 
     _parseRules: function(rules){
@@ -8205,6 +9709,9 @@ var Cube = {
 
         var interval = setTimeout(function(){
             Utils.exec(o.onTick, [index], element[0]);
+            element.fire("tick", {
+                index: index
+            });
             clearInterval(interval);
             Utils.arrayDelete(that.intervals, interval);
         }, speed);
@@ -8352,9 +9859,45 @@ var Cube = {
 Metro.plugin('cube', Cube);
 
 // Source: js/plugins/datepicker.js
+
+var DatePickerDefaultConfig = {
+    gmt: 0,
+    format: "%Y-%m-%d",
+    locale: METRO_LOCALE,
+    value: null,
+    distance: 3,
+    month: true,
+    day: true,
+    year: true,
+    minYear: null,
+    maxYear: null,
+    scrollSpeed: 1,
+    copyInlineStyles: true,
+    clsPicker: "",
+    clsPart: "",
+    clsMonth: "",
+    clsDay: "",
+    clsYear: "",
+    okButtonIcon: "<span class='default-icon-check'></span>",
+    cancelButtonIcon: "<span class='default-icon-cross'></span>",
+    onSet: Metro.noop,
+    onOpen: Metro.noop,
+    onClose: Metro.noop,
+    onScroll: Metro.noop,
+    onDatePickerCreate: Metro.noop
+};
+
+Metro.datePickerSetup = function (options) {
+    DatePickerDefaultConfig = $.extend({}, DatePickerDefaultConfig, options);
+};
+
+if (typeof window.metroDatePickerSetup !== undefined) {
+    Metro.datePickerSetup(window.metroDatePickerSetup);
+}
+
 var DatePicker = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, DatePickerDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
         this.picker = null;
@@ -8367,33 +9910,6 @@ var DatePicker = {
         this._create();
 
         return this;
-    },
-
-    options: {
-        gmt: 0,
-        format: "%Y-%m-%d",
-        locale: METRO_LOCALE,
-        value: null,
-        distance: 3,
-        month: true,
-        day: true,
-        year: true,
-        minYear: null,
-        maxYear: null,
-        scrollSpeed: 5,
-        copyInlineStyles: true,
-        clsPicker: "",
-        clsPart: "",
-        clsMonth: "",
-        clsDay: "",
-        clsYear: "",
-        okButtonIcon: "<span class='default-icon-check'></span>",
-        cancelButtonIcon: "<span class='default-icon-cross'></span>",
-        onSet: Metro.noop,
-        onOpen: Metro.noop,
-        onClose: Metro.noop,
-        onScroll: Metro.noop,
-        onDatePickerCreate: Metro.noop
     },
 
     _setOptionsFromDOM: function(){
@@ -8440,6 +9956,7 @@ var DatePicker = {
         this._set();
 
         Utils.exec(o.onDatePickerCreate, [element]);
+        element.fire("datepickercreate");
     },
 
     _createStructure: function(){
@@ -8580,7 +10097,7 @@ var DatePicker = {
     },
 
     _addScrollEvents: function(){
-        var picker = this.picker, o = this.options;
+        var picker = this.picker, o = this.options, element = this.element;
         var lists = ['month', 'day', 'year'];
         $.each(lists, function(){
             var list_name = this;
@@ -8601,6 +10118,10 @@ var DatePicker = {
                 }, 100, function(){
                     target_element.addClass("active");
                     Utils.exec(o.onScroll, [target_element, list, picker], list[0]);
+                    element.fire("scroll", {
+                        target: target_element,
+                        list: list
+                    });
                 });
             });
         });
@@ -8642,7 +10163,9 @@ var DatePicker = {
         element.val(this.value.format(o.format, o.locale)).trigger("change");
 
         Utils.exec(o.onSet, [this.value, element.val(), element, picker], element[0]);
-
+        element.fire("set", {
+            value: this.value
+        });
     },
 
     open: function(){
@@ -8690,6 +10213,9 @@ var DatePicker = {
         this.isOpen = true;
 
         Utils.exec(o.onOpen, [this.value, element, picker], element[0]);
+        element.fire("open", {
+            value: this.value
+        });
     },
 
     close: function(){
@@ -8697,6 +10223,9 @@ var DatePicker = {
         picker.find(".select-wrapper").hide();
         this.isOpen = false;
         Utils.exec(o.onClose, [this.value, element, picker], element[0]);
+        element.fire("close", {
+            value: this.value
+        });
     },
 
     val: function(t){
@@ -8759,9 +10288,55 @@ $(document).on(Metro.events.click, function(){
 });
 
 // Source: js/plugins/dialog.js
+
+var DialogDefaultConfig = {
+    closeButton: false,
+    leaveOverlayOnClose: false,
+    toTop: false,
+    toBottom: false,
+    locale: METRO_LOCALE,
+    title: "",
+    content: "",
+    actions: {},
+    actionsAlign: "right",
+    defaultAction: true,
+    overlay: true,
+    overlayColor: '#000000',
+    overlayAlpha: .5,
+    overlayClickClose: false,
+    width: '480',
+    height: 'auto',
+    shadow: true,
+    closeAction: true,
+    clsDialog: "",
+    clsTitle: "",
+    clsContent: "",
+    clsAction: "",
+    clsDefaultAction: "",
+    clsOverlay: "",
+    autoHide: 0,
+    removeOnClose: false,
+    show: false,
+    onShow: Metro.noop,
+    onHide: Metro.noop,
+    onOpen: Metro.noop,
+    onClose: Metro.noop,
+    onDialogCreate: Metro.noop
+};
+
+Metro.dialogSetup = function (options) {
+    DialogDefaultConfig = $.extend({}, DialogDefaultConfig, options);
+};
+
+if (typeof window.metroDialogSetup !== undefined) {
+    Metro.dialogSetup(window.metroDialogSetup);
+}
+
 var Dialog = {
+    _counter: 0,
+
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, DialogDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
         this.interval = null;
@@ -8771,39 +10346,6 @@ var Dialog = {
         this._create();
 
         return this;
-    },
-
-    options: {
-        toTop: false,
-        toBottom: false,
-        locale: METRO_LOCALE,
-        title: "",
-        content: "",
-        actions: {},
-        actionsAlign: "right",
-        defaultAction: true,
-        overlay: true,
-        overlayColor: '#000000',
-        overlayAlpha: .5,
-        overlayClickClose: false,
-        width: '480',
-        height: 'auto',
-        shadow: true,
-        closeAction: true,
-        clsDialog: "",
-        clsTitle: "",
-        clsContent: "",
-        clsAction: "",
-        clsDefaultAction: "",
-        clsOverlay: "",
-        autoHide: 0,
-        removeOnClose: false,
-        show: false,
-        onShow: Metro.noop,
-        onHide: Metro.noop,
-        onOpen: Metro.noop,
-        onClose: Metro.noop,
-        onDialogCreate: Metro.noop
     },
 
     _setOptionsFromDOM: function(){
@@ -8883,6 +10425,15 @@ var Dialog = {
             });
         }
 
+        var closer = element.find("closer");
+        if (closer.length === 0) {
+            closer = $("<span>").addClass("button square closer js-dialog-close");
+            closer.appendTo(element);
+        }
+        if (o.closeButton !== true) {
+            closer.hide();
+        }
+
         element.css({
             width: o.width,
             height: o.height,
@@ -8907,6 +10458,7 @@ var Dialog = {
         });
 
         Utils.exec(this.options.onDialogCreate, [this.element]);
+        element.fire("dialogcreate");
     },
 
     _overlay: function(){
@@ -8927,36 +10479,41 @@ var Dialog = {
     },
 
     hide: function(callback){
-        var element = this.element, o = this.options;
+        var that = this, element = this.element, o = this.options;
         var timeout = 0;
         if (o.onHide !== Metro.noop) {
             timeout = 300;
-            Utils.exec(o.onHide, [element]);
         }
         setTimeout(function(){
             element.css({
                 visibility: "hidden",
                 top: "100%"
             });
+            Utils.exec(o.onHide, [that], element[0]);
+            element.fire("hide");
             Utils.callback(callback);
         }, timeout);
     },
 
     show: function(callback){
-        var element = this.element, o = this.options;
+        var that = this, element = this.element, o = this.options;
         this.setPosition();
         element.css({
             visibility: "visible"
         });
+        Utils.exec(o.onShow, [that], element[0]);
+        element.fire("show");
         Utils.callback(callback);
-        Utils.exec(o.onShow, [element]);
     },
 
     setPosition: function(){
         var element = this.element, o = this.options;
-        var top, left, bottom;
+        var top, bottom;
         if (o.toTop !== true && o.toBottom !== true) {
             top = ( $(window).height() - element.outerHeight() ) / 2;
+            if (top < 0) {
+                top = 0;
+            }
             bottom = "auto";
         } else {
             if (o.toTop === true) {
@@ -9007,11 +10564,14 @@ var Dialog = {
     close: function(){
         var that = this, element = this.element, o = this.options;
 
-        $('body').find('.overlay').remove();
+        if (!Utils.bool(o.leaveOverlayOnClose)) {
+            $('body').find('.overlay').remove();
+        }
 
         this.hide(function(){
             element.data("open", false);
-            Utils.exec(o.onClose, [element]);
+            Utils.exec(o.onClose, [element], element[0]);
+            element.fire("close");
             if (o.removeOnClose === true) {
                 element.remove();
             }
@@ -9021,7 +10581,7 @@ var Dialog = {
     open: function(){
         var that = this, element = this.element, o = this.options;
 
-        if (o.overlay === true) {
+        if (o.overlay === true && $(".overlay").length === 0) {
             this.overlay.appendTo($("body"));
             if (o.overlayClickClose === true) {
                 this.overlay.on(Metro.events.click, function(){
@@ -9031,7 +10591,8 @@ var Dialog = {
         }
 
         this.show(function(){
-            Utils.exec(o.onOpen, [element]);
+            Utils.exec(o.onOpen, [element], element[0]);
+            element.fire("open");
             element.data("open", true);
             if (parseInt(o.autoHide) > 0) {
                 setTimeout(function(){
@@ -9129,9 +10690,37 @@ Metro['dialog'] = {
 };
 
 // Source: js/plugins/donut.js
+
+var DonutDefaultConfig = {
+    size: 100,
+    radius: 50,
+    hole: .8,
+    value: 0,
+    background: "#ffffff",
+    color: "",
+    stroke: "#d1d8e7",
+    fill: "#49649f",
+    fontSize: 24,
+    total: 100,
+    cap: "%",
+    showText: true,
+    showValue: false,
+    animate: 0,
+    onChange: Metro.noop,
+    onDonutCreate: Metro.noop
+};
+
+Metro.donutSetup = function (options) {
+    DonutDefaultConfig = $.extend({}, DonutDefaultConfig, options);
+};
+
+if (typeof window.metroDonutSetup !== undefined) {
+    Metro.donutSetup(window.metroDonutSetup);
+}
+
 var Donut = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, DonutDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
         this.value = 0;
@@ -9140,28 +10729,7 @@ var Donut = {
         this._setOptionsFromDOM();
         this._create();
 
-        Utils.exec(this.options.onDonutCreate, [this.element]);
-
         return this;
-    },
-
-    options: {
-        size: 100,
-        radius: 50,
-        hole: .8,
-        value: 0,
-        background: "#ffffff",
-        color: "",
-        stroke: "#d1d8e7",
-        fill: "#49649f",
-        fontSize: 24,
-        total: 100,
-        cap: "%",
-        showText: true,
-        showValue: false,
-        animate: 0,
-        onChange: Metro.noop,
-        onDonutCreate: Metro.noop
     },
 
     _setOptionsFromDOM: function(){
@@ -9205,6 +10773,9 @@ var Donut = {
         element.html(html);
 
         this.val(o.value);
+
+        Utils.exec(o.onDonutCreate, null, element[0]);
+        element.fire("donutcreate");
     },
 
     _setValue: function(v){
@@ -9258,7 +10829,10 @@ var Donut = {
 
         this.value = v;
         //element.attr("data-value", v);
-        Utils.exec(o.onChange, [this.value, element]);
+        Utils.exec(o.onChange, [this.value], element[0]);
+        element.fire("change", {
+            value: this.value
+        });
     },
 
     changeValue: function(){
@@ -9279,9 +10853,28 @@ var Donut = {
 Metro.plugin('donut', Donut);
 
 // Source: js/plugins/draggable.js
+
+var DraggableDefaultConfig = {
+    dragElement: 'self',
+    dragArea: "parent",
+    onCanDrag: Metro.noop_true,
+    onDragStart: Metro.noop,
+    onDragStop: Metro.noop,
+    onDragMove: Metro.noop,
+    onDraggableCreate: Metro.noop
+};
+
+Metro.draggableSetup = function (options) {
+    DraggableDefaultConfig = $.extend({}, DraggableDefaultConfig, options);
+};
+
+if (typeof window.metroDraggableSetup !== undefined) {
+    Metro.draggableSetup(window.metroDraggableSetup);
+}
+
 var Draggable = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, DraggableDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
         this.drag = false;
@@ -9290,27 +10883,19 @@ var Draggable = {
             cursor: 'default',
             zIndex: '0'
         };
+        this.dragArea = null;
 
         this._setOptionsFromDOM();
         this._create();
 
         Utils.exec(this.options.onDraggableCreate, [this.element]);
+        this.element.fire("draggablecreate");
 
         return this;
     },
 
-    options: {
-        dragElement: 'self',
-        dragArea: "parent",
-        onCanDrag: Metro.noop_true,
-        onDragStart: Metro.noop,
-        onDragStop: Metro.noop,
-        onDragMove: Metro.noop,
-        onDraggableCreate: Metro.noop
-    },
-
     _setOptionsFromDOM: function(){
-        var that = this, element = this.element, o = this.options;
+        var element = this.element, o = this.options;
 
         $.each(element.data(), function(key, value){
             if (key in o) {
@@ -9324,14 +10909,59 @@ var Draggable = {
     },
 
     _create: function(){
-        var that = this, element = this.element, o = this.options;
-        var dragArea;
-        var offset, position, shift, coords;
+        var that = this, element = this.element, elem = this.elem, o = this.options;
+        var offset = element.offset();
+        var position = {
+            x: 0,
+            y: 0
+        };
         var dragElement  = o.dragElement !== 'self' ? element.find(o.dragElement) : element;
 
         dragElement[0].ondragstart = function(){return false;};
 
-        dragElement.on(Metro.events.start, function(e){
+        element.css("position", "absolute");
+
+        if (o.dragArea === 'document' || o.dragArea === 'window') {
+            o.dragArea = "body";
+        }
+
+        setImmediate(function(){
+            that.dragArea = o.dragArea === 'parent' ? element.parent() : $(o.dragArea);
+            if (o.dragArea !== 'parent') {
+                element.appendTo(that.dragArea);
+                element.css({
+                    top: offset.top,
+                    left: offset.left
+                });
+            }
+        });
+
+
+        dragElement.on(Metro.events.startAll, function(e){
+
+            var coord = o.dragArea !== "parent" ? element.offset() : element.position(),
+                shiftX = Utils.pageXY(e).x - coord.left,
+                shiftY = Utils.pageXY(e).y - coord.top;
+
+            var moveElement = function(e){
+                var top = Utils.pageXY(e).y - shiftY;
+                var left = Utils.pageXY(e).x - shiftX;
+
+                if (top < 0) top = 0;
+                if (left < 0) left = 0;
+
+                if (top > that.dragArea.outerHeight() - element.outerHeight()) top = that.dragArea.outerHeight() - element.outerHeight();
+                if (left > that.dragArea.outerWidth() - element.outerWidth()) left = that.dragArea.outerWidth() - element.outerWidth();
+
+                position.y = top;
+                position.x = left;
+
+                element.css({
+                    left: left,
+                    top: top
+                });
+            };
+
 
             if (element.data("canDrag") === false || Utils.exec(o.onCanDrag, [element]) !== true) {
                 return ;
@@ -9348,72 +10978,41 @@ var Draggable = {
 
             element.addClass("draggable");
 
-            if (o.dragArea === 'document' || o.dragArea === 'window') {
-                o.dragArea = "body";
-            }
+            moveElement(e);
 
-            if (o.dragArea === 'parent') {
-                dragArea = element.parent();
-            } else {
-                dragArea = $(o.dragArea);
-            }
-
-            offset = {
-                left: dragArea.offset().left,
-                top:  dragArea.offset().top
-            };
-
-            position = Utils.pageXY(e);
-
-            var drg_h = element.outerHeight(),
-                drg_w = element.outerWidth(),
-                pos_y = element.offset().top + drg_h - Utils.pageXY(e).y,
-                pos_x = element.offset().left + drg_w - Utils.pageXY(e).x;
-
-            Utils.exec(o.onDragStart, [position, element]);
-
-            $(document).on(Metro.events.move, function(e){
-                var pageX, pageY;
-
-                if (that.drag === false) {
-                    return ;
-                }
-                that.move = true;
-
-                pageX = Utils.pageXY(e).x - offset.left;
-                pageY = Utils.pageXY(e).y - offset.top;
-
-                var t = (pageY > 0) ? (pageY + pos_y - drg_h) : (0);
-                var l = (pageX > 0) ? (pageX + pos_x - drg_w) : (0);
-                var t_delta = dragArea.innerHeight() + dragArea.scrollTop() - element.outerHeight();
-                var l_delta = dragArea.innerWidth() + dragArea.scrollLeft() - element.outerWidth();
-
-                if(t >= 0 && t <= t_delta) {
-                    position.y = t;
-                    element.offset({top: t + offset.top});
-                }
-                if(l >= 0 && l <= l_delta) {
-                    position.x = l;
-                    element.offset({left: l + offset.left});
-                }
-
-                Utils.exec(o.onDragMove, [position, element]);
-
-                e.preventDefault();
+            Utils.exec(o.onDragStart, [position], element[0]);
+            element.fire("dragstart", {
+                position: position
             });
-        });
 
-        dragElement.on(Metro.events.stop, function(e){
-            element.css({
-                cursor: that.backup.cursor,
-                zIndex: that.backup.zIndex
-            }).removeClass("draggable");
-            that.drag = false;
-            that.move = false;
-            position = Utils.pageXY(e);
-            $(document).off(Metro.events.move);
-            //console.log(o.onDragStop);
-            Utils.exec(o.onDragStop, [position, element]);
+            $(document).on(Metro.events.moveAll, function(e){
+                moveElement(e);
+                Utils.exec(o.onDragMove, [position], elem);
+                element.fire("dragmove", {
+                    position: position
+                });
+                //e.preventDefault();
+            });
+
+            $(document).on(Metro.events.stopAll, function(){
+                element.css({
+                    cursor: that.backup.cursor,
+                    zIndex: that.backup.zIndex
+                }).removeClass("draggable");
+
+                if (that.drag) {
+                    $(document).off(Metro.events.moveAll);
+                    $(document).off(Metro.events.stopAll);
+                }
+
+                that.drag = false;
+                that.move = false;
+
+                Utils.exec(o.onDragStop, [position], elem);
+                element.fire("dragstop", {
+                    position: position
+                });
+            });
         });
     },
 
@@ -9433,9 +11032,29 @@ var Draggable = {
 Metro.plugin('draggable', Draggable);
 
 // Source: js/plugins/dropdown.js
+
+var DropdownDefaultConfig = {
+    dropFilter: null,
+    effect: 'slide',
+    toggleElement: null,
+    noClose: false,
+    duration: 100,
+    onDrop: Metro.noop,
+    onUp: Metro.noop,
+    onDropdownCreate: Metro.noop
+};
+
+Metro.dropdownSetup = function (options) {
+    DropdownDefaultConfig = $.extend({}, DropdownDefaultConfig, options);
+};
+
+if (typeof window.metroDropdownSetup !== undefined) {
+    Metro.dropdownSetup(window.metroDropdownSetup);
+}
+
 var Dropdown = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, DropdownDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
         this._toggle = null;
@@ -9444,19 +11063,7 @@ var Dropdown = {
         this._setOptionsFromDOM();
         this._create();
 
-        Utils.exec(this.options.onDropdownCreate, [this.element]);
-
         return this;
-    },
-
-    options: {
-        effect: 'slide',
-        toggleElement: null,
-        noClose: false,
-        duration: 100,
-        onDrop: Metro.noop,
-        onUp: Metro.noop,
-        onDropdownCreate: Metro.noop
     },
 
     _setOptionsFromDOM: function(){
@@ -9475,12 +11082,38 @@ var Dropdown = {
 
     _create: function(){
         var that = this, element = this.element, o = this.options;
-        var toggle, parent = element.parent();
+        this._createStructure();
+        this._createEvents();
 
+        Utils.exec(o.onDropdownCreate, null, element);
+        element.fire("dropdowncreate");
+
+        if (element.hasClass("open")) {
+            setTimeout(function(){
+                that.open(true);
+            }, 500)
+        }
+    },
+
+    _createStructure: function(){
+        var that = this, element = this.element, o = this.options;
+        var toggle;
         toggle = o.toggleElement !== null ? $(o.toggleElement) : element.siblings('.dropdown-toggle').length > 0 ? element.siblings('.dropdown-toggle') : element.prev();
 
-        this.displayOrigin = element.css("display");
-        this.element.css("display", "none");
+        this.displayOrigin = Utils.getStyleOne(element, "display");
+
+        if (element.hasClass("v-menu")) {
+            element.addClass("for-dropdown");
+        }
+
+        element.css("display", "none");
+
+        this._toggle = toggle;
+    },
+
+    _createEvents: function(){
+        var that = this, element = this.element, o = this.options;
+        var toggle = this._toggle, parent = element.parent();
 
         toggle.on(Metro.events.click, function(e){
             parent.siblings(parent[0].tagName).removeClass("active-container");
@@ -9491,7 +11124,13 @@ var Dropdown = {
             } else {
                 $('[data-role=dropdown]').each(function(i, el){
                     if (!element.parents('[data-role=dropdown]').is(el) && !$(el).hasClass('keep-open') && $(el).css('display') !== 'none') {
-                        that._close(el);
+                        if (!Utils.isValue(o.dropFilter)) {
+                            that._close(el);
+                        } else {
+                            if ($(el).closest(o.dropFilter).length > 0) {
+                                that._close(el);
+                            }
+                        }
                     }
                 });
                 if (element.hasClass('horizontal')) {
@@ -9508,8 +11147,7 @@ var Dropdown = {
                         'visibility': 'visible',
                         'display': 'none'
                     });
-                    var menu_width = children_width;
-                    element.css('width', menu_width);
+                    element.css('width', children_width);
                 }
                 that._open(element);
                 parent.addClass("active-container");
@@ -9517,8 +11155,6 @@ var Dropdown = {
             e.preventDefault();
             e.stopPropagation();
         });
-
-        this._toggle = toggle;
 
         if (o.noClose === true) {
             element.addClass("keep-open").on(Metro.events.click, function (e) {
@@ -9532,7 +11168,7 @@ var Dropdown = {
         });
     },
 
-    _close: function(el){
+    _close: function(el, immediate){
 
         if (Utils.isJQueryObject(el) === false) {
             el = $(el);
@@ -9545,13 +11181,20 @@ var Dropdown = {
 
         toggle.removeClass('active-toggle').removeClass("active-control");
         dropdown.element.parent().removeClass("active-container");
-        el[func](options.duration, function(){
+
+        if (immediate) {
+            func = 'hide'
+        }
+
+        el[func](immediate ? 0 : options.duration, function(){
             el.trigger("onClose", null, el);
         });
-        Utils.exec(options.onUp, [el]);
+
+        Utils.exec(options.onUp, null, el[0]);
+        el.fire("up");
     },
 
-    _open: function(el){
+    _open: function(el, immediate){
         if (Utils.isJQueryObject(el) === false) {
             el = $(el);
         }
@@ -9562,18 +11205,25 @@ var Dropdown = {
         var func = options.effect === "slide" ? "slideDown" : "fadeIn";
 
         toggle.addClass('active-toggle').addClass("active-control");
-        el[func](options.duration, function(){
+
+        if (immediate) {
+            func = 'show'
+        }
+
+        el[func](immediate ? 0 : options.duration, function(){
             el.trigger("onOpen", null, el);
         });
-        Utils.exec(options.onDrop, [el]);
+
+        Utils.exec(options.onDrop, null, el[0]);
+        el.fire("drop");
     },
 
-    close: function(){
-        this._close(this.element);
+    close: function(immediate){
+        this._close(this.element, immediate);
     },
 
-    open: function(){
-        this._open(this.element);
+    open: function(immediate){
+        this._open(this.element, immediate);
     },
 
     changeAttribute: function(attributeName){
@@ -9589,9 +11239,8 @@ $(document).on(Metro.events.click, function(e){
     $('[data-role*=dropdown]').each(function(){
         var el = $(this);
 
-        if (el.css('display')==='block' && el.hasClass('keep-open') === false) {
-            var dropdown = el.data('dropdown');
-            dropdown.close();
+        if (el.css('display')!=='none' && !el.hasClass('keep-open') && !el.hasClass('stay-open') && !el.hasClass('ignore-document-click')) {
+            el.data('dropdown').close();
         }
     });
 });
@@ -9599,30 +11248,45 @@ $(document).on(Metro.events.click, function(e){
 Metro.plugin('dropdown', Dropdown);
 
 // Source: js/plugins/file.js
+
+var FileDefaultConfig = {
+    mode: "input",
+    buttonTitle: "Choose file(s)",
+    filesTitle: "file(s) selected",
+    dropTitle: "<strong>Choose a file(s)</strong> or drop it here",
+    dropIcon: "<span class='default-icon-upload'></span>",
+    prepend: "",
+    clsComponent: "",
+    clsPrepend: "",
+    clsButton: "",
+    clsCaption: "",
+    copyInlineStyles: true,
+    onSelect: Metro.noop,
+    onFileCreate: Metro.noop
+};
+
+Metro.fileSetup = function (options) {
+    FileDefaultConfig = $.extend({}, FileDefaultConfig, options);
+};
+
+if (typeof window.metroFileSetup !== undefined) {
+    Metro.fileSetup(window.metroFileSetup);
+}
+
 var File = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, FileDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
 
         this._setOptionsFromDOM();
         this._create();
 
-        Utils.exec(this.options.onFileCreate, [this.element]);
-
         return this;
-    },
-    options: {
-        copyInlineStyles: true,
-        prepend: "",
-        caption: "Choose file",
-        disabled: false,
-        onSelect: Metro.noop,
-        onFileCreate: Metro.noop
     },
 
     _setOptionsFromDOM: function(){
-        var that = this, element = this.element, o = this.options;
+        var element = this.element, o = this.options;
 
         $.each(element.data(), function(key, value){
             if (key in o) {
@@ -9641,35 +11305,38 @@ var File = {
     },
 
     _createStructure: function(){
-        var that = this, element = this.element, o = this.options;
-        var prev = element.prev();
-        var parent = element.parent();
-        var container = $("<div>").addClass("file " + element[0].className);
-        var caption = $("<span>").addClass("caption");
-        var button;
+        var element = this.element, o = this.options;
+        var container = $("<label>").addClass((o.mode === "input" ? " file " : " drop-zone ") + element[0].className).addClass(o.clsComponent);
+        var caption = $("<span>").addClass("caption").addClass(o.clsCaption);
+        var files = $("<span>").addClass("files").addClass(o.clsCaption);
+        var icon, button;
 
-        if (prev.length === 0) {
-            parent.prepend(container);
-        } else {
-            container.insertAfter(prev);
-        }
 
+        container.insertBefore(element);
         element.appendTo(container);
-        caption.insertBefore(element);
 
-        button = $("<button>").addClass("button").attr("tabindex", -1).attr("type", "button").html(o.caption);
-        button.appendTo(container);
+        if (o.mode === "input") {
+            caption.insertBefore(element);
 
-        if (element.attr('dir') === 'rtl' ) {
-            container.addClass("rtl");
+            button = $("<button>").addClass("button").attr("tabindex", -1).attr("type", "button").html(o.buttonTitle);
+            button.appendTo(container);
+            button.addClass(o.clsButton);
+
+            if (element.attr('dir') === 'rtl' ) {
+                container.addClass("rtl");
+            }
+
+            if (o.prepend !== "") {
+                var prepend = $("<div>").html(o.prepend);
+                prepend.addClass("prepend").addClass(o.clsPrepend).appendTo(container);
+            }
+        } else {
+            icon = $(o.dropIcon).addClass("icon").appendTo(container);
+            caption.html(o.dropTitle).insertAfter(icon);
+            files.html("0" + " " + o.filesTitle).insertAfter(caption);
         }
 
         element[0].className = '';
-
-        if (o.prepend !== "") {
-            var prepend = Utils.isTag(o.prepend) ? $(o.prepend) : $("<span>"+o.prepend+"</span>");
-            prepend.addClass("prepend").addClass(o.clsPrepend).appendTo(container);
-        }
 
         if (o.copyInlineStyles === true) {
             for (var i = 0, l = element[0].style.length; i < l; i++) {
@@ -9677,24 +11344,30 @@ var File = {
             }
         }
 
-        if (o.disabled === true || element.is(":disabled")) {
+        if (element.is(":disabled")) {
             this.disable();
         } else {
             this.enable();
         }
+
+        Utils.exec(o.onFileCreate, null, element[0]);
+        element.fire("filecreate");
     },
 
     _createEvents: function(){
         var element = this.element, o = this.options;
-        var parent = element.parent();
-        var caption = parent.find(".caption");
-        parent.on(Metro.events.click, "button, .caption", function(){
+        var container = element.closest("label");
+        var caption = container.find(".caption");
+        var files = container.find(".files");
+
+        container.on(Metro.events.click, "button", function(){
             element.trigger("click");
         });
+
         element.on(Metro.events.change, function(){
             var fi = this;
             var file_names = [];
-            var entry = "";
+            var entry;
             if (fi.files.length === 0) {
                 return ;
             }
@@ -9703,13 +11376,45 @@ var File = {
                 file_names.push(file.name);
             });
 
-            entry = file_names.join(", ");
+            if (o.mode === "input") {
 
-            caption.html(entry);
-            caption.attr('title', entry);
+                entry = file_names.join(", ");
 
-            Utils.exec(o.onSelect, [fi.files, element], element[0]);
+                caption.html(entry);
+                caption.attr('title', entry);
+            } else {
+                files.html(element[0].files.length + " " +o.filesTitle);
+            }
+
+            Utils.exec(o.onSelect, [fi.files], element[0]);
+            element.fire("select", {
+                files: fi.files
+            });
         });
+
+        element.on(Metro.events.focus, function(){container.addClass("focused");});
+        element.on(Metro.events.blur, function(){container.removeClass("focused");});
+
+        if (o.mode !== "input") {
+            container.on('drag dragstart dragend dragover dragenter dragleave drop', function(e){
+                e.preventDefault();
+            });
+
+            container.on('dragenter dragover', function(){
+                container.addClass("drop-on");
+            });
+
+            container.on('dragleave', function(){
+                container.removeClass("drop-on");
+            });
+
+            container.on('drop', function(e){
+                element[0].files = e.originalEvent.dataTransfer.files;
+                files.html(element[0].files.length + " " +o.filesTitle);
+                container.removeClass("drop-on");
+                element.trigger("change");
+            });
+        }
     },
 
     disable: function(){
@@ -9723,7 +11428,7 @@ var File = {
     },
 
     toggleState: function(){
-        if (this.element.data("disabled") === false) {
+        if (this.elem.disabled) {
             this.disable();
         } else {
             this.enable();
@@ -9749,7 +11454,7 @@ var File = {
         var element = this.element;
         var parent = element.parent();
         element.off(Metro.events.change);
-        parent.off(Metro.events.click, "button, .caption");
+        parent.off(Metro.events.click, "button");
         element.insertBefore(parent);
         parent.remove();
     }
@@ -9758,24 +11463,32 @@ var File = {
 Metro.plugin('file', File);
 
 // Source: js/plugins/gravatar.js
+
+var GravatarDefaultConfig = {
+    email: "",
+    size: 80,
+    default: "mp",
+    onGravatarCreate: Metro.noop
+};
+
+Metro.gravatarSetup = function (options) {
+    GravatarDefaultConfig = $.extend({}, GravatarDefaultConfig, options);
+};
+
+if (typeof window.metroGravatarSetup !== undefined) {
+    Metro.bottomSheetSetup(window.metroGravatarSetup);
+}
+
 var Gravatar = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, GravatarDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
 
         this._setOptionsFromDOM();
         this._create();
 
-        Utils.exec(this.options.onGravatarCreate, [this.element]);
-
         return this;
-    },
-    options: {
-        email: "",
-        size: 80,
-        default: "404",
-        onGravatarCreate: Metro.noop
     },
 
     _setOptionsFromDOM: function(){
@@ -9820,6 +11533,10 @@ var Gravatar = {
             return;
         }
         img.attr("src", this.getImageSrc(o.email, o.size, o.default));
+
+        Utils.exec(o.onGravatarCreate, null, element[0]);
+        element.fire("gravatarcreate");
+
         return this;
     },
 
@@ -9851,9 +11568,29 @@ var Gravatar = {
 Metro.plugin('gravatar', Gravatar);
 
 // Source: js/plugins/hint.js
+
+var HintDefaultConfig = {
+    hintHide: 5000,
+    clsHint: "",
+    hintText: "",
+    hintPosition: Metro.position.TOP,
+    hintOffset: 4,
+    onHintShow: Metro.noop,
+    onHintHide: Metro.noop,
+    onHintCreate: Metro.noop
+};
+
+Metro.hintSetup = function (options) {
+    HintDefaultConfig = $.extend({}, HintDefaultConfig, options);
+};
+
+if (typeof window.metroHintSetup !== undefined) {
+    Metro.hintSetup(window.metroHintSetup);
+}
+
 var Hint = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, HintDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
         this.hint = null;
@@ -9865,20 +11602,7 @@ var Hint = {
         this._setOptionsFromDOM();
         this._create();
 
-        Utils.exec(this.options.onHintCreate, [this.element]);
-
         return this;
-    },
-
-    options: {
-        hintHide: 5000,
-        clsHint: "",
-        hintText: "",
-        hintPosition: Metro.position.TOP,
-        hintOffset: 4,
-        onHintCreate: Metro.noop,
-        onHintShow: Metro.noop,
-        onHintHide: Metro.noop
     },
 
     _setOptionsFromDOM: function(){
@@ -9914,6 +11638,9 @@ var Hint = {
         $(window).on(Metro.events.scroll + "-hint", function(){
             if (that.hint !== null) that.setPosition();
         });
+
+        Utils.exec(o.onHintCreate, null, element[0]);
+        element.fire("hintcreate");
     },
 
     createHint: function(){
@@ -9934,7 +11661,10 @@ var Hint = {
         this.setPosition();
 
         hint.appendTo($('body'));
-        Utils.exec(o.onHintShow, [hint, element]);
+        Utils.exec(o.onHintShow, [element[0]], hint[0]);
+        element.fire("hintshow", {
+            element: element[0]
+        });
     },
 
     setPosition: function(){
@@ -9975,7 +11705,12 @@ var Hint = {
         var timeout = options.onHintHide === Metro.noop ? 0 : 300;
 
         if (hint !== null) {
-            Utils.exec(options.onHintHide, [hint, element]);
+
+            Utils.exec(options.onHintHide, [element[0]], hint[0]);
+            element.fire("hinthide", {
+                element: element[0]
+            });
+
             setTimeout(function(){
                 hint.hide(0, function(){
                     hint.remove();
@@ -10006,13 +11741,34 @@ var Hint = {
 
 Metro.plugin('hint', Hint);
 
-// Source: js/plugins/info-box.js
-var InfoBox = {
+// Source: js/plugins/html-container.js
+
+// TODO source as array, mode as array
+
+var HtmlContainerDefaultConfig = {
+    method: "get",
+    htmlSource: null,
+    requestData: null,
+    insertMode: "replace", // replace, append, prepend
+    onHtmlLoad: Metro.noop,
+    onHtmlLoadFail: Metro.noop,
+    onHtmlLoadDone: Metro.noop,
+    onHtmlContainerCreate: Metro.noop
+};
+
+Metro.htmlContainerSetup = function (options) {
+    HtmlContainerDefaultConfig = $.extend({}, HtmlContainerDefaultConfig, options);
+};
+
+if (typeof window.metroHtmlContainerSetup !== undefined) {
+    Metro.htmlContainerSetup(window.metroHtmlContainerSetup);
+}
+
+var HtmlContainer = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, HtmlContainerDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
-        this.overlay = null;
 
         this._setOptionsFromDOM();
         this._create();
@@ -10020,22 +11776,151 @@ var InfoBox = {
         return this;
     },
 
-    options: {
-        type: "",
-        width: 480,
-        height: "auto",
-        overlay: true,
-        overlayColor: '#000000',
-        overlayAlpha: .5,
-        autoHide: 0,
-        removeOnClose: false,
-        closeButton: true,
-        clsBox: "",
-        clsBoxContent: "",
-        clsOverlay: "",
-        onOpen: Metro.noop,
-        onClose: Metro.noop,
-        onInfoBoxCreate: Metro.noop
+    _setOptionsFromDOM: function(){
+        var element = this.element, o = this.options;
+
+        $.each(element.data(), function(key, value){
+            if (key in o) {
+                try {
+                    o[key] = JSON.parse(value);
+                } catch (e) {
+                    o[key] = value;
+                }
+            }
+        });
+    },
+
+    _create: function(){
+        var element = this.element, o = this.options;
+
+        if (Utils.isValue(o.htmlSource)) {
+            this._load();
+        }
+
+        o.method = o.method.toLowerCase();
+
+        Utils.exec(o.onHtmlContainerCreate, null, element[0]);
+        element.fire("htmlcontainercreate");
+    },
+
+    _load: function(){
+        var element = this.element, o = this.options;
+        var data = element.attr("data-request-data");
+
+        if (!Utils.isValue(o.requestData)) {
+            data = {};
+        }
+
+        $[o.method](o.htmlSource, data, function(data){
+            switch (o.insertMode.toLowerCase()) {
+                case "prepend": element.prepend(data); break;
+                case "append": element.append(data); break;
+                default: {
+                    element.html(data);
+                }
+            }
+            Utils.exec(o.onHtmlLoad, [data, o.htmlSource], element[0]);
+            element.fire("htmlload", {
+                data: data,
+                source: o.htmlSource
+            });
+        })
+        .fail(function(xhr){
+            Utils.exec(o.onHtmlLoadFail, [xhr], element[0]);
+            element.fire("htmlloadfail", {
+                xhr: xhr
+            });
+        })
+        .always(function(xhr){
+            Utils.exec(o.onHtmlLoadDone, [xhr], element[0]);
+            element.fire("htmlloaddone", {
+                xhr: xhr
+            });
+        });
+    },
+
+    load: function(source, data){
+        var o = this.options;
+        if (source) {
+            o.htmlSource = source;
+        }
+        if (data) {
+            if (typeof data === 'string') {
+                o.requestData = JSON.parse(data);
+            } else {
+                o.requestData = data;
+            }
+        }
+        this._load();
+    },
+
+    changeAttribute: function(attributeName){
+        var that = this, element = this.element, o = this.options;
+
+        var changeHTMLSource = function(){
+            var html = element.attr("data-html-source");
+            if (Utils.isNull(html)) {
+                return ;
+            }
+            if (html.trim() === "") {
+                element.html("");
+            }
+            o.htmlSource = html;
+            that._load();
+        };
+
+        var changeInsertMode = function(){
+            var attr = element.attr("data-insert-mode");
+            if (Utils.isValue(attr)) {
+                o.insertMode = attr;
+            }
+        };
+
+        var changeRequestData = function(){
+            var data = element.attr("data-request-data");
+            that.load(o.htmlSource, data);
+        };
+
+        switch (attributeName) {
+            case "data-html-source": changeHTMLSource(); break;
+            case "data-insert-mode": changeInsertMode(); break;
+            case "data-request-data": changeRequestData(); break;
+        }
+    },
+
+    destroy: function(){}
+};
+
+Metro.plugin('htmlcontainer', HtmlContainer);
+
+// Source: js/plugins/image-comparer.js
+
+var ImageCompareDefaultConfig = {
+    width: "100%",
+    height: "auto",
+    onResize: Metro.noop,
+    onSliderMove: Metro.noop,
+    onImageCompareCreate: Metro.noop
+};
+
+Metro.imageCompareSetup = function (options) {
+    ImageCompareDefaultConfig = $.extend({}, ImageCompareDefaultConfig, options);
+};
+
+if (typeof window.metroImageCompareSetup !== undefined) {
+    Metro.imageCompareSetup(window.metroImageCompareSetup);
+}
+
+var ImageCompare = {
+    init: function( options, elem ) {
+        this.options = $.extend( {}, ImageCompareDefaultConfig, options );
+        this.elem  = elem;
+        this.element = $(elem);
+
+        this._setOptionsFromDOM();
+        this._create();
+
+        return this;
     },
 
     _setOptionsFromDOM: function(){
@@ -10058,7 +11943,462 @@ var InfoBox = {
         this._createStructure();
         this._createEvents();
 
-        Utils.exec(o.onInfoBoxCreate, [element], element[0]);
+        Utils.exec(o.onImageCompareCreate, null, element[0]);
+        element.fire("imagecomparecreate");
+    },
+
+    _createStructure: function(){
+        var that = this, element = this.element, o = this.options;
+        var container, container_overlay, slider;
+        var images, element_width, element_height;
+
+        if (!Utils.isValue(element.attr("id"))) {
+            element.attr("id", Utils.elementId("image-compare"));
+        }
+
+        element.addClass("image-compare").css({
+            width: o.width
+        });
+
+        element_width = element.width();
+
+        switch (o.height) {
+            case "16/9": element_height = Utils.aspectRatioH(element_width, o.height); break;
+            case "21/9": element_height = Utils.aspectRatioH(element_width, o.height); break;
+            case "4/3": element_height = Utils.aspectRatioH(element_width, o.height); break;
+            case "auto": element_height = Utils.aspectRatioH(element_width, "16/9"); break;
+            default: element_height = o.height;
+        }
+
+        element.css({
+            height: element_height
+        });
+
+        container = $("<div>").addClass("image-container").appendTo(element);
+        container_overlay = $("<div>").addClass("image-container-overlay").appendTo(element).css({
+            width: element_width / 2
+        });
+
+        slider = $("<div>").addClass("image-slider").appendTo(element);
+        slider.css({
+            top: element_height / 2 - slider.height() / 2,
+            left: element_width / 2 - slider.width() / 2
+        });
+
+        images = element.find("img");
+
+        $.each(images, function(i, v){
+            var img = $("<div>").addClass("image-wrapper");
+            img.css({
+                width: element_width,
+                height: element_height,
+                backgroundImage: "url("+this.src+")"
+            });
+            img.appendTo(i === 0 ? container : container_overlay);
+        });
+    },
+
+    _createEvents: function(){
+        var that = this, element = this.element, o = this.options;
+
+        var overlay = element.find(".image-container-overlay");
+        var slider = element.find(".image-slider");
+
+        slider.on(Metro.events.start, function(e){
+            var w = element.width();
+            $(document).on(Metro.events.move + "-" + element.attr("id"), function(e){
+                var x = Utils.getCursorPositionX(element, e), left_pos;
+                if (x < 0) x = 0;
+                if (x > w) x = w;
+                overlay.css({
+                    width: x
+                });
+                left_pos = x - slider.width() / 2;
+                slider.css({
+                    left: left_pos
+                });
+                Utils.exec(o.onSliderMove, [x, left_pos], slider[0]);
+                element.fire("slidermove", {
+                    x: x,
+                    l: left_pos
+                });
+            });
+            $(document).on(Metro.events.stop + "-" + element.attr("id"), function(){
+                $(document).off(Metro.events.move + "-" + element.attr("id"));
+                $(document).off(Metro.events.stop + "-" + element.attr("id"));
+            })
+        });
+
+        $(window).on(Metro.events.resize+"-"+element.attr("id"), function(){
+            var element_width = element.width(), element_height;
+
+            if (o.width !== "100%") {
+                return ;
+            }
+
+            switch (o.height) {
+                case "16/9": element_height = Utils.aspectRatioH(element_width, o.height); break;
+                case "21/9": element_height = Utils.aspectRatioH(element_width, o.height); break;
+                case "4/3": element_height = Utils.aspectRatioH(element_width, o.height); break;
+                case "auto": element_height = Utils.aspectRatioH(element_width, "16/9"); break;
+                default: element_height = o.height;
+            }
+
+            element.css({
+                height: element_height
+            });
+
+            $.each(element.find(".image-wrapper"), function(){
+                $(this).css({
+                    width: element_width,
+                    height: element_height
+                })
+            });
+
+            element.find(".image-container-overlay").css({
+                width: element_width / 2
+            });
+
+            slider.css({
+                top: element_height / 2 - slider.height() / 2,
+                left: element_width / 2 - slider.width() / 2
+            });
+
+            Utils.exec(o.onResize, [element_width, element_height], element[0]);
+            element.fire("resize", {
+                width: element_width,
+                height: element_height
+            });
+        });
+    },
+
+    changeAttribute: function(attributeName){
+
+    },
+
+    destroy: function(){
+        var element = this.element;
+
+        element.off(Metro.events.start);
+        $(window).off(Metro.events.resize+"-"+element.attr("id"));
+    }
+};
+
+Metro.plugin('imagecompare', ImageCompare);
+
+// Source: js/plugins/image-magnifier.js
+
+var ImageMagnifierDefaultConfig = {
+    width: "100%",
+    height: "auto",
+    lensSize: 100,
+    lensType: "square", // square, circle
+    magnifierZoom: 2,
+    magnifierMode: "glass", // glass, zoom
+    magnifierZoomElement: null,
+
+    clsMagnifier: "",
+    clsLens: "",
+    clsZoom: "",
+
+    onMagnifierMove: Metro.noop,
+    onImageMagnifierCreate: Metro.noop
+};
+
+Metro.imageMagnifierSetup = function (options) {
+    ImageMagnifierDefaultConfig = $.extend({}, ImageMagnifierDefaultConfig, options);
+};
+
+if (typeof window.metroImageMagnifierSetup !== undefined) {
+    Metro.imageMagnifierSetup(window.metroImageMagnifierSetup);
+}
+
+var ImageMagnifier = {
+    init: function( options, elem ) {
+        this.options = $.extend( {}, ImageMagnifierDefaultConfig, options );
+        this.elem  = elem;
+        this.element = $(elem);
+        this.zoomElement = null;
+
+        this._setOptionsFromDOM();
+        this._create();
+
+        return this;
+    },
+
+    _setOptionsFromDOM: function(){
+        var element = this.element, o = this.options;
+
+        $.each(element.data(), function(key, value){
+            if (key in o) {
+                try {
+                    o[key] = JSON.parse(value);
+                } catch (e) {
+                    o[key] = value;
+                }
+            }
+        });
+    },
+
+    _create: function(){
+        var element = this.element, o = this.options;
+
+        this._createStructure();
+        this._createEvents();
+
+        Utils.exec(o.onImageMagnifierCreate, null, element[0]);
+        element.fire("imagemagnifiercreate");
+    },
+
+    _createStructure: function(){
+        var element = this.element, o = this.options;
+        var magnifier, element_width, element_height;
+        var image = element.find("img");
+
+        if (image.length === 0) {
+            throw new Error("Image not defined");
+        }
+
+        if (!Utils.isValue(element.attr("id"))) {
+            element.attr("id", Utils.elementId("image-magnifier"));
+        }
+
+        element.addClass("image-magnifier").css({
+            width: o.width
+        }).addClass(o.clsMagnifier);
+
+        element_width = element.width();
+
+        switch (o.height) {
+            case "16/9": element_height = Utils.aspectRatioH(element_width, o.height); break;
+            case "21/9": element_height = Utils.aspectRatioH(element_width, o.height); break;
+            case "4/3": element_height = Utils.aspectRatioH(element_width, o.height); break;
+            case "auto": element_height = Utils.aspectRatioH(element_width, "16/9"); break;
+            default: element_height = o.height;
+        }
+
+        element.css({
+            height: element_height
+        });
+
+        var x = element_width / 2 - o.lensSize / 2;
+        var y = element_height / 2 - o.lensSize / 2;
+
+        if (o.magnifierMode === "glass") {
+
+            magnifier = $("<div>").addClass("image-magnifier-glass").appendTo(element);
+            magnifier.css({
+                width: o.lensSize,
+                height: o.lensSize,
+                borderRadius: o.lensType !== "circle" ? 0 : "50%",
+                top: y,
+                left: x,
+                backgroundImage: "url(" + image[0].src + ")",
+                backgroundRepeat: "no-repeat",
+                backgroundPosition: "-" + ((x * o.magnifierZoom) - o.lensSize / 4 + 4) + "px -" + ((y * o.magnifierZoom) - o.lensSize / 4 + 4) + "px",
+                backgroundSize: (image[0].width * o.magnifierZoom) + "px " + (image[0].height * o.magnifierZoom) + "px"
+            }).addClass(o.clsLens);
+
+        } else {
+
+            magnifier = $("<div>").addClass("image-magnifier-glass").appendTo(element);
+            magnifier.css({
+                width: o.lensSize,
+                height: o.lensSize,
+                borderRadius: 0,
+                borderWidth: 1,
+                top: y,
+                left: x
+            }).addClass(o.clsLens);
+
+            if (!Utils.isValue(o.magnifierZoomElement) || $(o.magnifierZoomElement).length === 0) {
+                this.zoomElement = $("<div>").insertAfter(element);
+            } else {
+                this.zoomElement = $(o.magnifierZoomElement);
+            }
+
+            var zoom_element_width = magnifier[0].offsetWidth * o.magnifierZoom;
+            var zoom_element_height = magnifier[0].offsetHeight * o.magnifierZoom;
+            var cx = zoom_element_width / o.lensSize;
+            var cy = zoom_element_height / o.lensSize;
+
+            this.zoomElement.css({
+                width: zoom_element_width,
+                height: zoom_element_height,
+                backgroundImage: "url(" + image[0].src + ")",
+                backgroundRepeat: "no-repeat",
+                backgroundPosition: "-" + (x * cx) + "px -" + (y * cy) + "px",
+                backgroundSize: (image[0].width * cx) + "px " + (image[0].height * cy) + "px"
+            }).addClass(o.clsZoom);
+        }
+    },
+
+    _createEvents: function(){
+        var element = this.element, o = this.options;
+        var glass = element.find(".image-magnifier-glass");
+        var glass_size = glass[0].offsetWidth / 2;
+        var image = element.find("img")[0];
+        var zoomElement = this.zoomElement;
+        var cx, cy;
+
+        if (o.magnifierMode !== "glass") {
+            cx = zoomElement[0].offsetWidth / glass_size / 2;
+            cy = zoomElement[0].offsetHeight / glass_size / 2;
+
+            zoomElement.css({
+                backgroundSize: (image.width * cx) + "px " + (image.height * cy) + "px"
+            });
+        }
+
+        var lens_move = function(pos){
+            var x, y;
+            var magic = 4, zoom = parseInt(o.magnifierZoom);
+
+            if (o.magnifierMode === "glass") {
+
+                x = pos.x;
+                y = pos.y;
+
+                if (x > image.width - (glass_size / zoom)) {
+                    x = image.width - (glass_size / zoom);
+                }
+                if (x < glass_size / zoom) {
+                    x = glass_size / zoom;
+                }
+                if (y > image.height - (glass_size / zoom)) {
+                    y = image.height - (glass_size / zoom);
+                }
+                if (y < glass_size / zoom) {
+                    y = glass_size / zoom;
+                }
+
+                glass.css({
+                    top: y - glass_size,
+                    left: x - glass_size,
+                    backgroundPosition: "-" + ((x * zoom) - glass_size + magic) + "px -" + ((y * zoom) - glass_size + magic) + "px"
+                });
+            } else {
+
+                x = pos.x - (glass_size);
+                y = pos.y - (glass_size);
+
+                if (x > image.width - glass_size * 2) {x = image.width - glass_size * 2;}
+                if (x < 0) {x = 0;}
+                if (y > image.height - glass_size * 2) {y = image.height - glass_size * 2;}
+                if (y < 0) {y = 0;}
+
+                glass.css({
+                    top: y,
+                    left: x
+                });
+
+                zoomElement.css({
+                    backgroundPosition: "-" + (x * cx) + "px -" + (y * cy) + "px"
+                });
+            }
+        };
+
+        element.on(Metro.events.move, function(e){
+            var pos = Utils.getCursorPosition(image, e);
+
+            lens_move(pos);
+
+            Utils.exec(o.onMagnifierMove, [pos, glass[0], zoomElement ? zoomElement[0] : undefined], element[0]);
+            element.fire("magnifiermove", {
+                pos: pos,
+                glass: glass[0],
+                zoomElement: zoomElement ? zoomElement[0] : undefined
+            });
+
+            e.preventDefault();
+        });
+
+        element.on(Metro.events.leave, function(){
+            var x = element.width() / 2 - o.lensSize / 2;
+            var y = element.height() / 2 - o.lensSize / 2;
+
+            glass.animate({
+                top: y, left: x
+            });
+
+            lens_move({
+                x: x + o.lensSize / 2, y: y + o.lensSize / 2
+            });
+        });
+    },
+
+    changeAttribute: function(attributeName){
+
+    },
+
+    destroy: function(){}
+};
+
+Metro.plugin('imagemagnifier', ImageMagnifier);
+
+// Source: js/plugins/info-box.js
+
+var InfoBoxDefaultConfig = {
+    type: "",
+    width: 480,
+    height: "auto",
+    overlay: true,
+    overlayColor: '#000000',
+    overlayAlpha: .5,
+    autoHide: 0,
+    removeOnClose: false,
+    closeButton: true,
+    clsBox: "",
+    clsBoxContent: "",
+    clsOverlay: "",
+    onOpen: Metro.noop,
+    onClose: Metro.noop,
+    onInfoBoxCreate: Metro.noop
+};
+
+Metro.infoBoxSetup = function (options) {
+    InfoBoxDefaultConfig = $.extend({}, InfoBoxDefaultConfig, options);
+};
+
+if (typeof window.metroInfoBoxSetup !== undefined) {
+    Metro.infoBoxSetup(window.metroInfoBoxSetup);
+}
+
+var InfoBox = {
+    init: function( options, elem ) {
+        this.options = $.extend( {}, InfoBoxDefaultConfig, options );
+        this.elem  = elem;
+        this.element = $(elem);
+        this.overlay = null;
+
+        this._setOptionsFromDOM();
+        this._create();
+
+        return this;
+    },
+
+    _setOptionsFromDOM: function(){
+        var that = this, element = this.element, o = this.options;
+
+        $.each(element.data(), function(key, value){
+            if (key in o) {
+                try {
+                    o[key] = JSON.parse(value);
+                } catch (e) {
+                    o[key] = value;
+                }
+            }
+        });
+    },
+
+    _create: function(){
+        var that = this, element = this.element, o = this.options;
+
+        this._createStructure();
+        this._createEvents();
+
+        Utils.exec(o.onInfoBoxCreate, null, element[0]);
+        element.fire("infoboxcreate");
     },
 
     _overlay: function(){
@@ -10174,7 +12514,9 @@ var InfoBox = {
             visibility: "visible"
         });
 
-        Utils.exec(o.onOpen, [element], element[0]);
+        Utils.exec(o.onOpen, null, element[0]);
+        element.fire("open");
+
         element.data("open", true);
         if (parseInt(o.autoHide) > 0) {
             setTimeout(function(){
@@ -10195,7 +12537,9 @@ var InfoBox = {
             top: "100%"
         });
 
-        Utils.exec(o.onClose, [element], element[0]);
+        Utils.exec(o.onClose, null, element[0]);
+        element.fire("close");
+
         element.data("open", false);
 
         if (o.removeOnClose === true) {
@@ -10306,10 +12650,36 @@ Metro['infobox'] = {
     }
 };
 
-// Source: js/plugins/input.js
-var Input = {
+// Source: js/plugins/input-material.js
+
+var MaterialInputDefaultConfig = {
+    label: "",
+    informer: "",
+    icon: "",
+
+    permanentLabel: false,
+
+    clsComponent: "",
+    clsInput: "",
+    clsLabel: "",
+    clsInformer: "",
+    clsIcon: "",
+    clsLine: "",
+
+    onInputCreate: Metro.noop
+};
+
+Metro.materialInputSetup = function (options) {
+    MaterialInputDefaultConfig = $.extend({}, MaterialInputDefaultConfig, options);
+};
+
+if (typeof window.metroMaterialInputSetup !== undefined) {
+    Metro.materialInputSetup(window.metroMaterialInputSetup);
+}
+
+var MaterialInput = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, MaterialInputDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
         this.history = [];
@@ -10318,35 +12688,7 @@ var Input = {
         this._setOptionsFromDOM();
         this._create();
 
-        Utils.exec(this.options.onInputCreate, [this.element]);
-
         return this;
-    },
-    options: {
-        history: false,
-        historyPreset: "",
-        preventSubmit: false,
-        defaultValue: "",
-        clsElement: "",
-        clsInput: "",
-        clsPrepend: "",
-        clsAppend: "",
-        clsClearButton: "",
-        clsRevealButton: "",
-        size: "default",
-        prepend: "",
-        append: "",
-        copyInlineStyles: true,
-        clearButton: true,
-        revealButton: true,
-        clearButtonIcon: "<span class='default-icon-cross'></span>",
-        revealButtonIcon: "<span class='default-icon-eye'></span>",
-        customButtons: [],
-        disabled: false,
-        onHistoryChange: Metro.noop,
-        onHistoryUp: Metro.noop,
-        onHistoryDown: Metro.noop,
-        onInputCreate: Metro.noop
     },
 
     _setOptionsFromDOM: function(){
@@ -10364,8 +12706,189 @@ var Input = {
     },
 
     _create: function(){
+        var element = this.element, o = this.options;
+
         this._createStructure();
         this._createEvents();
+
+        Utils.exec(o.onInputCreate, null, element[0]);
+        element.fire("inputcreate");
+    },
+
+    _createStructure: function(){
+        var element = this.element, o = this.options;
+        var container = $("<div>").addClass("input-material " + element[0].className);
+
+        element[0].className = "";
+        element.attr("autocomplete", "nope");
+
+        if (element.attr("type") === undefined) {
+            element.attr("type", "text");
+        }
+
+        container.insertBefore(element);
+        element.appendTo(container);
+
+        if (Utils.isValue(o.label)) {
+            $("<span>").html(o.label).addClass("label").addClass(o.clsLabel).insertAfter(element);
+        }
+        if (Utils.isValue(o.informer)) {
+            $("<span>").html(o.informer).addClass("informer").addClass(o.clsInformer).insertAfter(element);
+        }
+        if (Utils.isValue(o.icon)) {
+            container.addClass("with-icon");
+            $("<span>").html(o.icon).addClass("icon").addClass(o.clsIcon).insertAfter(element);
+        }
+
+        container.append($("<hr>").addClass(o.clsLine));
+
+        if (o.permanentLabel === true) {
+            container.addClass("permanent-label");
+        }
+
+        container.addClass(o.clsComponent);
+        element.addClass(o.clsInput);
+
+        if (element.is(":disabled")) {
+            this.disable();
+        } else {
+            this.enable();
+        }
+    },
+
+    _createEvents: function(){
+
+    },
+
+    clear: function(){
+        this.element.val('');
+    },
+
+    disable: function(){
+        this.element.data("disabled", true);
+        this.element.parent().addClass("disabled");
+    },
+
+    enable: function(){
+        this.element.data("disabled", false);
+        this.element.parent().removeClass("disabled");
+    },
+
+    toggleState: function(){
+        if (this.elem.disabled) {
+            this.disable();
+        } else {
+            this.enable();
+        }
+    },
+
+    changeAttribute: function(attributeName){
+        switch (attributeName) {
+            case 'disabled': this.toggleState(); break;
+        }
+    },
+
+    destroy: function(){
+        var element = this.element;
+        var parent = element.parent();
+
+        element.insertBefore(parent);
+        parent.remove();
+    }
+};
+
+Metro.plugin('materialinput', MaterialInput);
+
+// Source: js/plugins/input.js
+
+var InputDefaultConfig = {
+    autocomplete: null,
+    autocompleteDivider: ",",
+    autocompleteListHeight: 200,
+
+    history: false,
+    historyPreset: "",
+    historyDivider: "|",
+    preventSubmit: false,
+    defaultValue: "",
+    size: "default",
+    prepend: "",
+    append: "",
+    copyInlineStyles: true,
+    searchButton: false,
+    clearButton: true,
+    revealButton: true,
+    clearButtonIcon: "<span class='default-icon-cross'></span>",
+    revealButtonIcon: "<span class='default-icon-eye'></span>",
+    searchButtonIcon: "<span class='default-icon-search'></span>",
+    customButtons: [],
+    searchButtonClick: 'submit',
+
+    clsComponent: "",
+    clsInput: "",
+    clsPrepend: "",
+    clsAppend: "",
+    clsClearButton: "",
+    clsRevealButton: "",
+    clsCustomButton: "",
+    clsSearchButton: "",
+
+    onHistoryChange: Metro.noop,
+    onHistoryUp: Metro.noop,
+    onHistoryDown: Metro.noop,
+    onClearClick: Metro.noop,
+    onRevealClick: Metro.noop,
+    onSearchButtonClick: Metro.noop,
+    onEnterClick: Metro.noop,
+    onInputCreate: Metro.noop
+};
+
+Metro.inputSetup = function (options) {
+    InputDefaultConfig = $.extend({}, InputDefaultConfig, options);
+};
+
+if (typeof window.metroInputSetup !== undefined) {
+    Metro.inputSetup(window.metroInputSetup);
+}
+
+var Input = {
+    init: function( options, elem ) {
+        this.options = $.extend( {}, InputDefaultConfig, options );
+        this.elem  = elem;
+        this.element = $(elem);
+        this.history = [];
+        this.historyIndex = -1;
+        this.autocomplete = [];
+
+        this._setOptionsFromDOM();
+        this._create();
+
+        return this;
+    },
+
+    _setOptionsFromDOM: function(){
+        var element = this.element, o = this.options;
+
+        $.each(element.data(), function(key, value){
+            if (key in o) {
+                try {
+                    o[key] = JSON.parse(value);
+                } catch (e) {
+                    o[key] = value;
+                }
+            }
+        });
+    },
+
+    _create: function(){
+        var that = this, element = this.element, o = this.options;
+
+        this._createStructure();
+        this._createEvents();
+
+        Utils.exec(o.onInputCreate, null, element[0]);
+
+        element.fire("inputcreate");
     },
 
     _createStructure: function(){
@@ -10374,10 +12897,10 @@ var Input = {
         var parent = element.parent();
         var container = $("<div>").addClass("input " + element[0].className);
         var buttons = $("<div>").addClass("button-group");
-        var clearButton, revealButton;
+        var clearButton, revealButton, searchButton;
 
         if (Utils.isValue(o.historyPreset)) {
-            $.each(Utils.strToArray(o.historyPreset, ","), function(){
+            $.each(Utils.strToArray(o.historyPreset, o.historyDivider), function(){
                 that.history.push(this);
             });
             that.historyIndex = that.history.length - 1;
@@ -10400,18 +12923,27 @@ var Input = {
             element.val(o.defaultValue);
         }
 
-        if (o.clearButton !== false) {
+        if (o.clearButton === true) {
             clearButton = $("<button>").addClass("button input-clear-button").addClass(o.clsClearButton).attr("tabindex", -1).attr("type", "button").html(o.clearButtonIcon);
             clearButton.appendTo(buttons);
         }
-        if (element.attr('type') === 'password' && o.revealButton !== false) {
+        if (element.attr('type') === 'password' && o.revealButton === true) {
             revealButton = $("<button>").addClass("button input-reveal-button").addClass(o.clsRevealButton).attr("tabindex", -1).attr("type", "button").html(o.revealButtonIcon);
             revealButton.appendTo(buttons);
         }
+        if (o.searchButton === true) {
+            searchButton = $("<button>").addClass("button input-search-button").addClass(o.clsSearchButton).attr("tabindex", -1).attr("type", o.searchButtonClick === 'submit' ? "submit" : "button").html(o.searchButtonIcon);
+            searchButton.appendTo(buttons);
+        }
 
         if (o.prepend !== "") {
-            var prepend = Utils.isTag(o.prepend) ? $(o.prepend) : $("<span>"+o.prepend+"</span>");
+            var prepend = $("<div>").html(o.prepend);
             prepend.addClass("prepend").addClass(o.clsPrepend).appendTo(container);
+        }
+
+        if (o.append !== "") {
+            var append = $("<div>").html(o.append);
+            append.addClass("append").addClass(o.clsAppend).appendTo(container);
         }
 
         if (typeof o.customButtons === "string") {
@@ -10421,15 +12953,20 @@ var Input = {
         if (typeof o.customButtons === "object" && Utils.objectLength(o.customButtons) > 0) {
             $.each(o.customButtons, function(){
                 var item = this;
-                var customButton = $("<button>").addClass("button input-custom-button").addClass(item.cls).attr("tabindex", -1).attr("type", "button").html(item.html);
+                var customButton = $("<button>");
+
+                customButton
+                    .addClass("button input-custom-button")
+                    .addClass(o.clsCustomButton)
+                    .addClass(item.cls)
+                    .attr("tabindex", -1)
+                    .attr("type", "button")
+                    .html(item.html);
+
                 customButton.data("action", item.onclick);
+
                 customButton.appendTo(buttons);
             });
-        }
-
-        if (o.append !== "") {
-            var append = Utils.isTag(o.append) ? $(o.append) : $("<span>"+o.append+"</span>");
-            append.addClass("append").addClass(o.clsAppend).appendTo(container);
         }
 
         if (element.attr('dir') === 'rtl' ) {
@@ -10443,7 +12980,7 @@ var Input = {
             }
         }
 
-        container.addClass(o.clsElement);
+        container.addClass(o.clsComponent);
         element.addClass(o.clsInput);
 
         if (o.size !== "default") {
@@ -10452,7 +12989,22 @@ var Input = {
             });
         }
 
-        if (o.disabled === true || element.is(":disabled")) {
+        if (!Utils.isNull(o.autocomplete)) {
+
+            var autocomplete_obj = Utils.isObject(o.autocomplete);
+
+            if (autocomplete_obj !== false) {
+                that.autocomplete = autocomplete_obj;
+            } else {
+                this.autocomplete = Utils.strToArray(o.autocomplete, o.autocompleteDivider);
+            }
+            $("<div>").addClass("autocomplete-list").css({
+                maxHeight: o.autocompleteListHeight,
+                display: "none"
+            }).appendTo(container);
+        }
+
+        if (element.is(":disabled")) {
             this.disable();
         } else {
             this.enable();
@@ -10462,13 +13014,41 @@ var Input = {
     _createEvents: function(){
         var that = this, element = this.element, o = this.options;
         var container = element.closest(".input");
+        var autocompleteList = container.find(".autocomplete-list");
 
         container.on(Metro.events.click, ".input-clear-button", function(){
+            var curr = element.val();
             element.val(Utils.isValue(o.defaultValue) ? o.defaultValue : "").trigger('change').trigger('keyup').focus();
+            if (autocompleteList.length > 0) {
+                autocompleteList.css({
+                    display: "none"
+                })
+            }
+            Utils.exec(o.onClearClick, [curr, element.val()], element[0]);
+            element.fire("clearclick", {
+                prev: curr,
+                val: element.val()
+            });
         });
 
         container.on(Metro.events.start, ".input-reveal-button", function(){
             element.attr('type', 'text');
+            Utils.exec(o.onRevealClick, [element.val()], element[0]);
+            element.fire("revealclick", {
+                val: element.val()
+            });
+        });
+
+        container.on(Metro.events.start, ".input-search-button", function(){
+            if (o.searchButtonClick !== 'submit') {
+                Utils.exec(o.onSearchButtonClick, [element.val()], this);
+                element.fire("searchbuttonclick", {
+                    val: element.val(),
+                    button: this
+                });
+            } else {
+                this.form.submit();
+            }
         });
 
         container.on(Metro.events.stop, ".input-reveal-button", function(){
@@ -10489,6 +13069,11 @@ var Input = {
                 that.history.push(val);
                 that.historyIndex = that.history.length - 1;
                 Utils.exec(o.onHistoryChange, [val, that.history, that.historyIndex], element[0]);
+                element.fire("historychange", {
+                    val: val,
+                    history: that.history,
+                    historyIndex: that.historyIndex
+                });
                 if (o.preventSubmit === true) {
                     e.preventDefault();
                 }
@@ -10500,6 +13085,11 @@ var Input = {
                     element.val("");
                     element.val(that.history[that.historyIndex]);
                     Utils.exec(o.onHistoryDown, [element.val(), that.history, that.historyIndex], element[0]);
+                    element.fire("historydown", {
+                        val: element.val(),
+                        history: that.history,
+                        historyIndex: that.historyIndex
+                    });
                 } else {
                     that.historyIndex = 0;
                 }
@@ -10512,6 +13102,11 @@ var Input = {
                     element.val("");
                     element.val(that.history[that.historyIndex]);
                     Utils.exec(o.onHistoryUp, [element.val(), that.history, that.historyIndex], element[0]);
+                    element.fire("historyup", {
+                        val: element.val(),
+                        history: that.history,
+                        historyIndex: that.historyIndex
+                    });
                 } else {
                     that.historyIndex = that.history.length - 1;
                 }
@@ -10519,8 +13114,98 @@ var Input = {
             }
         });
 
-        element.on(Metro.events.blur, function(){container.removeClass("focused");});
-        element.on(Metro.events.focus, function(){container.addClass("focused");});
+        element.on(Metro.events.keydown, function(e){
+            if (e.keyCode === Metro.keyCode.ENTER) {
+                Utils.exec(o.onEnterClick, [element.val()], element[0]);
+                element.fire("enterclick", {
+                    val: element.val()
+                });
+            }
+        });
+
+        element.on(Metro.events.blur, function(){
+            container.removeClass("focused");
+        });
+
+        element.on(Metro.events.focus, function(){
+            container.addClass("focused");
+        });
+
+        element.on(Metro.events.input, function(){
+            var val = this.value.toLowerCase();
+            var items;
+
+            if (autocompleteList.length === 0) {
+                return;
+            }
+
+            autocompleteList.html("");
+
+            items = that.autocomplete.filter(function(item){
+                return item.toLowerCase().indexOf(val) > -1;
+            });
+
+            autocompleteList.css({
+                display: items.length > 0 ? "block" : "none"
+            });
+
+            $.each(items, function(i, v){
+                var index = v.toLowerCase().indexOf(val);
+                var item = $("<div>").addClass("item").attr("data-autocomplete-value", v);
+                var html;
+
+                if (index === 0) {
+                    html = "<strong>"+v.substr(0, val.length)+"</strong>"+v.substr(val.length);
+                } else {
+                    html = v.substr(0, index) + "<strong>"+v.substr(index, val.length)+"</strong>"+v.substr(index + val.length);
+                }
+                item.html(html).appendTo(autocompleteList);
+            })
+        });
+
+        container.on(Metro.events.click, ".autocomplete-list .item", function(){
+            element.val($(this).attr("data-autocomplete-value"));
+            autocompleteList.css({
+                display: "none"
+            });
+            element.trigger("change");
+        });
+    },
+
+    getHistory: function(){
+        return this.history;
+    },
+
+    getHistoryIndex: function(){
+        return this.historyIndex;
+    },
+
+    setHistoryIndex: function(val){
+        this.historyIndex = val >= this.history.length ? this.history.length - 1 : val;
+    },
+
+    setHistory: function(history, append) {
+        var that = this, o = this.options;
+        if (Utils.isNull(history)) return;
+        if (!Array.isArray(history)) {
+            history = Utils.strToArray(history, o.historyDivider);
+        }
+        if (append === true) {
+            $.each(history, function () {
+                that.history.push(this);
+            })
+        } else{
+            this.history = history;
+        }
+        this.historyIndex = this.history.length - 1;
+    },
+
+    clear: function(){
+        this.element.val('');
+    },
+
+    toDefault: function(){
+        this.element.val(Utils.isValue(this.options.defaultValue) ? this.options.defaultValue : "");
     },
 
     disable: function(){
@@ -10534,7 +13219,7 @@ var Input = {
     },
 
     toggleState: function(){
-        if (this.element.data("disabled") === false) {
+        if (this.elem.disabled) {
             this.disable();
         } else {
             this.enable();
@@ -10575,10 +13260,55 @@ var Input = {
 
 Metro.plugin('input', Input);
 
+$(document).on(Metro.events.click, function(e){
+    $('.input .autocomplete-list').hide();
+});
+
+
 // Source: js/plugins/keypad.js
+
+var KeypadDefaultConfig = {
+    keySize: 32,
+    keys: "1, 2, 3, 4, 5, 6, 7, 8, 9, 0",
+    copyInlineStyles: false,
+    target: null,
+    length: 0,
+    shuffle: false,
+    shuffleCount: 3,
+    position: Metro.position.BOTTOM_LEFT, //top-left, top, top-right, right, bottom-right, bottom, bottom-left, left
+    dynamicPosition: false,
+    serviceButtons: true,
+    showValue: true,
+    open: false,
+    sizeAsKeys: false,
+
+    clsKeypad: "",
+    clsInput: "",
+    clsKeys: "",
+    clsKey: "",
+    clsServiceKey: "",
+    clsBackspace: "",
+    clsClear: "",
+
+    onChange: Metro.noop,
+    onClear: Metro.noop,
+    onBackspace: Metro.noop,
+    onShuffle: Metro.noop,
+    onKey: Metro.noop,
+    onKeypadCreate: Metro.noop
+};
+
+Metro.keypadSetup = function (options) {
+    KeypadDefaultConfig = $.extend({}, KeypadDefaultConfig, options);
+};
+
+if (typeof window.metroKeypadSetup !== undefined) {
+    Metro.keypadSetup(window.metroKeypadSetup);
+}
+
 var Keypad = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, KeypadDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
         this.value = "";
@@ -10593,37 +13323,6 @@ var Keypad = {
         this._create();
 
         return this;
-    },
-
-    options: {
-        keySize: 32,
-        keys: "1, 2, 3, 4, 5, 6, 7, 8, 9, 0",
-        copyInlineStyles: false,
-        target: null,
-        length: 0,
-        shuffle: false,
-        shuffleCount: 3,
-        position: Metro.position.BOTTOM_LEFT, //top-left, top, top-right, right, bottom-right, bottom, bottom-left, left
-        dynamicPosition: false,
-        serviceButtons: true,
-        showValue: true,
-        open: false,
-        sizeAsKeys: false,
-
-        clsKeypad: "",
-        clsInput: "",
-        clsKeys: "",
-        clsKey: "",
-        clsServiceKey: "",
-        clsBackspace: "",
-        clsClear: "",
-
-        onChange: Metro.noop,
-        onClear: Metro.noop,
-        onBackspace: Metro.noop,
-        onShuffle: Metro.noop,
-        onKey: Metro.noop,
-        onKeypadCreate: Metro.noop
     },
 
     _setOptionsFromDOM: function(){
@@ -10641,14 +13340,17 @@ var Keypad = {
     },
 
     _create: function(){
+        var element = this.element, o = this.options;
+
         this._createKeypad();
-        if (this.options.shuffle === true) {
+        if (o.shuffle === true) {
             this.shuffle();
         }
         this._createKeys();
         this._createEvents();
 
-        Utils.exec(this.options.onKeypadCreate, [this.element]);
+        Utils.exec(o.onKeypadCreate, null,element[0]);
+        element.fire("keypadcreate");
     },
 
     _createKeypad: function(){
@@ -10812,15 +13514,21 @@ var Keypad = {
                     that._setKeysPosition();
                 }
 
-                Utils.exec(o.onKey, [key.data('key'), that.value, element]);
+                Utils.exec(o.onKey, [key.data('key'), that.value], element[0]);
+                element.fire("key", {
+                    key: key.data("key"),
+                    val: that.value
+                });
             } else {
                 if (key.data('key') === '&times;') {
                     that.value = "";
-                    Utils.exec(o.onClear, [element]);
+                    Utils.exec(o.onClear, null, element[0]);
+                    element.fire("clear");
                 }
                 if (key.data('key') === '&larr;') {
                     that.value = (that.value.substring(0, that.value.length - 1));
-                    Utils.exec(o.onBackspace, [that.value, element]);
+                    Utils.exec(o.onBackspace, [that.value], element[0]);
+                    element.fire("backspace");
                 }
             }
 
@@ -10833,7 +13541,7 @@ var Keypad = {
             }
 
             element.trigger('change');
-            Utils.exec(o.onChange, [that.value, element]);
+            Utils.exec(o.onChange, [that.value], element[0]);
 
             e.preventDefault();
             e.stopPropagation();
@@ -10855,10 +13563,15 @@ var Keypad = {
     },
 
     shuffle: function(){
-        for (var i = 0; i < this.options.shuffleCount; i++) {
+        var element = this.element, o = this.options;
+        for (var i = 0; i < o.shuffleCount; i++) {
             this.keys_to_work = this.keys_to_work.shuffle();
         }
-        Utils.exec(this.options.onShuffle, [this.keys_to_work, this.keys, this.element]);
+        Utils.exec(o.onShuffle, [this.keys_to_work, this.keys], element[0]);
+        element.fire("shuffle", {
+            keys: this.keys,
+            keysToWork: this.keys_to_work
+        });
     },
 
     shuffleKeys: function(count){
@@ -10907,7 +13620,7 @@ var Keypad = {
     },
 
     toggleState: function(){
-        if (this.element.data("disabled") === false) {
+        if (this.elem.disabled) {
             this.disable();
         } else {
             this.enable();
@@ -10956,9 +13669,80 @@ $(document).on(Metro.events.click, function(){
 
 
 // Source: js/plugins/list.js
+
+var ListDefaultConfig = {
+    templateBeginToken: "<%",
+    templateEndToken: "%>",
+    paginationDistance: 5,
+    paginationShortMode: true,
+    thousandSeparator: ",",
+    decimalSeparator: ",",
+    sortTarget: "li",
+    sortClass: null,
+    sortDir: "asc",
+    sortInitial: false,
+    filterClass: null,
+    filter: null,
+    filterString: "",
+    filters: null,
+    source: null,
+    showItemsSteps: false,
+    showSearch: false,
+    showListInfo: false,
+    showPagination: false,
+    showActivity: true,
+    muteList: true,
+    items: -1,
+    itemsSteps: "all, 10,25,50,100",
+    itemsAllTitle: "Show all",
+    listItemsCountTitle: "Show entries:",
+    listSearchTitle: "Search:",
+    listInfoTitle: "Showing $1 to $2 of $3 entries",
+    paginationPrevTitle: "Prev",
+    paginationNextTitle: "Next",
+    activityType: "cycle",
+    activityStyle: "color",
+    activityTimeout: 100,
+    searchWrapper: null,
+    rowsWrapper: null,
+    infoWrapper: null,
+    paginationWrapper: null,
+    clsComponent: "",
+    clsList: "",
+    clsListItem: "",
+    clsListTop: "",
+    clsItemsCount: "",
+    clsSearch: "",
+    clsListBottom: "",
+    clsListInfo: "",
+    clsListPagination: "",
+    clsPagination: "",
+    onDraw: Metro.noop,
+    onDrawItem: Metro.noop,
+    onSortStart: Metro.noop,
+    onSortStop: Metro.noop,
+    onSortItemSwitch: Metro.noop,
+    onSearch: Metro.noop,
+    onRowsCountChange: Metro.noop,
+    onDataLoad: Metro.noop,
+    onDataLoaded: Metro.noop,
+    onDataLoadError: Metro.noop,
+    onFilterItemAccepted: Metro.noop,
+    onFilterItemDeclined: Metro.noop,
+    onListCreate: Metro.noop
+};
+
+Metro.listSetup = function (options) {
+    ListDefaultConfig = $.extend({}, ListDefaultConfig, options);
+};
+
+if (typeof window.metroListSetup !== undefined) {
+    Metro.listSetup(window.metroListSetup);
+}
+
 var List = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, ListDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
         this.currentPage = 1;
@@ -10974,6 +13758,7 @@ var List = {
         this.wrapperPagination = null;
         this.filterIndex = null;
         this.filtersIndexes = [];
+        this.itemTemplate = null;
 
         this.sort = {
             dir: "asc",
@@ -10987,79 +13772,6 @@ var List = {
         this._create();
 
         return this;
-    },
-
-    options: {
-
-        thousandSeparator: ",",
-        decimalSeparator: ",",
-
-        sortTarget: "li",
-        sortClass: null,
-        sortDir: "asc",
-        sortInitial: false,
-
-        filterClass: null,
-        filter: null,
-        filterString: "",
-        filters: null,
-        source: null,
-
-        showItemsSteps: false,
-        showSearch: false,
-        showListInfo: false,
-        showPagination: false,
-        showAllPages: false,
-        showActivity: true,
-
-        muteList: true,
-
-        items: -1,
-        itemsSteps: "all, 10,25,50,100",
-
-        itemsAllTitle: "Show all",
-        listItemsCountTitle: "Show entries:",
-        listSearchTitle: "Search:",
-        listInfoTitle: "Showing $1 to $2 of $3 entries",
-        paginationPrevTitle: "Prev",
-        paginationNextTitle: "Next",
-
-        activityType: "cycle",
-        activityStyle: "color",
-        activityTimeout: 100,
-
-        searchWrapper: null,
-        rowsWrapper: null,
-        infoWrapper: null,
-        paginationWrapper: null,
-
-        clsComponent: "",
-        clsList: "",
-        clsListItem: "",
-
-        clsListTop: "",
-        clsItemsCount: "",
-        clsSearch: "",
-
-        clsListBottom: "",
-        clsListInfo: "",
-        clsListPagination: "",
-
-        clsPagination: "",
-
-        onDraw: Metro.noop,
-        onDrawItem: Metro.noop,
-        onSortStart: Metro.noop,
-        onSortStop: Metro.noop,
-        onSortItemSwitch: Metro.noop,
-        onSearch: Metro.noop,
-        onRowsCountChange: Metro.noop,
-        onDataLoad: Metro.noop,
-        onDataLoaded: Metro.noop,
-        onFilterItemAccepted: Metro.noop,
-        onFilterItemDeclined: Metro.noop,
-
-        onListCreate: Metro.noop
     },
 
     _setOptionsFromDOM: function(){
@@ -11081,12 +13793,23 @@ var List = {
 
         if (o.source !== null) {
             Utils.exec(o.onDataLoad, [o.source], element[0]);
+            element.fire("dataload", {
+                source: o.source
+            });
 
             $.get(o.source, function(data){
                 that._build(data);
                 Utils.exec(o.onDataLoaded, [o.source, data], element[0]);
+                element.fire("dataloaded", {
+                    source: o.source,
+                    data: data
+                });
             }).fail(function( jqXHR, textStatus, errorThrown) {
-                console.log(textStatus); console.log(jqXHR); console.log(errorThrown);
+                Utils.exec(o.onDataLoadError, [o.source, jqXHR, textStatus, errorThrown], element[0]);
+                element.fire("dataloaderror", {
+                    source: source,
+                    xhr: jqXHR
+                });
             });
         } else {
             that._build();
@@ -11105,7 +13828,8 @@ var List = {
         this._createStructure();
         this._createEvents();
 
-        Utils.exec(o.onListCreate, [element], element[0]);
+        Utils.exec(o.onListCreate, null, element[0]);
+        element.fire("listcreate");
     },
 
     _createItemsFromHTML: function(){
@@ -11119,25 +13843,33 @@ var List = {
     },
 
     _createItemsFromJSON: function(source){
-        var that = this;
+        var that = this, o = this.options;
 
         this.items = [];
 
+        if (Utils.isValue(source.template)) {
+            this.itemTemplate = source.template;
+        }
+
         if (Utils.isValue(source.header)) {
-            that.header = source.header;
+            this.header = source.header;
         }
 
         if (Utils.isValue(source.data)) {
             $.each(source.data, function(){
-                var row = this;
+                var item, row = this;
                 var li = document.createElement("li");
-                var inner = Utils.isValue(that.header.template) ? that.header.template : "";
 
-                $.each(row, function(k, v){
-                    inner = inner.replace("$"+k, v);
+                if (!Utils.isValue(that.itemTemplate)) {
+                    return ;
+                }
+
+                item = Metro.template(that.itemTemplate, row, {
+                    beginToken: o.templateBeginToken,
+                    endToken: o.templateEndToken
                 });
 
-                li.innerHTML = inner;
+                li.innerHTML = item;
                 that.items.push(li);
             });
         }
@@ -11178,7 +13910,10 @@ var List = {
                 o.items = parseInt(val);
                 that.currentPage = 1;
                 that._draw();
-                Utils.exec(o.onRowsCountChange, [val], element[0])
+                Utils.exec(o.onRowsCountChange, [val], element[0]);
+                element.fire("rowscountchange", {
+                    val: val
+                });
             }
         });
 
@@ -11368,83 +14103,19 @@ var List = {
     },
 
     _paging: function(length){
-        var that = this, element = this.element, o = this.options;
+        var element = this.element, o = this.options;
         var component = element.parent();
-        var pagination_wrapper = Utils.isValue(this.wrapperPagination) ? this.wrapperPagination : component.find(".list-pagination");
-        var i, prev, next;
-        var shortDistance = 5;
-        var pagination;
-
-        pagination_wrapper.html("");
-
-        pagination = $("<ul>").addClass("pagination").addClass(o.clsPagination).appendTo(pagination_wrapper);
-
-        if (this.items.length === 0) {
-            return ;
-        }
-
-        this.pagesCount = Math.ceil(length / o.items);
-
-        var add_item = function(item_title, item_type, data){
-            var li, a;
-
-            li = $("<li>").addClass("page-item").addClass(item_type);
-            a  = $("<a>").addClass("page-link").html(item_title);
-            a.data("page", data);
-            a.appendTo(li);
-
-            return li;
-        };
-
-        prev = add_item(o.paginationPrevTitle, "service prev-page", "prev");
-        pagination.append(prev);
-
-        pagination.append(add_item(1, that.currentPage === 1 ? "active" : "", 1));
-
-        if (o.showAllPages === true || this.pagesCount <= 7) {
-            for (i = 2; i < this.pagesCount; i++) {
-                pagination.append(add_item(i, i === that.currentPage ? "active" : "", i));
-            }
-        } else {
-            if (that.currentPage < shortDistance) {
-                for (i = 2; i <= shortDistance; i++) {
-                    pagination.append(add_item(i, i === that.currentPage ? "active" : "", i));
-                }
-
-                if (this.pagesCount > shortDistance) {
-                    pagination.append(add_item("...", "no-link", null));
-                }
-            } else if (that.currentPage <= that.pagesCount && that.currentPage > that.pagesCount - shortDistance + 1) {
-                if (this.pagesCount > shortDistance) {
-                    pagination.append(add_item("...", "no-link", null));
-                }
-
-                for (i = that.pagesCount - shortDistance + 1; i < that.pagesCount; i++) {
-                    pagination.append(add_item(i, i === that.currentPage ? "active" : "", i));
-                }
-            } else {
-                pagination.append(add_item("...", "no-link", null));
-
-                pagination.append(add_item(that.currentPage - 1, "", that.currentPage - 1));
-                pagination.append(add_item(that.currentPage, "active", that.currentPage));
-                pagination.append(add_item(that.currentPage + 1, "", that.currentPage + 1));
-
-                pagination.append(add_item("...", "no-link", null));
-            }
-        }
-
-        if (that.pagesCount > 1 || that.currentPage < that.pagesCount) pagination.append(add_item(that.pagesCount, that.currentPage === that.pagesCount ? "active" : "", that.pagesCount));
-
-        next = add_item(o.paginationNextTitle, "service next-page", "next");
-        pagination.append(next);
-
-        if (this.currentPage === 1) {
-            prev.addClass("disabled");
-        }
-
-        if (this.currentPage === this.pagesCount) {
-            next.addClass("disabled");
-        }
+        this.pagesCount = Math.ceil(length / o.items); // Костыль
+        createPagination({
+            length: length,
+            rows: o.items,
+            current: this.currentPage,
+            target: Utils.isValue(this.wrapperPagination) ? this.wrapperPagination : component.find(".list-pagination"),
+            claPagination: o.clsPagination,
+            prevTitle: o.paginationPrevTitle,
+            nextTitle: o.paginationNextTitle,
+            distance: o.paginationShortMode === true ? o.paginationDistance : 0
+        });
     },
 
     _filter: function(){
@@ -11481,14 +14152,24 @@ var List = {
 
                 if (result) {
                     Utils.exec(o.onFilterItemAccepted, [item], element[0]);
+                    element.fire("filteritemaccepted", {
+                        item: item
+                    });
                 } else {
                     Utils.exec(o.onFilterItemDeclined, [item], element[0]);
+                    element.fire("filteritemdeclined", {
+                        item: item
+                    });
                 }
 
                 return result;
             });
 
-            Utils.exec(o.onSearch, [that.filterString, items], element[0])
+            Utils.exec(o.onSearch, [that.filterString, items], element[0]);
+            element.fire("search", {
+                search: that.filterString,
+                items: items
+            });
         } else {
             items = this.items;
         }
@@ -11512,6 +14193,9 @@ var List = {
                 $(items[i]).addClass(o.clsListItem).appendTo(element);
             }
             Utils.exec(o.onDrawItem, [items[i]], element[0]);
+            element.fire("drawitem", {
+                item: items[i]
+            });
         }
 
         this._info(start + 1, stop + 1, items.length);
@@ -11519,7 +14203,8 @@ var List = {
 
         this.activity.hide();
 
-        Utils.exec(o.onDraw, [element], element[0]);
+        Utils.exec(o.onDraw, null, element[0]);
+        element.fire("draw");
 
         if (cb !== undefined) {
             Utils.exec(cb, [element], element[0])
@@ -11527,9 +14212,9 @@ var List = {
     },
 
     _getItemContent: function(item){
-        var o = this.options;
+        var o = this.options, $item = $(item);
         var i, inset, data;
-        var format;
+        var format, formatMask = Utils.isValue($item.data("formatMask")) ? $item.data("formatMask") : null;
 
         if (Utils.isValue(o.sortClass)) {
             data = "";
@@ -11548,20 +14233,46 @@ var List = {
 
         if (Utils.isValue(format)) {
 
-            if (['number', 'int', 'float', 'money'].indexOf(format) !== -1 && (o.thousandSeparator !== "," || o.decimalSeparator !== "." )) {
+            if (['number', 'int', 'integer', 'float', 'money'].indexOf(format) !== -1 && (o.thousandSeparator !== "," || o.decimalSeparator !== "." )) {
                 data = Utils.parseNumber(data, o.thousandSeparator, o.decimalSeparator);
             }
 
             switch (format) {
-                case "date": data = Utils.isDate(data) ? new Date(data) : ""; break;
+                case "date": data = Utils.isValue(formatMask) ? data.toDate(formatMask) : new Date(data); break;
                 case "number": data = Number(data); break;
-                case "int": data = parseInt(data); break;
+                case "int":
+                case "integer": data = parseInt(data); break;
                 case "float": data = parseFloat(data); break;
                 case "money": data = Utils.parseMoney(data); break;
+                case "card": data = Utils.parseCard(data); break;
+                case "phone": data = Utils.parsePhone(data); break;
             }
         }
 
         return data;
+    },
+
+    deleteItem: function(value){
+        var i, deleteIndexes = [], item;
+        var is_func = Utils.isFunc(value);
+
+        for (i = 0; i < this.items.length; i++) {
+            item = this.items[i];
+
+            if (is_func) {
+                if (Utils.exec(value, [item])) {
+                    deleteIndexes.push(i);
+                }
+            } else {
+                if (item.textContent.contains(value)) {
+                    deleteIndexes.push(i);
+                }
+            }
+        }
+
+        this.items = Utils.arrayDeleteByMultipleKeys(this.items, deleteIndexes);
+
+        return this;
     },
 
     draw: function(){
@@ -11579,6 +14290,9 @@ var List = {
         }
 
         Utils.exec(o.onSortStart, [this.items], element[0]);
+        element.fire("sortstart", {
+            items: this.items
+        });
 
         this.items.sort(function(a, b){
             var c1 = that._getItemContent(a);
@@ -11594,12 +14308,20 @@ var List = {
 
             if (result !== 0) {
                 Utils.exec(o.onSortItemSwitch, [a, b, result], element[0]);
+                element.fire("sortitemswitch", {
+                    a: a,
+                    b: b,
+                    result: result
+                });
             }
 
             return result;
         });
 
         Utils.exec(o.onSortStop, [this.items], element[0]);
+        element.fire("sortstop", {
+            items: this.items
+        });
 
         if (redraw === true) {
             this._draw();
@@ -11624,9 +14346,16 @@ var List = {
         o.source = source;
 
         Utils.exec(o.onDataLoad, [o.source], element[0]);
+        element.fire("dataload", {
+            source: o.source
+        });
 
         $.get(o.source, function(data){
             Utils.exec(o.onDataLoaded, [o.source, data], element[0]);
+            element.fire("dataloaded", {
+                source: o.source,
+                data: data
+            });
 
             that._createItemsFromJSON(data);
 
@@ -11660,7 +14389,11 @@ var List = {
             that.sorting(o.sortClass, o.sortDir, true);
 
         }).fail(function( jqXHR, textStatus, errorThrown) {
-            console.log(textStatus); console.log(jqXHR); console.log(errorThrown);
+            Utils.exec(o.onDataLoadError, [o.source, jqXHR, textStatus, errorThrown], element[0]);
+            element.fire("dataloaderror", {
+                source: o.source,
+                xhr: jqXHR
+            });
         });
     },
 
@@ -11796,9 +14529,36 @@ var List = {
 Metro.plugin('list', List);
 
 // Source: js/plugins/listview.js
-var Listview = {
+
+var ListViewDefaultConfig = {
+    selectable: false,
+    checkStyle: 1,
+    effect: "slide",
+    duration: 100,
+    view: Metro.listView.LIST,
+    selectCurrent: true,
+    structure: {},
+    onNodeInsert: Metro.noop,
+    onNodeDelete: Metro.noop,
+    onNodeClean: Metro.noop,
+    onCollapseNode: Metro.noop,
+    onExpandNode: Metro.noop,
+    onGroupNodeClick: Metro.noop,
+    onNodeClick: Metro.noop,
+    onListViewCreate: Metro.noop
+};
+
+Metro.listViewSetup = function (options) {
+    ListViewDefaultConfig = $.extend({}, ListViewDefaultConfig, options);
+};
+
+if (typeof window.metroListViewSetup !== undefined) {
+    Metro.listViewSetup(window.metroListViewSetup);
+}
+
+var ListView = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, ListViewDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
 
@@ -11808,26 +14568,8 @@ var Listview = {
         return this;
     },
 
-    options: {
-        selectable: false,
-        checkStyle: 1,
-        effect: "slide",
-        duration: 100,
-        view: Metro.listView.LIST,
-        selectCurrent: true,
-        structure: {},
-        onNodeInsert: Metro.noop,
-        onNodeDelete: Metro.noop,
-        onNodeClean: Metro.noop,
-        onCollapseNode: Metro.noop,
-        onExpandNode: Metro.noop,
-        onGroupNodeClick: Metro.noop,
-        onNodeClick: Metro.noop,
-        onListviewCreate: Metro.noop
-    },
-
     _setOptionsFromDOM: function(){
-        var that = this, element = this.element, o = this.options;
+        var element = this.element, o = this.options;
 
         $.each(element.data(), function(key, value){
             if (key in o) {
@@ -11841,12 +14583,13 @@ var Listview = {
     },
 
     _create: function(){
-        var that = this, element = this.element, o = this.options;
+        var element = this.element, o = this.options;
 
         this._createView();
         this._createEvents();
 
-        Utils.exec(o.onListviewCreate, [element]);
+        Utils.exec(o.onListViewCreate, null, element[0]);
+        element.fire("listviewcreate");
     },
 
     _createIcon: function(data){
@@ -11872,7 +14615,7 @@ var Listview = {
     },
 
     _createNode: function(data){
-        var that = this, element = this.element, o = this.options;
+        var that = this, o = this.options;
         var node;
 
         node = $("<li>");
@@ -11888,7 +14631,7 @@ var Listview = {
             node.prepend(this._createIcon(data.icon));
         }
 
-        if (Utils.objectLength(o.structure > 0)) $.each(o.structure, function(key, val){
+        if (Utils.objectLength(o.structure) > 0) $.each(o.structure, function(key, val){
             if (data[key] !== undefined) {
                 $("<div>").addClass("node-data item-data-"+key).addClass(data[val]).html(data[key]).appendTo(node);
             }
@@ -11933,7 +14676,7 @@ var Listview = {
                 node.prepend(cb);
             }
 
-            if (struct_length > 0) $.each(o.structure, function(key, val){
+            if (struct_length > 0) $.each(o.structure, function(key){
                 if (node.data(key) !== undefined) {
                     $("<div>").addClass("node-data item-data-"+key).addClass(node.data(key)).html(node.data(key)).appendTo(node);
                 }
@@ -11956,7 +14699,10 @@ var Listview = {
                 element.find(".node").removeClass("current-select");
                 node.toggleClass("current-select");
             }
-            Utils.exec(o.onNodeClick, [node, element])
+            Utils.exec(o.onNodeClick, [node], element[0]);
+            element.fire("nodeclick", {
+                node: node
+            });
         });
 
         element.on(Metro.events.click, ".node-toggle", function(){
@@ -11968,7 +14714,10 @@ var Listview = {
             var node = $(this).closest("li");
             element.find(".node-group").removeClass("current-group");
             node.addClass("current-group");
-            Utils.exec(o.onGroupNodeClick, [node, element])
+            Utils.exec(o.onGroupNodeClick, [node], element[0]);
+            element.fire("groupnodeclick", {
+                node: node
+            });
         });
 
         element.on(Metro.events.dblclick, ".node-group > .data > .caption", function(){
@@ -11999,6 +14748,8 @@ var Listview = {
         var element = this.element, o = this.options;
         var func;
 
+        node=$(node);
+
         if (!node.hasClass("node-group")) {
             return ;
         }
@@ -12007,24 +14758,30 @@ var Listview = {
 
         if (o.effect === "slide") {
             func = node.hasClass("expanded") !== true ? "slideUp" : "slideDown";
-            Utils.exec(o.onCollapseNode, [node, element]);
+            Utils.exec(o.onCollapseNode, [node], element[0]);
+            element.fire("collapsenode", {
+                node: node
+            });
         } else {
             func = node.hasClass("expanded") !== true ? "fadeOut" : "fadeIn";
-            Utils.exec(o.onExpandNode, [node, element]);
+            Utils.exec(o.onExpandNode, [node], element[0]);
+            element.fire("expandnode", {
+                node: node
+            });
         }
 
         node.children("ul")[func](o.duration);
     },
 
     toggleSelectable: function(){
-        var that = this, element = this.element, o = this.options;
+        var element = this.element, o = this.options;
         var func = o.selectable === true ? "addClass" : "removeClass";
         element[func]("selectable");
         element.find("ul")[func]("selectable");
     },
 
     add: function(node, data){
-        var that = this, element = this.element, o = this.options;
+        var element = this.element, o = this.options;
         var target;
         var new_node;
         var toggle;
@@ -12032,6 +14789,8 @@ var Listview = {
         if (node === null) {
             target = element;
         } else {
+
+            node=$(node);
 
             if (!node.hasClass("node-group")) {
                 return ;
@@ -12055,13 +14814,18 @@ var Listview = {
         new_node.prepend(cb);
         cb.checkbox();
 
-        Utils.exec(o.onNodeInsert, [new_node, element]);
+        Utils.exec(o.onNodeInsert, [new_node, node, target], element[0]);
+        element.fire("nodeinsert", {
+            newNode: new_node,
+            parentNode: node,
+            list: target
+        });
 
         return new_node;
     },
 
     addGroup: function(data){
-        var that = this, element = this.element, o = this.options;
+        var element = this.element, o = this.options;
         var node;
 
         delete data['icon'];
@@ -12072,29 +14836,69 @@ var Listview = {
         node.addClass("expanded");
         node.append($("<ul>").addClass("listview").addClass("view-"+o.view));
 
-        Utils.exec(o.onNodeInsert, [node, element]);
+        Utils.exec(o.onNodeInsert, [node, null, element], element[0]);
+        element.fire("nodeinsert", {
+            newNode: node,
+            parentNode: null,
+            list: element
+        });
 
         return node;
     },
 
     insertBefore: function(node, data){
         var element = this.element, o = this.options;
-        var new_node = this._createNode(data);
-        new_node.insertBefore(node);
-        Utils.exec(o.onNodeInsert, [new_node, element]);
+        var new_node, parent_node, list;
+
+        node=$(node);
+
+        if (!node.length) {return;}
+
+        new_node = this._createNode(data);
+        new_node.addClass("node").insertBefore(node);
+        parent_node = new_node.closest(".node");
+        list = new_node.closest("ul");
+
+        Utils.exec(o.onNodeInsert, [new_node, parent_node, list], element[0]);
+        element.fire("nodeinsert", {
+            newNode: new_node,
+            parentNode: parent_node,
+            list: list
+        });
+
         return new_node;
     },
 
     insertAfter: function(node, data){
         var element = this.element, o = this.options;
-        var new_node = this._createNode(data);
-        new_node.insertAfter(node);
-        Utils.exec(o.onNodeInsert, [new_node, element]);
+        var new_node, parent_node, list;
+
+        node=$(node);
+
+        if (!node.length) {return;}
+
+        new_node = this._createNode(data);
+        new_node.addClass("node").insertAfter(node);
+        parent_node = new_node.closest(".node");
+        list = new_node.closest("ul");
+
+        Utils.exec(o.onNodeInsert, [new_node, parent_node, list], element[0]);
+        element.fire("nodeinsert", {
+            newNode: new_node,
+            parentNode: parent_node,
+            list: list
+        });
+
         return new_node;
     },
 
     del: function(node){
         var element = this.element, o = this.options;
+
+        node=$(node);
+
+        if (!node.length) {return;}
+
         var parent_list = node.closest("ul");
         var parent_node = parent_list.closest("li");
         node.remove();
@@ -12103,19 +14907,30 @@ var Listview = {
             parent_node.removeClass("expanded");
             parent_node.children(".node-toggle").remove();
         }
-        Utils.exec(o.onNodeDelete, [node, element]);
+        Utils.exec(o.onNodeDelete, [node], element[0]);
+        element.fire("nodedelete", {
+            node: node
+        });
     },
 
     clean: function(node){
         var element = this.element, o = this.options;
+
+        node=$(node);
+
+        if (!node.length) {return;}
+
         node.children("ul").remove();
         node.removeClass("expanded");
         node.children(".node-toggle").remove();
-        Utils.exec(o.onNodeClean, [node, element]);
+        Utils.exec(o.onNodeClean, [node], element[0]);
+        element.fire("nodeclean", {
+            node: node
+        });
     },
 
     getSelected: function(){
-        var that = this, element = this.element, o = this.options;
+        var element = this.element;
         var nodes = [];
 
         $.each(element.find(":checked"), function(){
@@ -12128,10 +14943,12 @@ var Listview = {
 
     clearSelected: function(){
         this.element.find(":checked").prop("checked", false);
+        this.element.trigger('change');
     },
 
     selectAll: function(mode){
         this.element.find(".node > .checkbox input").prop("checked", mode !== false);
+        this.element.trigger('change');
     },
 
     changeAttribute: function(attributeName){
@@ -12139,12 +14956,12 @@ var Listview = {
 
         var changeView = function(){
             var new_view = "view-"+element.attr("data-view");
-            this.view(new_view);
+            that.view(new_view);
         };
 
         var changeSelectable = function(){
             o.selectable = JSON.parse(element.attr("data-selectable")) === true;
-            this.toggleSelectable();
+            that.toggleSelectable();
         };
 
         switch (attributeName) {
@@ -12154,12 +14971,47 @@ var Listview = {
     }
 };
 
-Metro.plugin('listview', Listview);
+Metro.plugin('listview', ListView);
 
 // Source: js/plugins/master.js
+
+var MasterDefaultConfig = {
+    effect: "slide", // slide, fade, switch, slowdown, custom
+    effectFunc: "linear",
+    duration: METRO_ANIMATION_DURATION,
+
+    controlPrev: "<span class='default-icon-left-arrow'></span>",
+    controlNext: "<span class='default-icon-right-arrow'></span>",
+    controlTitle: "Master, page $1 of $2",
+    backgroundImage: "",
+
+    clsMaster: "",
+    clsControls: "",
+    clsControlPrev: "",
+    clsControlNext: "",
+    clsControlTitle: "",
+    clsPages: "",
+    clsPage: "",
+
+    onBeforePage: Metro.noop_true,
+    onBeforeNext: Metro.noop_true,
+    onBeforePrev: Metro.noop_true,
+    onNextPage: Metro.noop,
+    onPrevPage: Metro.noop,
+    onMasterCreate: Metro.noop
+};
+
+Metro.masterSetup = function (options) {
+    MasterDefaultConfig = $.extend({}, MasterDefaultConfig, options);
+};
+
+if (typeof window.metroMasterSetup !== undefined) {
+    Metro.masterSetup(window.metroMasterSetup);
+}
+
 var Master = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, MasterDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
         this.pages = [];
@@ -12170,30 +15022,6 @@ var Master = {
         this._create();
 
         return this;
-    },
-
-    options: {
-        effect: "slide", // slide, fade, switch, slowdown, custom
-        effectFunc: "linear",
-        duration: METRO_ANIMATION_DURATION,
-
-        controlPrev: "<span class='default-icon-left-arrow'></span>",
-        controlNext: "<span class='default-icon-right-arrow'></span>",
-        controlTitle: "Master, page $1 of $2",
-        backgroundImage: "",
-
-        clsMaster: "",
-        clsControls: "",
-        clsControlPrev: "",
-        clsControlNext: "",
-        clsControlTitle: "",
-        clsPages: "",
-        clsPage: "",
-
-        onBeforePage: Metro.noop_true,
-        onBeforeNext: Metro.noop_true,
-        onBeforePrev: Metro.noop_true,
-        onMasterCreate: Metro.noop
     },
 
     _setOptionsFromDOM: function(){
@@ -12222,7 +15050,8 @@ var Master = {
         this._createPages();
         this._createEvents();
 
-        Utils.exec(this.options.onMasterCreate, [this.element]);
+        Utils.exec(o.onMasterCreate, null, element[0]);
+        element.fire("mastercreate");
     },
 
     _createControls: function(){
@@ -12364,15 +15193,12 @@ var Master = {
     },
 
     _slideTo: function(to){
-        var current, next;
-
-        if (to === undefined) {
-            return ;
-        }
+        var element = this.element, o = this.options;
+        var current, next, forward = to.toLowerCase() === 'next';
 
         current = this.pages[this.currentIndex];
 
-        if (to === "next") {
+        if (forward ) {
             if (this.currentIndex + 1 >= this.pages.length) {
                 return ;
             }
@@ -12385,6 +15211,13 @@ var Master = {
         }
 
         next = this.pages[this.currentIndex];
+
+        Utils.exec(forward ? o.onNextPage : o.onPrevPage, [current, next], element[0]);
+        element.fire(forward ? "nextpage" : "prevpage", {
+            current: current,
+            next: next,
+            forward: forward
+        });
 
         this._effect(current, next, to);
     },
@@ -12507,9 +15340,27 @@ var Master = {
 Metro.plugin('master', Master);
 
 // Source: js/plugins/navview.js
+
+var NavigationViewDefaultConfig = {
+    compact: "md",
+    expanded: "lg",
+    toggle: null,
+    activeState: false,
+    onMenuItemClick: Metro.noop,
+    onNavViewCreate: Metro.noop
+};
+
+Metro.navigationViewSetup = function (options) {
+    NavigationViewDefaultConfig = $.extend({}, NavigationViewDefaultConfig, options);
+};
+
+if (typeof window.metroNavigationViewSetup !== undefined) {
+    Metro.navigationViewSetup(window.metroNavigationSetup);
+}
+
 var NavigationView = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, NavigationViewDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
         this.pane = null;
@@ -12522,15 +15373,8 @@ var NavigationView = {
         return this;
     },
 
-    options: {
-        compact: "md",
-        expanded: "lg",
-        toggle: null,
-        onNavigationViewCreate: Metro.noop
-    },
-
     _setOptionsFromDOM: function(){
-        var that = this, element = this.element, o = this.options;
+        var element = this.element, o = this.options;
 
         $.each(element.data(), function(key, value){
             if (key in o) {
@@ -12544,17 +15388,44 @@ var NavigationView = {
     },
 
     _create: function(){
-        var that = this, element = this.element, o = this.options;
+        var element = this.element, o = this.options;
 
         this._createView();
         this._createEvents();
 
-        Utils.exec(o.onNavigationViewCreate, [element]);
+        Utils.exec(o.onNavViewCreate, null, element[0]);
+        element.fire("navviewcreate");
+    },
+
+    _calcMenuHeight: function(){
+        var element = this.element, pane, menu;
+        var elements_height = 0;
+
+        pane = element.children(".navview-pane");
+        if (pane.length === 0) {
+            return;
+        }
+
+        menu = pane.children(".navview-menu");
+
+        if (menu.length === 0) {
+            return ;
+        }
+
+        $.each(menu.prevAll(), function(){
+            elements_height += $(this).outerHeight(true);
+        });
+        $.each(menu.nextAll(), function(){
+            elements_height += $(this).outerHeight(true);
+        });
+        menu.css({
+            height: "calc(100% - "+(elements_height + 20)+"px)"
+        });
     },
 
     _createView: function(){
         var that = this, element = this.element, o = this.options;
-        var pane, content, toggle, menu;
+        var pane, content, toggle;
 
         element
             .addClass("navview")
@@ -12565,57 +15436,40 @@ var NavigationView = {
         content = element.children(".navview-content");
         toggle = $(o.toggle);
 
-        menu = pane.find(".navview-menu");
-        if (menu.length > 0) {
-            var elements_height = 0;
-            $.each(menu.prevAll(), function(){
-                elements_height += $(this).outerHeight(true);
-            });
-            $.each(menu.nextAll(), function(){
-                elements_height += $(this).outerHeight(true);
-            });
-            menu.css({
-                height: "calc(100% - "+(elements_height + 20)+"px)"
-            });
-        }
+        this._calcMenuHeight();
 
         this.pane = pane.length > 0 ? pane : null;
         this.content = content.length > 0 ? content : null;
         this.paneToggle = toggle.length > 0 ? toggle : null;
+
+        setTimeout(function(){
+            if (that.pane.width() === 48) {
+                element.addClass("js-compact");
+            } else {
+                element.removeClass("js-compact");
+            }
+        }, 200);
     },
 
     _createEvents: function(){
         var that = this, element = this.element, o = this.options;
-        var pane = this.pane, content = this.content;
 
-        element.on(Metro.events.click, ".pull-button, .holder", function(e){
-            var pane_compact = pane.width() < 280;
-            var target = $(this);
-            var input;
+        element.on(Metro.events.click, ".pull-button, .holder", function(){
+            that.pullClick(this);
+        });
 
-            if (target.hasClass("holder")) {
-                input = target.parent().find("input");
-                setTimeout(function(){
-                    input.focus();
-                }, 200);
+        element.on(Metro.events.click, ".navview-menu li", function(){
+            if (o.activeState === true) {
+                element.find(".navview-menu li").removeClass("active");
+                $(this).toggleClass("active");
             }
+        });
 
-            if (that.pane.hasClass("open")) {
-                that.close();
-                return ;
-            }
-
-            if ((pane_compact || element.hasClass("expand")) && !element.hasClass("compacted")) {
-                element.toggleClass("expand");
-                return ;
-            }
-
-            if (element.hasClass("compacted") || !pane_compact) {
-                element.toggleClass("compacted");
-                return ;
-            }
-
-            return true;
+        element.on(Metro.events.click, ".navview-menu li > a", function(){
+            Utils.exec(o.onMenuItemClick, null, this);
+            element.fire("menuitemclick", {
+                item: this
+            });
         });
 
         if (this.paneToggle !== null) {
@@ -12624,7 +15478,7 @@ var NavigationView = {
             })
         }
 
-        $(window).on(Metro.events.resize, function(){
+        $(window).on(Metro.events.resize+ "-navview", function(){
 
             element.removeClass("expand");
             that.pane.removeClass("open");
@@ -12633,7 +15487,55 @@ var NavigationView = {
                 element.removeClass("compacted");
             }
 
+            that._calcMenuHeight();
+
+            element.removeClass("js-compact");
+
+            setTimeout(function(){
+                if (that.pane.width() === 48) {
+                    element.addClass("js-compact");
+                }
+            }, 200);
+
         })
+    },
+
+    pullClick: function(el){
+        var that = this, element = this.element;
+        var pane = this.pane;
+        var pane_compact = pane.width() < 280;
+        var input;
+
+        var target = $(el);
+
+        if (target && target.hasClass("holder")) {
+            input = target.parent().find("input");
+            setTimeout(function(){
+                input.focus();
+            }, 200);
+        }
+
+        if (that.pane.hasClass("open")) {
+            that.close();
+        } else
+
+        if ((pane_compact || element.hasClass("expand")) && !element.hasClass("compacted")) {
+            element.toggleClass("expand");
+        } else
+
+        if (element.hasClass("compacted") || !pane_compact) {
+            element.toggleClass("compacted");
+        }
+
+        setTimeout(function(){
+            if (that.pane.width() === 48) {
+                element.addClass("js-compact");
+            } else {
+                element.removeClass("js-compact");
+            }
+        }, 200);
+
+        return true;
     },
 
     open: function(){
@@ -12644,6 +15546,11 @@ var NavigationView = {
         this.pane.removeClass("open");
     },
 
+    toggle: function(){
+        var pane = this.pane;
+        pane.hasClass("open") ? pane.removeClass("open") : pane.addClass("open");
+    },
+
     changeAttribute: function(attributeName){
 
     }
@@ -12652,22 +15559,32 @@ var NavigationView = {
 Metro.plugin('navview', NavigationView);
 
 // Source: js/plugins/notify.js
+
+var NotifyDefaultConfig = {
+    container: null,
+    width: 220,
+    timeout: METRO_TIMEOUT,
+    duration: METRO_ANIMATION_DURATION,
+    distance: "100vh",
+    animation: "swing",
+    onClick: Metro.noop,
+    onClose: Metro.noop,
+    onShow: Metro.noop,
+    onAppend: Metro.noop,
+    onNotifyCreate: Metro.noop
+
+};
+
 var Notify = {
 
     options: {
-        container: null,
-        width: 220,
-        timeout: METRO_TIMEOUT,
-        duration: METRO_ANIMATION_DURATION,
-        distance: "100vh",
-        animation: "swing"
     },
 
     notifies: [],
 
     setup: function(options){
         var body = $("body"), container;
-        this.options = $.extend({}, this.options, options);
+        this.options = $.extend({}, NotifyDefaultConfig, options);
 
         if (this.options.container === null) {
             container = $("<div>").addClass("notify-container");
@@ -12686,14 +15603,18 @@ var Notify = {
             distance: "100vh",
             animation: "swing"
         };
-        this.options = $.extend({}, this.options, reset_options);
+        this.options = $.extend({}, NotifyDefaultConfig, reset_options);
     },
 
     create: function(message, title, options){
         var notify, that = this, o = this.options;
         var m, t;
 
-        if (message === undefined || message.trim() === '') {
+        if (Utils.isNull(options)) {
+            options = {};
+        }
+
+        if (!Utils.isValue(message)) {
             return false;
         }
 
@@ -12725,35 +15646,46 @@ var Notify = {
         }
 
         notify.on(Metro.events.click, function(){
-            that.kill($(this));
+            Utils.exec(Utils.isValue(options.onClick) ? options.onClick : o.onClick, null, this);
+            that.kill($(this), Utils.isValue(options.onClose) ? options.onClose : o.onClose);
         });
 
         // Show
         notify.hide(function(){
             notify.appendTo(o.container);
+            Utils.exec(Utils.isValue(options.onAppend) ? options.onAppend : o.onAppend, null, notify[0]);
 
             notify.css({
-                marginTop: o.distance
+                marginTop: Utils.isValue(options.distance) ? options.distance : o.distance
             }).fadeIn(100, function(){
+                var duration = Utils.isValue(options.duration) ? options.duration : o.duration;
+                var animation = Utils.isValue(options.animation) ? options.animation : o.animation;
+
                 notify.animate({
                     marginTop: ".25rem"
-                }, o.duration, o.animation, function(){
+                }, duration, animation, function(){
+
+                    Utils.exec(o.onNotifyCreate, null, this);
+
                     if (options !== undefined && options.keepOpen === true) {
                     } else {
                         setTimeout(function(){
-                            that.kill(notify, (options !== undefined && options.onClose !== undefined ? options.onClose : undefined));
+                            that.kill(notify, Utils.isValue(options.onClose) ? options.onClose : o.onClose);
                         }, o.timeout);
                     }
-                    if (options !== undefined && options.onShow !== undefined) Utils.callback(options.onShow);
+
+                    Utils.exec(Utils.isValue(options.onShow) ? options.onShow : o.onShow, null, notify[0]);
+
                 });
             });
         });
     },
 
     kill: function(notify, callback){
+        notify.off(Metro.events.click);
         notify.fadeOut('slow', function(){
+            Utils.exec(Utils.isValue(callback) ? callback : this.options.onClose, null, notify[0]);
             notify.remove();
-            Utils.callback(callback);
         });
     },
 
@@ -12769,9 +15701,46 @@ var Notify = {
 Metro['notify'] = Notify.setup();
 
 // Source: js/plugins/panel.js
+
+var PanelDefaultConfig = {
+    titleCaption: "",
+    titleIcon: "",
+    collapsible: false,
+    collapsed: false,
+    collapseDuration: METRO_ANIMATION_DURATION,
+    width: "auto",
+    height: "auto",
+    draggable: false,
+
+    customButtons: null,
+    clsCustomButton: "",
+
+    clsPanel: "",
+    clsTitle: "",
+    clsTitleCaption: "",
+    clsTitleIcon: "",
+    clsContent: "",
+    clsCollapseToggle: "",
+
+    onCollapse: Metro.noop,
+    onExpand: Metro.noop,
+    onDragStart: Metro.noop,
+    onDragStop: Metro.noop,
+    onDragMove: Metro.noop,
+    onPanelCreate: Metro.noop
+};
+
+Metro.panelSetup = function (options) {
+    PanelDefaultConfig = $.extend({}, PanelDefaultConfig, options);
+};
+
+if (typeof window.metroPanelSetup !== undefined) {
+    Metro.panelSetup(window.metroPanelSetup);
+}
+
 var Panel = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, PanelDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
 
@@ -12783,33 +15752,8 @@ var Panel = {
 
     dependencies: ['draggable', 'collapse'],
 
-    options: {
-        titleCaption: "",
-        titleIcon: "",
-        collapsible: false,
-        collapsed: false,
-        collapseDuration: METRO_ANIMATION_DURATION,
-        width: "auto",
-        height: "auto",
-        draggable: false,
-
-        clsPanel: "",
-        clsTitle: "",
-        clsTitleCaption: "",
-        clsTitleIcon: "",
-        clsContent: "",
-        clsCollapseToggle: "",
-
-        onCollapse: Metro.noop,
-        onExpand: Metro.noop,
-        onDragStart: Metro.noop,
-        onDragStop: Metro.noop,
-        onDragMove: Metro.noop,
-        onPanelCreate: Metro.noop
-    },
-
     _setOptionsFromDOM: function(){
-        var that = this, element = this.element, o = this.options;
+        var element = this.element, o = this.options;
 
         $.each(element.data(), function(key, value){
             if (key in o) {
@@ -12823,12 +15767,13 @@ var Panel = {
     },
 
     _create: function(){
-        var that = this, element = this.element, o = this.options;
+        var element = this.element, o = this.options;
         var prev = element.prev();
         var parent = element.parent();
         var panel = $("<div>").addClass("panel").addClass(o.clsPanel);
         var id = Utils.uniqueId();
         var original_classes = element[0].className;
+        var title, buttons;
 
 
         if (prev.length === 0) {
@@ -12843,7 +15788,7 @@ var Panel = {
         element.addClass("panel-content").addClass(o.clsContent).appendTo(panel);
 
         if (o.titleCaption !== "" || o.titleIcon !== "" || o.collapsible === true) {
-            var title = $("<div>").addClass("panel-title").addClass(o.clsTitle);
+            title = $("<div>").addClass("panel-title").addClass(o.clsTitle);
 
             if (o.titleCaption !== "") {
                 $("<span>").addClass("caption").addClass(o.clsTitleCaption).html(o.titleCaption).appendTo(title)
@@ -12870,9 +15815,58 @@ var Panel = {
             title.appendTo(panel);
         }
 
+        if (title && Utils.isValue(o.customButtons)) {
+            var customButtons = [];
+
+            if (Utils.isObject(o.customButtons) !== false) {
+                o.customButtons = Utils.isObject(o.customButtons);
+            }
+
+            if (typeof o.customButtons === "string" && o.customButtons.indexOf("{") > -1) {
+                customButtons = JSON.parse(o.customButtons);
+            } else if (typeof o.customButtons === "object" && Utils.objectLength(o.customButtons) > 0) {
+                customButtons = o.customButtons;
+            } else {
+                console.log("Unknown format for custom buttons");
+            }
+
+            buttons = $("<div>").addClass("custom-buttons").appendTo(title);
+
+            $.each(customButtons, function(){
+                var item = this;
+                var customButton = $("<span>");
+
+                customButton
+                    .addClass("button btn-custom")
+                    .addClass(o.clsCustomButton)
+                    .addClass(item.cls)
+                    .attr("tabindex", -1)
+                    .html(item.html);
+
+                customButton.data("action", item.onclick);
+
+                buttons.prepend(customButton);
+            });
+
+            title.on(Metro.events.click, ".btn-custom", function(e){
+                if (Utils.isRightMouse(e)) return;
+                var button = $(this);
+                var action = button.data("action");
+                Utils.exec(action, [button], this);
+            });
+        }
+
         if (o.draggable === true) {
+            var dragElement;
+
+            if (title) {
+                dragElement = title.find(".caption, .icon");
+            } else {
+                dragElement = panel;
+            }
+
             panel.draggable({
-                dragElement: title || panel,
+                dragElement: dragElement,
                 onDragStart: o.onDragStart,
                 onDragStop: o.onDragStop,
                 onDragMove: o.onDragMove
@@ -12890,11 +15884,12 @@ var Panel = {
 
         this.panel = panel;
 
-        Utils.exec(o.onPanelCreate, [this.element]);
+        Utils.exec(o.onPanelCreate, null,element[0]);
+        element.fire("panelcreate");
     },
 
     collapse: function(){
-        var element = this.element, o = this.options;
+        var element = this.element;
         if (Utils.isMetroObject(element, 'collapse') === false) {
             return ;
         }
@@ -12902,7 +15897,7 @@ var Panel = {
     },
 
     expand: function(){
-        var element = this.element, o = this.options;
+        var element = this.element;
         if (Utils.isMetroObject(element, 'collapse') === false) {
             return ;
         }
@@ -12910,17 +15905,40 @@ var Panel = {
     },
 
     changeAttribute: function(attributeName){
-        switch (attributeName) {
-        }
     }
 };
 
 Metro.plugin('panel', Panel);
 
 // Source: js/plugins/popovers.js
+
+var PopoverDefaultConfig = {
+    popoverText: "",
+    popoverHide: 3000,
+    popoverTimeout: 10,
+    popoverOffset: 10,
+    popoverTrigger: Metro.popoverEvents.HOVER,
+    popoverPosition: Metro.position.TOP,
+    hideOnLeave: false,
+    closeButton: true,
+    clsPopover: "",
+    clsPopoverContent: "",
+    onPopoverShow: Metro.noop,
+    onPopoverHide: Metro.noop,
+    onPopoverCreate: Metro.noop
+};
+
+Metro.popoverSetup = function (options) {
+    PopoverDefaultConfig = $.extend({}, PopoverDefaultConfig, options);
+};
+
+if (typeof window.metroPopoverSetup !== undefined) {
+    Metro.popoverSetup(window.metroPopoverSetup);
+}
+
 var Popover = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, PopoverDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
         this.popover = null;
@@ -12936,21 +15954,8 @@ var Popover = {
         return this;
     },
 
-    options: {
-        popoverText: "",
-        popoverHide: 3000,
-        popoverTimeout: 100,
-        popoverOffset: 10,
-        popoverTrigger: Metro.popoverEvents.HOVER,
-        popoverPosition: Metro.position.TOP,
-        hideOnLeave: false,
-        clsPopover: "",
-        onPopoverShow: Metro.noop,
-        onPopoverHide: Metro.noop
-    },
-
     _setOptionsFromDOM: function(){
-        var that = this, element = this.element, o = this.options;
+        var element = this.element, o = this.options;
 
         $.each(element.data(), function(key, value){
             if (key in o) {
@@ -12964,7 +15969,6 @@ var Popover = {
     },
 
     _create: function(){
-        var that = this, element = this.element, o = this.options;
 
         this._createEvents();
 
@@ -12986,6 +15990,12 @@ var Popover = {
             }
             setTimeout(function(){
                 that.createPopover();
+
+                Utils.exec(o.onPopoverShow, [that.popover], element[0]);
+                element.fire("popovershow", {
+                    popover: that.popover
+                });
+
                 if (o.popoverHide > 0) {
                     setTimeout(function(){
                         that.removePopover();
@@ -12994,7 +16004,7 @@ var Popover = {
             }, o.popoverTimeout);
         });
 
-        if (o.hideOnLeave === true && !Utils.isTouchDevice()) {
+        if (o.hideOnLeave === true) {
             element.on(Metro.events.leave, function(){
                 that.removePopover();
             });
@@ -13038,11 +16048,26 @@ var Popover = {
 
     createPopover: function(){
         var that = this, elem = this.elem, element = this.element, o = this.options;
-        var popover = $("<div>").addClass("popover neb").addClass(o.clsPopover).html(o.popoverText);
+        var popover;
         var neb_pos;
         var id = Utils.elementId("popover");
+        var closeButton;
 
+        if (this.popovered) {
+            return ;
+        }
+
+        popover = $("<div>").addClass("popover neb").addClass(o.clsPopover);
         popover.attr("id", id);
+
+        $("<div>").addClass("popover-content").addClass(o.clsPopoverContent).html(o.popoverText).appendTo(popover);
+
+        if (o.popoverHide === 0 && o.closeButton === true) {
+            closeButton = $("<button>").addClass("button square small popover-close-button bg-white").html("&times;").appendTo(popover);
+            closeButton.on(Metro.events.click, function(){
+                that.removePopover();
+            });
+        }
 
         switch (o.popoverPosition) {
             case Metro.position.TOP: neb_pos = "neb-s"; break;
@@ -13052,9 +16077,12 @@ var Popover = {
         }
 
         popover.addClass(neb_pos);
-        popover.on(Metro.events.click, function(){
-            that.removePopover();
-        });
+
+        if (o.closeButton !== true) {
+            popover.on(Metro.events.click, function(){
+                that.removePopover();
+            });
+        }
 
         this.popover = popover;
         this.size = Utils.hiddenElementSize(popover);
@@ -13071,33 +16099,50 @@ var Popover = {
 
         this.popovered = true;
 
-        Utils.exec(o.onPopoverShow, [popover, element]);
+        Utils.exec(o.onPopoverCreate, [popover], element[0]);
+        element.fire("popovercreate", {
+            popover: popover
+        });
     },
 
     removePopover: function(){
-        var that = this;
+        var that = this, element = this.element;
         var timeout = this.options.onPopoverHide === Metro.noop ? 0 : 300;
         var popover = this.popover;
-        if (popover !== null) {
-            Utils.exec(this.options.onPopoverHide, [popover, this.element]);
-            setTimeout(function(){
-                popover.hide(0, function(){
-                    popover.remove();
-                    that.popover = null;
-                    that.popovered = false;
-                });
-            }, timeout);
+
+        if (!this.popovered) {
+            return ;
         }
+
+        Utils.exec(this.options.onPopoverHide, [popover], this.elem);
+        element.fire("popoverhide", {
+            popover: popover
+        });
+
+        setTimeout(function(){
+            popover.hide(0, function(){
+                popover.remove();
+                that.popover = null;
+                that.popovered = false;
+            });
+        }, timeout);
     },
 
     show: function(){
-        var that = this, o = this.options;
+        var that = this, element = this.element, o = this.options;
+
         if (this.popovered === true) {
             return ;
         }
 
         setTimeout(function(){
             that.createPopover();
+
+            Utils.exec(o.onPopoverShow, [that.popover], element[0]);
+            element.fire("popovershow", {
+                popover: that.popover
+            });
+
             if (o.popoverHide > 0) {
                 setTimeout(function(){
                     that.removePopover();
@@ -13110,17 +16155,25 @@ var Popover = {
         this.removePopover();
     },
 
-    changeText: function(){
-        this.options.popoverText = this.element.attr("data-popover-text");
-    },
-
-    changePosition: function(){
-        this.options.popoverPosition = this.element.attr("data-popover-position");
-    },
-
     changeAttribute: function(attributeName){
+        var that = this, element = this.element, o = this.options;
+
+        var changeText = function(){
+            o.popoverText = element.attr("data-popover-text");
+            if (that.popover) {
+                that.popover.find(".popover-content").html(o.popoverText);
+                that.setPosition();
+            }
+        };
+
+        var changePosition = function(){
+            o.popoverPosition = element.attr("data-popover-position");
+            that.setPosition();
+        };
+
         switch (attributeName) {
-            case "data-popover-text": this.changeText(); break;
+            case "data-popover-text": changeText(); break;
+            case "data-popover-position": changePosition(); break;
         }
     }
 };
@@ -13128,9 +16181,33 @@ var Popover = {
 Metro.plugin('popover', Popover);
 
 // Source: js/plugins/progress.js
+
+var ProgressDefaultConfig = {
+    value: 0,
+    buffer: 0,
+    type: "bar",
+    small: false,
+    clsBack: "",
+    clsBar: "",
+    clsBuffer: "",
+    onValueChange: Metro.noop,
+    onBufferChange: Metro.noop,
+    onComplete: Metro.noop,
+    onBuffered: Metro.noop,
+    onProgressCreate: Metro.noop
+};
+
+Metro.progressSetup = function (options) {
+    ProgressDefaultConfig = $.extend({}, ProgressDefaultConfig, options);
+};
+
+if (typeof window.metroProgressSetup !== undefined) {
+    Metro.bottomSheetSetup(window.metroProgressSetup);
+}
+
 var Progress = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, ProgressDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
         this.value = 0;
@@ -13139,24 +16216,7 @@ var Progress = {
         this._setOptionsFromDOM();
         this._create();
 
-        Utils.exec(this.options.onProgressCreate, [this.element]);
-
         return this;
-    },
-
-    options: {
-        value: 0,
-        buffer: 0,
-        type: "bar",
-        small: false,
-        clsBack: "",
-        clsBar: "",
-        clsBuffer: "",
-        onValueChange: Metro.noop,
-        onBufferChange: Metro.noop,
-        onComplete: Metro.noop,
-        onBuffered: Metro.noop,
-        onProgressCreate: Metro.noop
     },
 
     _setOptionsFromDOM: function(){
@@ -13217,6 +16277,9 @@ var Progress = {
 
         this.val(o.value);
         this.buff(o.buffer);
+
+        Utils.exec(o.onProgressCreate, null, element[0]);
+        element.fire("progresscreate");
     },
 
     val: function(v){
@@ -13236,12 +16299,16 @@ var Progress = {
 
         bar.css("width", this.value + "%");
 
-        element.trigger("valuechange", [this.value]);
-
-        Utils.exec(o.onValueChange, [this.value, element]);
+        Utils.exec(o.onValueChange, [this.value], element[0]);
+        element.fire("valuechange", {
+            vsl: this.value
+        });
 
         if (this.value === 100) {
-            Utils.exec(o.onComplete, [this.value, element]);
+            Utils.exec(o.onComplete, [this.value], element[0]);
+            element.fire("complete", {
+                val: this.value
+            });
         }
     },
 
@@ -13262,12 +16329,16 @@ var Progress = {
 
         bar.css("width", this.buffer + "%");
 
-        element.trigger("bufferchange", [this.buffer]);
-
-        Utils.exec(o.onBufferChange, [this.buffer, element]);
+        Utils.exec(o.onBufferChange, [this.buffer], element[0]);
+        element.fire("bufferchange", {
+            val: this.buffer
+        });
 
         if (this.buffer === 100) {
-            Utils.exec(o.onBuffered, [this.buffer, element]);
+            Utils.exec(o.onBuffered, [this.buffer], element[0]);
+            element.fire("buffered", {
+                val: this.buffer
+            });
         }
     },
 
@@ -13290,9 +16361,29 @@ var Progress = {
 Metro.plugin('progress', Progress);
 
 // Source: js/plugins/radio.js
+
+var RadioDefaultConfig = {
+    transition: true,
+    style: 1,
+    caption: "",
+    captionPosition: "right",
+    clsRadio: "",
+    clsCheck: "",
+    clsCaption: "",
+    onRadioCreate: Metro.noop
+};
+
+Metro.radioSetup = function (options) {
+    RadioDefaultConfig = $.extend({}, RadioDefaultConfig, options);
+};
+
+if (typeof window.metroRadioSetup !== undefined) {
+    Metro.radioSetup(window.metroRadioSetup);
+}
+
 var Radio = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, RadioDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
         this.origin = {
@@ -13302,23 +16393,11 @@ var Radio = {
         this._setOptionsFromDOM();
         this._create();
 
-        Utils.exec(this.options.onRadioCreate, [this.element]);
-
         return this;
-    },
-    options: {
-        style: 1,
-        caption: "",
-        captionPosition: "right",
-        disabled: false,
-        clsElement: "",
-        clsCheck: "",
-        clsCaption: "",
-        onRadioCreate: Metro.noop
     },
 
     _setOptionsFromDOM: function(){
-        var that = this, element = this.element, o = this.options;
+        var element = this.element, o = this.options;
 
         $.each(element.data(), function(key, value){
             if (key in o) {
@@ -13332,24 +16411,21 @@ var Radio = {
     },
 
     _create: function(){
-        var that = this, element = this.element, o = this.options;
-        var prev = element.prev();
-        var parent = element.parent();
+        var element = this.element, o = this.options;
         var radio = $("<label>").addClass("radio " + element[0].className).addClass(o.style === 2 ? "style2" : "");
         var check = $("<span>").addClass("check");
         var caption = $("<span>").addClass("caption").html(o.caption);
 
         element.attr("type", "radio");
 
-        if (prev.length === 0) {
-            parent.prepend(radio);
-        } else {
-            radio.insertAfter(prev);
-        }
-
+        radio.insertBefore(element);
         element.appendTo(radio);
         check.appendTo(radio);
         caption.appendTo(radio);
+
+        if (o.transition === true) {
+            radio.addClass("transition-on");
+        }
 
         if (o.captionPosition === 'left') {
             radio.addClass("caption-left");
@@ -13358,15 +16434,18 @@ var Radio = {
         this.origin.className = element[0].className;
         element[0].className = '';
 
-        radio.addClass(o.clsElement);
+        radio.addClass(o.clsRadio);
         caption.addClass(o.clsCaption);
         check.addClass(o.clsCheck);
 
-        if (o.disabled === true && element.is(':disabled')) {
+        if (element.is(':disabled')) {
             this.disable();
         } else {
             this.enable();
         }
+
+        Utils.exec(o.onRadioCreate, null, element[0]);
+        element.fire("radiocreate");
     },
 
     disable: function(){
@@ -13380,7 +16459,7 @@ var Radio = {
     },
 
     toggleState: function(){
-        if (this.element.data("disabled") === false) {
+        if (this.elem.disabled) {
             this.disable();
         } else {
             this.enable();
@@ -13388,7 +16467,7 @@ var Radio = {
     },
 
     changeAttribute: function(attributeName){
-        var that = this, element = this.element, o = this.options;
+        var element = this.element, o = this.options;
         var parent = element.parent();
 
         var changeStyle = function(){
@@ -13418,12 +16497,41 @@ var Radio = {
 Metro.plugin('radio', Radio);
 
 // Source: js/plugins/rating.js
+
+var RatingDefaultConfig = {
+    static: false,
+    title: null,
+    value: 0,
+    values: null,
+    message: "",
+    stars: 5,
+    starColor: null,
+    staredColor: null,
+    roundFunc: "round", // ceil, floor, round
+    half: true,
+    clsRating: "",
+    clsTitle: "",
+    clsStars: "",
+    clsResult: "",
+    onStarClick: Metro.noop,
+    onRatingCreate: Metro.noop
+};
+
+Metro.ratingSetup = function (options) {
+    RatingDefaultConfig = $.extend({}, RatingDefaultConfig, options);
+};
+
+if (typeof window.metroRatingSetup !== undefined) {
+    Metro.ratingSetup(window.metroRatingSetup);
+}
+
 var Rating = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, RatingDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
         this.value = 0;
+        this.originValue = 0;
         this.values = [];
         this.rate = 0;
         this.rating = null;
@@ -13432,24 +16540,6 @@ var Rating = {
         this._create();
 
         return this;
-    },
-
-    options: {
-        static: false,
-        title: null,
-        value: 0,
-        values: null,
-        message: "",
-        stars: 5,
-        starColor: null,
-        staredColor: null,
-        roundFunc: "round", // ceil, floor, round
-        clsRating: "",
-        clsTitle: "",
-        clsStars: "",
-        clsResult: "",
-        onStarClick: Metro.noop,
-        onRatingCreate: Metro.noop
     },
 
     _setOptionsFromDOM: function(){
@@ -13470,6 +16560,12 @@ var Rating = {
         var element = this.element, o = this.options;
         var i;
 
+        if (isNaN(o.value)) {
+            o.value = 0;
+        } else {
+            o.value = parseFloat(o.value).toFixed(1);
+        }
+
         if (o.values !== null) {
             if (Array.isArray(o.values)) {
                 this.values = o.values;
@@ -13482,6 +16578,7 @@ var Rating = {
             }
         }
 
+        this.originValue = o.value;
         this.value = o.value > 0 ? Math[o.roundFunc](o.value) : 0;
 
         if (o.starColor !== null) {
@@ -13499,36 +16596,31 @@ var Rating = {
         this._createRating();
         this._createEvents();
 
-        Utils.exec(o.onRatingCreate, [element]);
+        Utils.exec(o.onRatingCreate, null, element[0]);
+        element.fire("ratingcreate");
     },
 
     _createRating: function(){
         var element = this.element, o = this.options;
 
-        var prev = element.prev();
-        var parent = element.parent();
         var id = Utils.elementId("rating");
         var rating = $("<div>").addClass("rating " + String(element[0].className).replace("d-block", "d-flex")).addClass(o.clsRating);
         var i, stars, result, li;
         var sheet = Metro.sheet;
+        var value = o.static ? Math.floor(this.originValue) : this.value;
 
         element.val(this.value);
 
         rating.attr("id", id);
 
-        if (prev.length === 0) {
-            parent.prepend(rating);
-        } else {
-            rating.insertAfter(prev);
-        }
-
+        rating.insertBefore(element);
         element.appendTo(rating);
 
         stars = $("<ul>").addClass("stars").addClass(o.clsStars).appendTo(rating);
 
         for(i = 1; i <= o.stars; i++) {
             li = $("<li>").data("value", this.values[i-1]).appendTo(stars);
-            if (i <= this.value) {
+            if (i <= value) {
                 li.addClass("on");
             }
         }
@@ -13542,6 +16634,7 @@ var Rating = {
         }
         if (o.staredColor !== null) {
             Utils.addCssRule(sheet, "#"+id+" .stars li.on", "color: "+o.staredColor+";");
+            Utils.addCssRule(sheet, "#"+id+" .stars li.half::after", "color: "+o.staredColor+";");
         }
 
         if (o.title !== null) {
@@ -13551,14 +16644,25 @@ var Rating = {
 
         if (o.static === true) {
             rating.addClass("static");
+            if (o.half === true){
+                var dec = Math.round((this.originValue % 1) * 10);
+                if (dec > 0 && dec <= 9) {
+                    rating.find('.stars li.on').last().next("li").addClass("half half-" + ( dec * 10));
+                }
+            }
         }
-
 
         element[0].className = '';
         if (o.copyInlineStyles === true) {
             for (i = 0; i < element[0].style.length; i++) {
                 rating.css(element[0].style[i], element.css(element[0].style[i]));
             }
+        }
+
+        if (element.is(":disabled")) {
+            this.disable();
+        } else {
+            this.enable();
         }
 
         this.rating = rating;
@@ -13585,7 +16689,11 @@ var Rating = {
             star.prevAll().addClass("on");
             star.nextAll().removeClass("on");
 
-            Utils.exec(o.onStarClick, [value, star, element]);
+            Utils.exec(o.onStarClick, [value, star[0]], element[0]);
+            element.fire("starclick", {
+                value: value,
+                star: star[0]
+            });
         });
     },
 
@@ -13652,10 +16760,29 @@ var Rating = {
         this.static(isStatic);
     },
 
+    disable: function(){
+        this.element.data("disabled", true);
+        this.element.parent().addClass("disabled");
+    },
+
+    enable: function(){
+        this.element.data("disabled", false);
+        this.element.parent().removeClass("disabled");
+    },
+
+    toggleState: function(){
+        if (this.elem.disabled) {
+            this.disable();
+        } else {
+            this.enable();
+        }
+    },
+
     changeAttribute: function(attributeName){
         switch (attributeName) {
             case "value":
             case "data-value": this.changeAttributeValue(attributeName); break;
+            case "disabled": this.toggleState(); break;
             case "data-message": this.changeAttributeMessage(); break;
             case "data-static": this.changeAttributeStatic(); break;
         }
@@ -13665,34 +16792,44 @@ var Rating = {
 Metro.plugin('rating', Rating);
 
 // Source: js/plugins/resizable.js
+
+var ResizableDefaultConfig = {
+    canResize: true,
+    resizeElement: ".resize-element",
+    minWidth: 0,
+    minHeight: 0,
+    maxWidth: 0,
+    maxHeight: 0,
+    preserveRatio: false,
+    onResizeStart: Metro.noop,
+    onResizeStop: Metro.noop,
+    onResize: Metro.noop,
+    onResizableCreate: Metro.noop
+};
+
+Metro.resizeableSetup = function (options) {
+    ResizableDefaultConfig = $.extend({}, ResizableDefaultConfig, options);
+};
+
+if (typeof window.metroResizeableSetup !== undefined) {
+    Metro.resizeableSetup(window.metroResizeableSetup);
+}
+
 var Resizable = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, ResizableDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
+        this.resizer = null;
 
         this._setOptionsFromDOM();
         this._create();
 
-        Utils.exec(this.options.onResizableCreate, [this.element]);
-
         return this;
-    },
-    options: {
-        resizeElement: ".resize-element",
-        resizeMinWidth: 0,
-        resizeMinHeight: 0,
-        resizeMaxWidth: 0,
-        resizeMaxHeight: 0,
-        resizePreserveRatio: false,
-        onResizeStart: Metro.noop,
-        onResizeStop: Metro.noop,
-        onResize: Metro.noop,
-        onResizableCreate: Metro.noop
     },
 
     _setOptionsFromDOM: function(){
-        var that = this, element = this.element, o = this.options;
+        var element = this.element, o = this.options;
 
         $.each(element.data(), function(key, value){
             if (key in o) {
@@ -13706,53 +16843,86 @@ var Resizable = {
     },
 
     _create: function(){
-        var that = this, element = this.element, o = this.options;
+        var element = this.element, o = this.options;
 
-        if (o.resizeElement !== "" && $(o.resizeElement).length === 0) {
-            $("<span>").addClass("resize-element").appendTo(element);
+        this._createStructure();
+        this._createEvents();
+
+        Utils.exec(o.onResizableCreate, null, element[0]);
+        element.fire("resizeablecreate");
+    },
+
+    _createStructure: function(){
+        var element = this.element, o = this.options;
+
+        if (Utils.isValue(o.resizeElement) && element.find(o.resizeElement).length > 0) {
+            this.resizer = element.find(o.resizeElement);
+        } else {
+            this.resizer = $("<span>").addClass("resize-element").appendTo(element);
         }
 
-        element.on(Metro.events.start, o.resizeElement, function(e){
+        element.data("canResize", o.canResize);
+    },
 
-            if (element.data("canResize") === false) {
+    _createEvents: function(){
+        var element = this.element, o = this.options;
+
+        this.resizer.on(Metro.events.start + "-resize-element", function(e){
+
+            if (element.data('canResize') === false) {
                 return ;
             }
 
-            var startXY = Utils.clientXY(e);
+            var startXY = Utils.pageXY(e);
             var startWidth = parseInt(element.outerWidth());
             var startHeight = parseInt(element.outerHeight());
             var size = {width: startWidth, height: startHeight};
 
-            console.log(element.offset());
+            Utils.exec(o.onResizeStart, [size], element[0]);
+            element.fire("resizestart", {
+                size: size
+            });
 
-            Utils.exec(o.onResizeStart, [element, size]);
-
-            $(document).on(Metro.events.move, function(e){
-                var moveXY = Utils.clientXY(e);
+            $(document).on(Metro.events.move + "-resize-element", function(e){
+                var moveXY = Utils.pageXY(e);
                 var size = {
                     width: startWidth + moveXY.x - startXY.x,
                     height: startHeight + moveXY.y - startXY.y
                 };
 
-                if (o.resizeMinWidth > 0 && size.width < o.resizeMinWidth) {return ;}
-                if (o.resizeMaxWidth > 0 && size.width > o.resizeMaxWidth) {return ;}
-                if (o.resizeMinHeight > 0 && size.height < o.resizeMinHeight) {return ;}
-                if (o.resizeMaxHeight > 0 && size.height > o.resizeMaxHeight) {return ;}
+                if (o.maxWidth > 0 && size.width > o.maxWidth) {return true;}
+                if (o.minWidth > 0 && size.width < o.minWidth) {return true;}
+
+                if (o.maxHeight > 0 && size.height > o.maxHeight) {return true;}
+                if (o.minHeight > 0 && size.height < o.minHeight) {return true;}
 
                 element.css(size);
-                Utils.exec(o.onResize, [element, size]);
+
+                Utils.exec(o.onResize, [size], element[0]);
+                element.fire("resize", {
+                    size: size
+                });
             });
+
+            $(document).on(Metro.events.stop + "-resize-element", function(){
+                $(document).off(Metro.events.move + "-resize-element");
+                $(document).off(Metro.events.stop + "-resize-element");
+
+                var size = {
+                    width: parseInt(element.outerWidth()),
+                    height: parseInt(element.outerHeight())
+                };
+
+                Utils.exec(o.onResizeStop, [size], element[0]);
+                element.fire("resizestop", {
+                    size: size
+                });
+            });
+
+            e.preventDefault();
+            e.stopPropagation();
         });
 
-        element.on(Metro.events.stop, o.resizeElement, function(){
-            $(document).off(Metro.events.move);
-
-            var size = {
-                width: parseInt(element.outerWidth()),
-                height: parseInt(element.outerHeight())
-            };
-            Utils.exec(o.onResizeStop, [element, size]);
-        });
     },
 
     off: function(){
@@ -13764,15 +16934,40 @@ var Resizable = {
     },
 
     changeAttribute: function(attributeName){
+        var that = this, element = this.element, o = this.options;
+
+        var canResize = function(){
+            o.canResize = JSON.parse(element.attr('data-can-resize')) === true;
+        };
+
+        switch (attributeName) {
+            case "data-can-resize": canResize(); break;
+        }
     }
 };
 
 Metro.plugin('resizable', Resizable);
 
 // Source: js/plugins/ribbon-menu.js
+
+var RibbonMenuDefaultConfig = {
+    onStatic: Metro.noop,
+    onBeforeTab: Metro.noop_true,
+    onTab: Metro.noop,
+    onRibbonMenuCreate: Metro.noop
+};
+
+Metro.ribbonMenuSetup = function (options) {
+    RibbonMenuDefaultConfig = $.extend({}, RibbonMenuDefaultConfig, options);
+};
+
+if (typeof window.metroRibbonMenuSetup !== undefined) {
+    Metro.ribbonMenuSetup(window.metroRibbonMenuSetup);
+}
+
 var RibbonMenu = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, RibbonMenuDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
 
@@ -13784,15 +16979,8 @@ var RibbonMenu = {
 
     dependencies: ['buttongroup'],
 
-    options: {
-        onStatic: Metro.noop,
-        onBeforeTab: Metro.noop_true,
-        onTab: Metro.noop,
-        onRibbonMenuCreate: Metro.noop
-    },
-
     _setOptionsFromDOM: function(){
-        var that = this, element = this.element, o = this.options;
+        var element = this.element, o = this.options;
 
         $.each(element.data(), function(key, value){
             if (key in o) {
@@ -13806,16 +16994,17 @@ var RibbonMenu = {
     },
 
     _create: function(){
-        var that = this, element = this.element, o = this.options;
+        var element = this.element, o = this.options;
 
         this._createStructure();
         this._createEvents();
 
-        Utils.exec(o.onRibbonMenuCreate, [element]);
+        Utils.exec(o.onRibbonMenuCreate, null, element[0]);
+        element.fire("ribbonmenucreate");
     },
 
     _createStructure: function(){
-        var that = this, element = this.element, o = this.options;
+        var element = this.element;
 
         element.addClass("ribbon-menu");
 
@@ -13844,7 +17033,7 @@ var RibbonMenu = {
                 if (w > gw) gw = w;
             });
 
-            g.css("width", Math.ceil(gw * btns.length / 3) + 4);
+            g.css("width", gw * Math.ceil(btns.length / 3) + 4);
         });
     },
 
@@ -13859,11 +17048,14 @@ var RibbonMenu = {
                 if (o.onStatic === Metro.noop && link.attr("href") !== undefined) {
                     document.location.href = link.attr("href");
                 } else {
-                    Utils.exec(o.onStatic, [tab, element]);
+                    Utils.exec(o.onStatic, [tab[0]], element[0]);
+                    element.fire("static", {
+                        tab: tab[0]
+                    });
                 }
             } else {
-                if (Utils.exec(o.onBeforeTab, [tab, element]) === true) {
-                    that.open(tab);
+                if (Utils.exec(o.onBeforeTab, [tab[0]], element[0]) === true) {
+                    that.open(tab[0]);
                 }
             }
             e.preventDefault();
@@ -13871,19 +17063,23 @@ var RibbonMenu = {
     },
 
     open: function(tab){
-        var that = this, element = this.element, o = this.options;
+        var element = this.element, o = this.options;
+        var $tab = $(tab);
         var tabs = element.find(".tabs-holder li");
         var sections = element.find(".content-holder .section");
-        var target = tab.children("a").attr("href");
+        var target = $tab.children("a").attr("href");
         var target_section = target !== "#" ? element.find(target) : null;
 
         tabs.removeClass("active");
-        tab.addClass("active");
+        $tab.addClass("active");
 
         sections.removeClass("active");
         if (target_section) target_section.addClass("active");
 
-        Utils.exec(o.onTab, [tab, element]);
+        Utils.exec(o.onTab, [$tab[0]], element[0]);
+        element.fire("tab", {
+            tab: $tab[0]
+        });
     },
 
     changeAttribute: function(attributeName){
@@ -13894,25 +17090,32 @@ var RibbonMenu = {
 Metro.plugin('ribbonmenu', RibbonMenu);
 
 // Source: js/plugins/ripple.js
+
+var RippleDefaultConfig = {
+    rippleColor: "#fff",
+    rippleAlpha: .4,
+    rippleTarget: "default",
+    onRippleCreate: Metro.noop
+};
+
+Metro.rippleSetup = function (options) {
+    RippleDefaultConfig = $.extend({}, RippleDefaultConfig, options);
+};
+
+if (typeof window.metroRippleSetup !== undefined) {
+    Metro.rippleSetup(window.metroRippleSetup);
+}
+
 var Ripple = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, RippleDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
 
         this._setOptionsFromDOM();
         this._create();
 
-        Utils.exec(this.options.onRippleCreate, [this.element]);
-
         return this;
-    },
-
-    options: {
-        rippleColor: "#fff",
-        rippleAlpha: .4,
-        rippleTarget: "default",
-        onRippleCreate: Metro.noop
     },
 
     _setOptionsFromDOM: function(){
@@ -13975,6 +17178,9 @@ var Ripple = {
                 $(".ripple").remove();
             }, 400);
         });
+
+        Utils.exec(o.onRippleCreate, null, element[0]);
+        element.fire("ripplecreate");
     },
 
     changeAttribute: function(attributeName){
@@ -13984,177 +17190,48 @@ var Ripple = {
 
 Metro.plugin('ripple', Ripple);
 
-// Source: js/plugins/search.js
-var Search = {
-    init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
-        this.elem  = elem;
-        this.element = $(elem);
+// Source: js/plugins/select.js
 
-        this._setOptionsFromDOM();
-        this._create();
+var SelectDefaultConfig = {
+    duration: 100,
+    prepend: "",
+    append: "",
+    placeholder: "",
+    filterPlaceholder: "",
+    filter: true,
+    copyInlineStyles: true,
+    dropHeight: 200,
 
-        Utils.exec(this.options.onInputCreate, [this.element]);
+    clsSelect: "",
+    clsSelectInput: "",
+    clsPrepend: "",
+    clsAppend: "",
+    clsOption: "",
+    clsOptionActive: "",
+    clsOptionGroup: "",
+    clsDropList: "",
+    clsSelectedItem: "",
+    clsSelectedItemRemover: "",
 
-        return this;
-    },
-    options: {
-        clsElement: "",
-        clsInput: "",
-        clsPrepend: "",
-        clsClearButton: "",
-        clsSearchButton: "",
-        size: "default",
-        prepend: "",
-        copyInlineStyles: true,
-        clearButton: true,
-        searchButton: true,
-        searchButtonClick: "submit",
-        clearButtonIcon: "<span class='default-icon-cross'></span>",
-        searchButtonIcon: "<span class='default-icon-search'></span>",
-        customButtons: [],
-        disabled: false,
-        onSearchButtonClick: Metro.noop,
-        onInputCreate: Metro.noop
-    },
-
-    _setOptionsFromDOM: function(){
-        var that = this, element = this.element, o = this.options;
-
-        $.each(element.data(), function(key, value){
-            if (key in o) {
-                try {
-                    o[key] = JSON.parse(value);
-                } catch (e) {
-                    o[key] = value;
-                }
-            }
-        });
-    },
-
-    _create: function(){
-        var that = this, element = this.element, o = this.options;
-        var prev = element.prev();
-        var parent = element.parent();
-        var container = $("<div>").addClass("input " + element[0].className);
-        var buttons = $("<div>").addClass("button-group");
-        var clearButton, searchButton;
-
-        if (element.attr("type") === undefined) {
-            element.attr("type", "text");
-        }
-
-        if (prev.length === 0) {
-            parent.prepend(container);
-        } else {
-            container.insertAfter(prev);
-        }
-
-        element.appendTo(container);
-        buttons.appendTo(container);
-
-        if (o.clearButton !== false) {
-            clearButton = $("<button>").addClass("button input-clear-button").addClass(o.clsClearButton).attr("tabindex", -1).attr("type", "button").html(o.clearButtonIcon);
-            clearButton.on(Metro.events.click, function(){
-                element.val("").trigger('change').trigger('keyup').focus();
-            });
-            clearButton.appendTo(buttons);
-        }
-        if (o.searchButton !== false) {
-            searchButton = $("<button>").addClass("button input-search-button").addClass(o.clsSearchButton).attr("tabindex", -1).attr("type", o.searchButtonClick === 'submit' ? "submit" : "button").html(o.searchButtonIcon);
-            searchButton.on(Metro.events.click, function(){
-                if (o.searchButtonClick === 'submit') {
-                    Utils.exec(o.onSearchButtonClick, [element.val(), $(this)], element[0]);
-                } else {
-                    this.form.submit();
-                }
-            });
-            searchButton.appendTo(buttons);
-        }
-
-        if (o.prepend !== "") {
-            var prepend = Utils.isTag(o.prepend) ? $(o.prepend) : $("<span>"+o.prepend+"</span>");
-            prepend.addClass("prepend").addClass(o.clsPrepend).appendTo(container);
-        }
-
-        if (typeof o.customButtons === "string") {
-            o.customButtons = Utils.isObject(o.customButtons);
-        }
-
-        if (typeof o.customButtons === "object" && Utils.objectLength(o.customButtons) > 0) {
-            $.each(o.customButtons, function(){
-                var item = this;
-                var customButton = $("<button>").addClass("button input-custom-button").addClass(item.cls).attr("tabindex", -1).attr("type", "button").html(item.html);
-                customButton.on(Metro.events.click, function(){
-                    Utils.exec(item.onclick, [element.val(), customButton], element[0]);
-                });
-                customButton.appendTo(buttons);
-            });
-        }
-
-        if (element.attr('dir') === 'rtl' ) {
-            container.addClass("rtl").attr("dir", "rtl");
-        }
-
-        element[0].className = '';
-        if (o.copyInlineStyles === true) {
-            for (var i = 0, l = element[0].style.length; i < l; i++) {
-                container.css(element[0].style[i], element.css(element[0].style[i]));
-            }
-        }
-
-        container.addClass(o.clsElement);
-        element.addClass(o.clsInput);
-
-        if (o.size !== "default") {
-            container.css({
-                width: o.size
-            });
-        }
-
-        element.on(Metro.events.blur, function(){container.removeClass("focused");});
-        element.on(Metro.events.focus, function(){container.addClass("focused");});
-
-        if (o.disabled === true || element.is(":disabled")) {
-            this.disable();
-        } else {
-            this.enable();
-        }
-    },
-
-    disable: function(){
-        //this.element.attr("disabled", true);
-        this.element.data("disabled", true);
-        this.element.parent().addClass("disabled");
-    },
-
-    enable: function(){
-        //this.element.attr("disabled", false);
-        this.element.data("disabled", false);
-        this.element.parent().removeClass("disabled");
-    },
-
-    toggleState: function(){
-        if (this.element.data("disabled") === false) {
-            this.disable();
-        } else {
-            this.enable();
-        }
-    },
-
-    changeAttribute: function(attributeName){
-        switch (attributeName) {
-            case 'disabled': this.toggleState(); break;
-        }
-    }
+    onChange: Metro.noop,
+    onUp: Metro.noop,
+    onDrop: Metro.noop,
+    onItemSelect: Metro.noop,
+    onItemDeselect: Metro.noop,
+    onSelectCreate: Metro.noop
 };
 
-Metro.plugin('search', Search);
+Metro.selectSetup = function (options) {
+    SelectDefaultConfig = $.extend({}, SelectDefaultConfig, options);
+};
 
-// Source: js/plugins/select.js
+if (typeof window.metroSelectSetup !== undefined) {
+    Metro.selectSetup(window.metroSelectSetup);
+}
+
 var Select = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, SelectDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
         this.list = null;
@@ -14162,33 +17239,7 @@ var Select = {
         this._setOptionsFromDOM();
         this._create();
 
-        Utils.exec(this.options.onSelectCreate, [this.element]);
-
         return this;
-    },
-    options: {
-        duration: 100,
-        clsElement: "",
-        clsSelect: "",
-        clsPrepend: "",
-        clsAppend: "",
-        clsOption: "",
-        clsOptionGroup: "",
-        clsDropList: "",
-        clsSelectedItem: "",
-        clsSelectedItemRemover: "",
-        prepend: "",
-        append: "",
-        placeholder: "",
-        filterPlaceholder: "",
-        filter: true,
-        copyInlineStyles: true,
-        dropHeight: 200,
-        disabled: false,
-        onChange: Metro.noop,
-        onSelectCreate: Metro.noop,
-        onUp: Metro.noop,
-        onDrop: Metro.noop
     },
 
     _setOptionsFromDOM: function(){
@@ -14206,8 +17257,13 @@ var Select = {
     },
 
     _create: function(){
+        var element = this.element, o = this.options;
+
         this._createSelect();
         this._createEvents();
+
+        Utils.exec(o.onSelectCreate, null, element[0]);
+        element.fire("selectcreate");
     },
 
     _addOption: function(item, parent){
@@ -14216,22 +17272,24 @@ var Select = {
         var element = this.element, o = this.options;
         var multiple = element[0].multiple;
         var input = element.siblings(".select-input");
-        var html = Utils.isValue(option.data('template'))?option.data('template').replace("$1", item.text):item.text;
-        var selected_item;
+        var html = Utils.isValue(option.attr('data-template')) ? option.attr('data-template').replace("$1", item.text):item.text;
+        var tag;
 
-        l = $("<li>").addClass(o.clsOption).data("option", item).data("text", item.text).data('value', Utils.isValue(item.value) ? item.value : "").appendTo(parent);
+        l = $("<li>").addClass(o.clsOption).data("option", item).attr("data-text", item.text).attr('data-value', Utils.isValue(item.value) ? item.value : "").appendTo(parent);
         a = $("<a>").html(html).appendTo(l).addClass(item.className);
 
-        if (item.getAttribute("selected") !== null) {
+        if (option.is(":selected")) {
             if (multiple) {
                 l.addClass("d-none");
-                selected_item = $("<div>").addClass("selected-item").addClass(o.clsSelectedItem).html("<span class='title'>"+html+"</span>").appendTo(input);
-                selected_item.data("option", l);
-                $("<span>").addClass("remover").addClass(o.clsSelectedItemRemover).html("&times;").appendTo(selected_item);
+                tag = $("<div>").addClass("selected-item").addClass(o.clsSelectedItem).html("<span class='title'>"+html+"</span>").appendTo(input);
+                tag.data("option", l);
+                $("<span>").addClass("remover").addClass(o.clsSelectedItemRemover).html("&times;").appendTo(tag);
             } else {
                 element.val(item.value);
                 input.html(html);
-                element.trigger("change");
+                element.fire("change", {
+                    val: item.value
+                });
                 l.addClass("active");
             }
         }
@@ -14251,12 +17309,25 @@ var Select = {
         })
     },
 
+    _createOptions: function(){
+        var that = this, element = this.element, select = element.parent();
+        var list = select.find("ul").html("");
+
+        $.each(element.children(), function(){
+            if (this.tagName === "OPTION") {
+                that._addOption(this, list);
+            } else if (this.tagName === "OPTGROUP") {
+                that._addOptionGroup(this, list);
+            }
+        });
+    },
+
     _createSelect: function(){
         var that = this, element = this.element, o = this.options;
 
         var prev = element.prev();
         var parent = element.parent();
-        var container = $("<div>").addClass("select " + element[0].className).addClass(o.clsElement);
+        var container = $("<label>").addClass("select " + element[0].className).addClass(o.clsSelect);
         var multiple = element[0].multiple;
         var select_id = Utils.elementId("select");
         var buttons = $("<div>").addClass("button-group");
@@ -14275,10 +17346,9 @@ var Select = {
         }
 
         element.appendTo(container);
-        element.addClass(o.clsSelect);
         buttons.appendTo(container);
 
-        input = $("<div>").addClass("select-input").attr("name", "__" + select_id + "__");
+        input = $("<div>").addClass("select-input").addClass(o.clsSelectInput).attr("name", "__" + select_id + "__");
         drop_container = $("<div>").addClass("drop-container");
         list = $("<ul>").addClass("d-menu").addClass(o.clsDropList).css({
             "max-height": o.dropHeight
@@ -14296,15 +17366,10 @@ var Select = {
 
         drop_container.append(list);
 
-        $.each(element.children(), function(){
-            if (this.tagName === "OPTION") {
-                that._addOption(this, list);
-            } else if (this.tagName === "OPTGROUP") {
-                that._addOptionGroup(this, list);
-            }
-        });
+        this._createOptions();
 
         drop_container.dropdown({
+            dropFilter: ".select",
             duration: o.duration,
             toggleElement: "#"+select_id,
             onDrop: function(){
@@ -14331,22 +17396,28 @@ var Select = {
                     }, 200);
                 }
 
-                Utils.exec(o.onDrop, [list, element], list[0]);
+                Utils.exec(o.onDrop, [list[0]], element[0]);
+                element.fire("drop", {
+                    list: list[0]
+                });
             },
             onUp: function(){
-                Utils.exec(o.onUp, [list, element], list[0]);
+                Utils.exec(o.onUp, [list[0]], element[0]);
+                element.fire("up", {
+                    list: list[0]
+                });
             }
         });
 
         this.list = list;
 
         if (o.prepend !== "") {
-            var prepend = Utils.isTag(o.prepend) ? $(o.prepend) : $("<span>"+o.prepend+"</span>");
+            var prepend = $("<div>").html(o.prepend);
             prepend.addClass("prepend").addClass(o.clsPrepend).appendTo(container);
         }
 
         if (o.append !== "") {
-            var append = Utils.isTag(o.append) ? $(o.append) : $("<span>"+o.append+"</span>");
+            var append = $("<div>").html(o.append);
             append.addClass("append").addClass(o.clsAppend).appendTo(container);
         }
 
@@ -14360,7 +17431,7 @@ var Select = {
             container.addClass("rtl").attr("dir", "rtl");
         }
 
-        if (o.disabled === true || element.is(':disabled')) {
+        if (element.is(':disabled')) {
             this.disable();
         } else {
             this.enable();
@@ -14377,13 +17448,16 @@ var Select = {
         var list = drop_container.find("ul");
 
         container.on(Metro.events.click, function(e){
+            $(".focused").removeClass("focused");
+            container.addClass("focused");
             e.preventDefault();
             e.stopPropagation();
         });
 
-        input.on(Metro.events.click, function(){container.toggleClass("focused");});
-        filter_input.on(Metro.events.blur, function(){container.removeClass("focused");});
-        filter_input.on(Metro.events.focus, function(){container.addClass("focused");});
+        input.on(Metro.events.click, function(e){
+            $(".focused").removeClass("focused");
+            container.addClass("focused");
+        });
 
         list.on(Metro.events.click, "li", function(e){
             if ($(this).hasClass("group-title")) {
@@ -14395,40 +17469,68 @@ var Select = {
             var val = leaf.data('value');
             var txt = leaf.data('text');
             var html = leaf.children('a').html();
-            var selected_item;
+            var selected_item, selected;
+            var option = leaf.data("option");
+            var options = element.find("option");
 
             if (element[0].multiple) {
                 leaf.addClass("d-none");
                 selected_item = $("<div>").addClass("selected-item").addClass(o.clsSelectedItem).html("<span class='title'>"+html+"</span>").appendTo(input);
                 selected_item.data("option", leaf);
                 $("<span>").addClass("remover").addClass(o.clsSelectedItemRemover).html("&times;").appendTo(selected_item);
-                $.each(element.find("option"), function(){
-                    if (this === leaf.data("option")) {
-                        this.selected = true;
-                    }
-                });
             } else {
-                list.find("li.active").removeClass("active");
-                leaf.addClass("active");
+                list.find("li.active").removeClass("active").removeClass(o.clsOptionActive);
+                leaf.addClass("active").addClass(o.clsOptionActive);
                 input.html(html);
-                element.val(val);
-                element.trigger("change");
                 drop_container.data("dropdown").close();
             }
 
-            Utils.exec(o.onChange, [val], element[0]);
+            $.each(options, function(){
+                if (this === option) {
+                    this.selected = true;
+                }
+            });
+
+            Utils.exec(o.onItemSelect, [val, option, leaf[0]], element[0]);
+            element.fire("itemselect", {
+                val: val,
+                option: option,
+                leaf: leaf[0]
+            });
+
+            selected = that.getSelected();
+
+            Utils.exec(o.onChange, [selected], element[0]);
+            element.fire("change", {
+                selected: selected
+            });
         });
 
         input.on("click", ".selected-item .remover", function(e){
             var item = $(this).closest(".selected-item");
             var leaf = item.data("option");
+            var option = leaf.data('option');
+            var selected;
+
             leaf.removeClass("d-none");
             $.each(element.find("option"), function(){
-                if (this === leaf.data("option")) {
+                if (this === option) {
                     this.selected = false;
                 }
             });
             item.remove();
+
+            Utils.exec(o.onItemDeselect, [option], element[0]);
+            element.fire("itemdeselect", {
+                option: option
+            });
+
+            selected = that.getSelected();
+            Utils.exec(o.onChange, [selected], element[0]);
+            element.fire("change", {
+                selected: selected
+            });
+
             e.preventDefault();
             e.stopPropagation();
         });
@@ -14454,11 +17556,6 @@ var Select = {
         });
     },
 
-    reset: function(){
-        var that = this, element = this.element, o = this.options;
-        //TODO
-    },
-
     disable: function(){
         this.element.data("disabled", true);
         this.element.closest(".select").addClass("disabled");
@@ -14469,49 +17566,114 @@ var Select = {
         this.element.closest(".select").removeClass("disabled");
     },
 
-    val: function(v){
-        var element = this.element, o = this.options;
-        var input = element.siblings("input");
-        var options = element.find("option");
-        var items = this.list.find("li");
+    toggleState: function(){
+        if (this.elem.disabled) {
+            this.disable();
+        } else {
+            this.enable();
+        }
+    },
 
-        if (v === undefined) {
-            return element.val();
+    reset: function(to_default){
+        var element = this.element, o = this.options;
+        var options = element.find("option");
+        var select = element.closest('.select');
+        var selected;
+
+        $.each(options, function(){
+            this.selected = !Utils.isNull(to_default) ? this.defaultSelected : false;
+        });
+
+        this.list.find("li").remove();
+        select.find(".select-input").html('');
+
+        this._createOptions();
+
+        selected = this.getSelected();
+        Utils.exec(o.onChange, [selected], element[0]);
+        element.fire("change", {
+            selected: selected
+        });
+    },
+
+    getSelected: function(){
+        var element = this.element;
+        var result = [];
+
+        element.find("option:selected").each(function(){
+            result.push(this.value);
+        });
+
+        return result;
+    },
+
+    val: function(val){
+        var that = this, element = this.element, o = this.options;
+        var input = element.siblings(".select-input");
+        var options = element.find("option");
+        var list_items = this.list.find("li");
+        var result = [];
+        var multiple = element.attr("multiple") !== undefined;
+        var option;
+        var i, html, list_item, option_value, tag, selected;
+
+        if (Utils.isNull(val)) {
+            $.each(options, function(){
+                if (this.selected) result.push(this.value);
+            });
+            return multiple ? result : result[0];
         }
 
-        options.removeAttr("selected");
         $.each(options, function(){
-            var op = this;
+            this.selected = false;
+        });
+        list_items.removeClass("active");
+        input.html('');
 
-            if (""+op.value === ""+v) {
-                op.setAttribute("selected", "selected");
-                input.val(op.text);
-                element.trigger("change");
+        if (Array.isArray(val) === false) {
+            val  = [val];
+        }
 
-                items.removeClass("active");
-                $.each(items, function(){
-                    var item = $(this);
-
-                    if (item.hasClass("group-title")) return ;
-
-                    if (""+item.data("value") === ""+v) {
-                        item.addClass("active");
-                    }
-                });
-
-                Utils.exec(o.onChange, [v], element[0]);
+        $.each(val, function(){
+            for (i = 0; i < options.length; i++) {
+                option = options[i];
+                html = Utils.isValue(option.getAttribute('data-template')) ? option.getAttribute('data-template').replace("$1", option.text) : option.text;
+                if (""+option.value === ""+this) {
+                    option.selected = true;
+                    break;
+                }
             }
+
+            for(i = 0; i < list_items.length; i++) {
+                list_item = $(list_items[i]);
+                option_value = list_item.attr("data-value");
+                if (""+option_value === ""+this) {
+                    if (multiple) {
+                        list_item.addClass("d-none");
+                        tag = $("<div>").addClass("selected-item").addClass(o.clsSelectedItem).html("<span class='title'>"+html+"</span>").appendTo(input);
+                        tag.data("option", list_item);
+                        $("<span>").addClass("remover").addClass(o.clsSelectedItemRemover).html("&times;").appendTo(tag);
+                    } else {
+                        list_item.addClass("active");
+                        input.html(html);
+                    }
+                    break;
+                }
+            }
+        });
+
+        selected = this.getSelected();
+        Utils.exec(o.onChange, [selected], element[0]);
+        element.fire("change", {
+            selected: selected
         });
     },
 
     data: function(op){
-        var that = this, element = this.element;
-        var select = element.parent();
-        var list = select.find("ul");
+        var element = this.element;
         var option_group;
 
         element.html("");
-        list.html("");
 
         if (typeof op === 'string') {
             element.html(op);
@@ -14528,17 +17690,13 @@ var Select = {
             });
         }
 
-        $.each(element.children(), function(){
-            if (this.tagName === "OPTION") {
-                that._addOption(this, list);
-            } else if (this.tagName === "OPTGROUP") {
-                that._addOptionGroup(this, list);
-            }
-        });
+        this._createOptions();
     },
 
     changeAttribute: function(attributeName){
-
+        switch (attributeName) {
+            case 'disabled': this.toggleState(); break;
+        }
     },
 
     destroy: function(){
@@ -14570,6 +17728,7 @@ $(document).on(Metro.events.click, function(){
     $.each(selects, function(){
         $(this).data('dropdown').close();
     });
+    $(".select").removeClass("focused");
 });
 
 Metro.plugin('select', Select);
@@ -14577,9 +17736,36 @@ Metro.plugin('select', Select);
 
 
 // Source: js/plugins/sidebar.js
+
+var SidebarDefaultConfig = {
+    shadow: true,
+    position: "left",
+    size: 290,
+    shift: null,
+    staticShift: null,
+    toggle: null,
+    duration: METRO_ANIMATION_DURATION,
+    static: null,
+    menuItemClick: true,
+    onOpen: Metro.noop,
+    onClose: Metro.noop,
+    onToggle: Metro.noop,
+    onStaticSet: Metro.noop,
+    onStaticLoss: Metro.noop,
+    onSidebarCreate: Metro.noop
+};
+
+Metro.sidebarSetup = function (options) {
+    SidebarDefaultConfig = $.extend({}, SidebarDefaultConfig, options);
+};
+
+if (typeof window.metroSidebarSetup !== undefined) {
+    Metro.selectSetup(window.metroSidebarSetup);
+}
+
 var Sidebar = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, SidebarDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
         this.toggle_element = null;
@@ -14588,21 +17774,6 @@ var Sidebar = {
         this._create();
 
         return this;
-    },
-
-    options: {
-        shift: null,
-        staticShift: null,
-        toggle: null,
-        duration: METRO_ANIMATION_DURATION,
-        static: null,
-        menuItemClick: true,
-        onOpen: Metro.noop,
-        onClose: Metro.noop,
-        onToggle: Metro.noop,
-        onStaticSet: Metro.noop,
-        onStaticLoss: Metro.noop,
-        onSidebarCreate: Metro.noop
     },
 
     _setOptionsFromDOM: function(){
@@ -14627,7 +17798,8 @@ var Sidebar = {
         $(window).resize();
         this._checkStatic();
 
-        Utils.exec(o.onSidebarCreate, [element], element[0]);
+        Utils.exec(o.onSidebarCreate, null, element[0]);
+        element.fire("sidebarcreate");
     },
 
     _createStructure: function(){
@@ -14635,11 +17807,25 @@ var Sidebar = {
         var header = element.find(".sidebar-header");
         var sheet = Metro.sheet;
 
+        element.addClass("sidebar").addClass("on-"+o.position);
+
+        if (o.size !== 290) {
+            Utils.addCssRule(sheet, ".sidebar", "width: " + o.size + "px;");
+
+            if (o.position === "left") {
+                Utils.addCssRule(sheet, ".sidebar.on-left", "left: " + -o.size + "px;");
+            } else {
+                Utils.addCssRule(sheet, ".sidebar.on-right", "right: " + -o.size + "px;");
+            }
+        }
+
+        if (o.shadow === true) {
+            element.addClass("sidebar-shadow");
+        }
+
         if (element.attr("id") === undefined) {
             element.attr("id", Utils.elementId("sidebar"));
         }
-
-        element.addClass("sidebar");
 
         if (o.toggle !== null && $(o.toggle).length > 0) {
             this.toggle_element = $(o.toggle);
@@ -14655,7 +17841,11 @@ var Sidebar = {
 
         if (o.static !== null) {
             if (o.staticShift !== null) {
-                Utils.addCssRule(sheet, "@media screen and " + Metro.media_queries[o.static.toUpperCase()], o.staticShift + "{margin-left: 280px; width: calc(100% - 280px);}");
+                if (o.position === 'left') {
+                    Utils.addCssRule(sheet, "@media screen and " + Metro.media_queries[o.static.toUpperCase()], o.staticShift + "{margin-left: " + o.size + "px; width: calc(100% - " + o.size + "px);}");
+                } else {
+                    Utils.addCssRule(sheet, "@media screen and " + Metro.media_queries[o.static.toUpperCase()], o.staticShift + "{margin-right: " + o.size + "px; width: calc(100% - " + o.size + "px);}");
+                }
             }
         }
     },
@@ -14670,7 +17860,7 @@ var Sidebar = {
             });
         }
 
-        if (o.static !== null && ["fs", "sm", "md", "lg", "xl", "xxl"].indexOf(o.static)) {
+        if (o.static !== null && ["fs", "sm", "md", "lg", "xl", "xxl"].indexOf(o.static) > -1) {
             $(window).on(Metro.events.resize + "_" + element.attr("id"), function(){
                 that._checkStatic();
             });
@@ -14681,6 +17871,10 @@ var Sidebar = {
                 that.close();
             });
         }
+
+        element.on(Metro.events.click, ".sidebar-menu .js-sidebar-close", function(){
+            that.close();
+        });
     },
 
     _checkStatic: function(){
@@ -14693,11 +17887,13 @@ var Sidebar = {
                     $(this).css({left: 0}, o.duration);
                 });
             }
-            Utils.exec(o.onStaticSet, [element], element[0]);
+            Utils.exec(o.onStaticSet, null, element[0]);
+            element.fire("staticset");
         }
         if (!Utils.mediaExist(o.static)) {
             element.removeClass("static");
-            Utils.exec(o.onStaticLoss, [element], element[0]);
+            Utils.exec(o.onStaticLoss, null, element[0]);
+            element.fire("staticloss");
         }
     },
 
@@ -14715,12 +17911,13 @@ var Sidebar = {
         element.data("opened", true).addClass('open');
 
         if (o.shift !== null) {
-            $.each(o.shift.split(","), function(){
-                $(this).animate({left: element.outerWidth()}, o.duration);
-            });
+            $(o.shift).animate({
+                left: element.outerWidth()
+            }, o.duration);
         }
 
-        Utils.exec(o.onOpen, [element], element[0]);
+        Utils.exec(o.onOpen, null, element[0]);
+        element.fire("open");
     },
 
     close: function(){
@@ -14733,12 +17930,13 @@ var Sidebar = {
         element.data("opened", false).removeClass('open');
 
         if (o.shift !== null) {
-            $.each(o.shift.split(","), function(){
-                $(this).animate({left: 0}, o.duration);
-            });
+            $(o.shift).animate({
+                left: 0
+            }, o.duration);
         }
 
-        Utils.exec(o.onClose, [element], element[0]);
+        Utils.exec(o.onClose, null, element[0]);
+        element.fire("close");
     },
 
     toggle: function(){
@@ -14747,7 +17945,8 @@ var Sidebar = {
         } else {
             this.open();
         }
-        Utils.exec(this.options.onToggle, [this.element], this.element[0]);
+        Utils.exec(this.options.onToggle, null, this.element[0]);
+        this.element.fire("toggle");
     },
 
     changeAttribute: function(attributeName){
@@ -14794,9 +17993,57 @@ Metro['sidebar'] = {
 };
 
 // Source: js/plugins/slider.js
+
+var SliderDefaultConfig = {
+    min: 0,
+    max: 100,
+    accuracy: 0,
+    showMinMax: false,
+    minMaxPosition: Metro.position.TOP,
+    value: 0,
+    buffer: 0,
+    hint: false,
+    hintAlways: false,
+    hintPosition: Metro.position.TOP,
+    hintMask: "$1",
+    vertical: false,
+    target: null,
+    returnType: "value", // value or percent
+    size: 0,
+
+    clsSlider: "",
+    clsBackside: "",
+    clsComplete: "",
+    clsBuffer: "",
+    clsMarker: "",
+    clsHint: "",
+    clsMinMax: "",
+    clsMin: "",
+    clsMax: "",
+
+    onStart: Metro.noop,
+    onStop: Metro.noop,
+    onMove: Metro.noop,
+    onSliderClick: Metro.noop,
+    onChange: Metro.noop,
+    onChangeValue: Metro.noop,
+    onChangeBuffer: Metro.noop,
+    onFocus: Metro.noop,
+    onBlur: Metro.noop,
+    onSliderCreate: Metro.noop
+};
+
+Metro.sliderSetup = function (options) {
+    SliderDefaultConfig = $.extend({}, SliderDefaultConfig, options);
+};
+
+if (typeof window.metroSliderSetup !== undefined) {
+    Metro.sliderSetup(window.metroSliderSetup);
+}
+
 var Slider = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, SliderDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
         this.slider = null;
@@ -14810,45 +18057,6 @@ var Slider = {
         this._create();
 
         return this;
-    },
-
-    options: {
-        min: 0,
-        max: 100,
-        accuracy: 0,
-        showMinMax: false,
-        minMaxPosition: Metro.position.TOP,
-        value: 0,
-        buffer: 0,
-        hint: false,
-        hintAlways: false,
-        hintPosition: Metro.position.TOP,
-        hintMask: "$1",
-        vertical: false,
-        target: null,
-        returnType: "value", // value or percent
-        size: 0,
-
-        clsSlider: "",
-        clsBackside: "",
-        clsComplete: "",
-        clsBuffer: "",
-        clsMarker: "",
-        clsHint: "",
-        clsMinMax: "",
-        clsMin: "",
-        clsMax: "",
-
-        onStart: Metro.noop,
-        onStop: Metro.noop,
-        onMove: Metro.noop,
-        onClick: Metro.noop,
-        onChange: Metro.noop,
-        onChangeValue: Metro.noop,
-        onChangeBuffer: Metro.noop,
-        onFocus: Metro.noop,
-        onBlur: Metro.noop,
-        onSliderCreate: Metro.noop
     },
 
     _setOptionsFromDOM: function(){
@@ -14866,14 +18074,15 @@ var Slider = {
     },
 
     _create: function(){
-        var that = this, element = this.element, o = this.options;
+        var element = this.element, o = this.options;
 
         this._createSlider();
         this._createEvents();
         this.buff(o.buffer);
         this.val(o.value);
 
-        Utils.exec(o.onSliderCreate, [element]);
+        Utils.exec(o.onSliderCreate, null, element[0]);
+        element.fire("slidercreate");
     },
 
     _createSlider: function(){
@@ -14941,43 +18150,69 @@ var Slider = {
             }
         }
 
+        if (element.is(":disabled")) {
+            this.disable();
+        } else {
+            this.enable();
+        }
+
         this.slider = slider;
     },
 
     _createEvents: function(){
-        var that = this, slider = this.slider, o = this.options;
+        var that = this, element = this.element, slider = this.slider, o = this.options;
         var marker = slider.find(".marker");
         var hint = slider.find(".hint");
 
-        marker.on(Metro.events.start, function(){
-            $(document).on(Metro.events.move, function(e){
+        marker.on(Metro.events.startAll, function(){
+            $(document).on(Metro.events.moveAll, function(e){
                 if (o.hint === true && o.hintAlways !== true) {
                     hint.fadeIn();
                 }
                 that._move(e);
-                Utils.exec(o.onMove, [that.value, that.percent, slider]);
+                Utils.exec(o.onMove, [that.value, that.percent], element[0]);
+                element.fire("move", {
+                    val: that.value,
+                    percent: that.percent
+                });
             });
 
-            $(document).on(Metro.events.stop, function(){
-                $(document).off(Metro.events.move);
-                $(document).off(Metro.events.stop);
+            $(document).on(Metro.events.stopAll, function(){
+                $(document).off(Metro.events.moveAll);
+                $(document).off(Metro.events.stopAll);
 
                 if (o.hintAlways !== true) {
                     hint.fadeOut();
                 }
 
-                Utils.exec(o.onStop, [that.value, that.percent, slider]);
+                Utils.exec(o.onStop, [that.value, that.percent], element[0]);
+                element.fire("stop", {
+                    val: that.value,
+                    percent: that.percent
+                });
             });
 
-            Utils.exec(o.onStart, [that.value, that.percent, slider]);
+            Utils.exec(o.onStart, [that.value, that.percent], element[0]);
+            element.fire("start", {
+                val: that.value,
+                percent: that.percent
+            });
         });
 
         marker.on(Metro.events.focus, function(){
-            Utils.exec(o.onFocus, [that.value, that.percent, slider]);
+            Utils.exec(o.onFocus, [that.value, that.percent], element[0]);
+            element.fire("focus", {
+                val: that.value,
+                percent: that.percent
+            });
         });
 
         marker.on(Metro.events.blur, function(){
-            Utils.exec(o.onBlur, [that.value, that.percent, slider]);
+            Utils.exec(o.onBlur, [that.value, that.percent], element[0]);
+            element.fire("blur", {
+                val: that.value,
+                percent: that.percent
+            });
         });
 
         marker.on(Metro.events.keydown, function(e){
@@ -15030,8 +18265,17 @@ var Slider = {
 
         slider.on(Metro.events.click, function(e){
             that._move(e);
-            Utils.exec(o.onClick, [that.value, that.percent, slider]);
-            Utils.exec(o.onStop, [that.value, that.percent, slider]);
+            Utils.exec(o.onSliderClick, [that.value, that.percent], element[0]);
+            element.fire("sliderclick", {
+                val: that.value,
+                percent: that.percent
+            });
+
+            Utils.exec(o.onStop, [that.value, that.percent], element[0]);
+            element.fire("stop", {
+                val: that.value,
+                percent: that.percent
+            });
         });
 
         $(window).resize(function(){
@@ -15113,7 +18357,7 @@ var Slider = {
             element.val(value);
         }
 
-        element.trigger("change");
+        // element.trigger("change");
 
         if (o.target !== null) {
             var target = $(o.target);
@@ -15130,8 +18374,18 @@ var Slider = {
             }
         }
 
-        Utils.exec(o.onChangeValue, [value, this.percent, slider], element[0]);
+        Utils.exec(o.onChangeValue, [value, this.percent], element[0]);
+        element.fire("changevalue", {
+            val: value,
+            percent: this.percent
+        });
+
         Utils.exec(o.onChange, [value, this.percent, this.buffer], element[0]);
+        element.fire("change", {
+            val: value,
+            percent: this.percent,
+            buffer: this.buffer
+        });
     },
 
     _marker: function(){
@@ -15183,8 +18437,17 @@ var Slider = {
             buffer.css("width", this.buffer + "%");
         }
 
-        Utils.exec(o.onChangeBuffer, [this.buffer, this.slider], element[0]);
+        Utils.exec(o.onChangeBuffer, [this.buffer], element[0]);
+        element.fire("changebuffer", {
+            val: this.buffer
+        });
+
         Utils.exec(o.onChange, [element.val(), this.percent, this.buffer], element[0]);
+        element.fire("change", {
+            val: element.val(),
+            percent: this.percent,
+            buffer: this.buffer
+        });
     },
 
     val: function(v){
@@ -15259,10 +18522,29 @@ var Slider = {
         this.buff(val);
     },
 
+    disable: function(){
+        this.element.data("disabled", true);
+        this.element.parent().addClass("disabled");
+    },
+
+    enable: function(){
+        this.element.data("disabled", false);
+        this.element.parent().removeClass("disabled");
+    },
+
+    toggleState: function(){
+        if (this.elem.disabled) {
+            this.disable();
+        } else {
+            this.enable();
+        }
+    },
+
     changeAttribute: function(attributeName){
         switch (attributeName) {
             case "data-value": this.changeValue(); break;
             case "data-buffer": this.changeBuffer(); break;
+            case 'disabled': this.toggleState(); break;
         }
     }
 };
@@ -15270,9 +18552,32 @@ var Slider = {
 Metro.plugin('slider', Slider);
 
 // Source: js/plugins/sorter.js
+
+var SorterDefaultConfig = {
+    thousandSeparator: ",",
+    decimalSeparator: ",",
+    sortTarget: null,
+    sortSource: null,
+    sortDir: "asc",
+    sortStart: true,
+    saveInitial: true,
+    onSortStart: Metro.noop,
+    onSortStop: Metro.noop,
+    onSortItemSwitch: Metro.noop,
+    onSorterCreate: Metro.noop
+};
+
+Metro.sorterSetup = function (options) {
+    SorterDefaultConfig = $.extend({}, SorterDefaultConfig, options);
+};
+
+if (typeof window.metroSorterSetup !== undefined) {
+    Metro.sorterSetup(window.metroSorterSetup);
+}
+
 var Sorter = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, SorterDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
         this.initial = [];
@@ -15281,20 +18586,6 @@ var Sorter = {
         this._create();
 
         return this;
-    },
-
-    options: {
-        thousandSeparator: ",",
-        decimalSeparator: ",",
-        sortTarget: null,
-        sortSource: null,
-        sortDir: "asc",
-        sortStart: true,
-        saveInitial: true,
-        onSortStart: Metro.noop,
-        onSortStop: Metro.noop,
-        onSortItemSwitch: Metro.noop,
-        onSorterCreate: Metro.noop
     },
 
     _setOptionsFromDOM: function(){
@@ -15316,7 +18607,8 @@ var Sorter = {
 
         this._createStructure();
 
-        Utils.exec(o.onSorterCreate, [element]);
+        Utils.exec(o.onSorterCreate, null, element[0]);
+        element.fire("sortercreate");
     },
 
     _createStructure: function(){
@@ -15363,7 +18655,9 @@ var Sorter = {
                 case "number": data = Number(data); break;
                 case "int": data = parseInt(data); break;
                 case "float": data = parseFloat(data); break;
-                case "money": data = Number(parseFloat(data.replace(/[^0-9-.]/g, ''))); break;
+                case "money": data = Utils.parseMoney(data); break;
+                case "card": data = Utils.parseCard(data); break;
+                case "phone": data = Utils.parsePhone(data); break;
             }
         }
 
@@ -15388,7 +18682,10 @@ var Sorter = {
 
         prev = $("<div>").attr("id", id).insertBefore($(element.find(o.sortTarget)[0]));
 
-        Utils.exec(o.onSortStart, [element], element[0]);
+        Utils.exec(o.onSortStart, [items], element[0]);
+        element.fire("sortstart", {
+            items: items
+        });
 
         items.sort(function(a, b){
             var c1 = that._getItemContent(a);
@@ -15404,7 +18701,12 @@ var Sorter = {
             }
 
             if (result !== 0) {
-                Utils.exec(o.onSortItemSwitch, [a, b], element[0]);
+                Utils.exec(o.onSortItemSwitch, [a, b, result], element[0]);
+                element.fire("sortitemswitch", {
+                    a: a,
+                    b: b,
+                    result: result
+                });
             }
 
             return result;
@@ -15424,7 +18726,8 @@ var Sorter = {
 
         $("#"+id).remove();
 
-        Utils.exec(o.onSortStop, [element], element[0]);
+        Utils.exec(o.onSortStop, [items], element[0]);
+        element.fire("sortstop");
     },
 
     reset: function(){
@@ -15510,9 +18813,45 @@ Metro['sorter'] = {
 };
 
 // Source: js/plugins/spinner.js
+
+var SpinnerDefaultConfig = {
+    step: 1,
+    plusIcon: "<span class='default-icon-plus'></span>",
+    minusIcon: "<span class='default-icon-minus'></span>",
+    buttonsPosition: "default",
+    defaultValue: 0,
+    minValue: null,
+    maxValue: null,
+    fixed: 0,
+    repeatThreshold: 1000,
+    hideCursor: false,
+    clsSpinner: "",
+    clsSpinnerInput: "",
+    clsSpinnerButton: "",
+    clsSpinnerButtonPlus: "",
+    clsSpinnerButtonMinus: "",
+    onBeforeChange: Metro.noop_true,
+    onChange: Metro.noop,
+    onPlusClick: Metro.noop,
+    onMinusClick: Metro.noop,
+    onArrowUp: Metro.noop,
+    onArrowDown: Metro.noop,
+    onButtonClick: Metro.noop,
+    onArrowClick: Metro.noop,
+    onSpinnerCreate: Metro.noop
+};
+
+Metro.spinnerSetup = function (options) {
+    SpinnerDefaultConfig = $.extend({}, SpinnerDefaultConfig, options);
+};
+
+if (typeof window.metroSpinnerSetup !== undefined) {
+    Metro.spinnerSetup(window.metroSpinnerSetup);
+}
+
 var Spinner = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, SpinnerDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
         this.repeat_timer = false;
@@ -15521,25 +18860,6 @@ var Spinner = {
         this._create();
 
         return this;
-    },
-
-    options: {
-        step: 1,
-        plusIcon: "<span class='default-icon-plus'></span>",
-        minusIcon: "<span class='default-icon-minus'></span>",
-        buttonsPosition: "default",
-        defaultValue: 0,
-        minValue: null,
-        maxValue: null,
-        fixed: 0,
-        repeatThreshold: 500,
-        clsSpinner: "",
-        clsSpinnerValue: "",
-        clsSpinnerButton: "",
-        clsSpinnerButtonPlus: "",
-        clsSpinnerButtonMinus: "",
-        onChange: Metro.noop,
-        onSpinnerCreate: Metro.noop
     },
 
     _setOptionsFromDOM: function(){
@@ -15562,29 +18882,34 @@ var Spinner = {
         this._createStructure();
         this._createEvents();
 
-        Utils.exec(o.onCreate, [element]);
+        Utils.exec(o.onSpinnerCreate, null, element[0]);
+        element.fire("spinnercreate");
     },
 
     _createStructure: function(){
         var element = this.element, o = this.options;
         var spinner = $("<div>").addClass("spinner").addClass("buttons-"+o.buttonsPosition).addClass(element[0].className).addClass(o.clsSpinner);
-        var wrapper = $("<div>").addClass("input-wrapper").addClass(o.clsSpinnerValue);
         var button_plus = $("<button>").attr("type", "button").addClass("button spinner-button spinner-button-plus").addClass(o.clsSpinnerButton + " " + o.clsSpinnerButtonPlus).html(o.plusIcon);
         var button_minus = $("<button>").attr("type", "button").addClass("button spinner-button spinner-button-minus").addClass(o.clsSpinnerButton + " " + o.clsSpinnerButtonMinus).html(o.minusIcon);
         var init_value = element.val().trim();
 
+        if (!Utils.isValue(init_value)) {
+            element.val(0);
+        }
+
         element[0].className = '';
 
         spinner.insertBefore(element);
-        element.appendTo(spinner);
+        element.appendTo(spinner).addClass(o.clsSpinnerInput);
 
         element.addClass("original-input");
 
-        wrapper.appendTo(spinner);
         button_plus.appendTo(spinner);
         button_minus.appendTo(spinner);
 
-        wrapper.text(Number(Utils.isValue(init_value) ? init_value : 0));
+        if (o.hideCursor === true) {
+            spinner.addClass("hide-cursor");
+        }
 
         if (o.disabled === true || element.is(":disabled")) {
             this.disable();
@@ -15596,10 +18921,10 @@ var Spinner = {
     _createEvents: function(){
         var that = this, element = this.element, o = this.options;
         var spinner = element.closest(".spinner");
+        var spinner_buttons = spinner.find(".spinner-button");
 
-        var click = function(context, threshold){
-            var button = $(context);
-            var plus = button.hasClass("spinner-button-plus");
+        var spinnerButtonClick = function(plus, threshold){
+            var curr = element.val();
 
             var val = Number(element.val());
             var step = Number(o.step);
@@ -15612,27 +18937,78 @@ var Spinner = {
 
             that._setValue(val.toFixed(o.fixed), true);
 
+            Utils.exec(plus ? o.onPlusClick : o.onMinusClick, [curr, val, element.val()], element[0]);
+            element.fire(plus ? "plusclick" : "minusclick", {
+                curr: curr,
+                val: val,
+                elementVal: element.val()
+            });
+
+            Utils.exec(plus ? o.onArrowUp : o.onArrowDown, [curr, val, element.val()], element[0]);
+            element.fire(plus ? "arrowup" : "arrowdown", {
+                curr: curr,
+                val: val,
+                elementVal: element.val()
+            });
+
+            Utils.exec(o.onButtonClick, [curr, val, element.val(), plus ? 'plus' : 'minus'], element[0]);
+            element.fire("buttonclick", {
+                button: plus ? "plus" : "minus",
+                curr: curr,
+                val: val,
+                elementVal: element.val()
+            });
+
+            Utils.exec(o.onArrowClick, [curr, val, element.val(), plus ? 'plus' : 'minus'], element[0]);
+            element.fire("arrowclick", {
+                button: plus ? "plus" : "minus",
+                curr: curr,
+                val: val,
+                elementVal: element.val()
+            });
+
             setTimeout(function(){
                 if (that.repeat_timer) {
-                    click(context, 100);
+                    spinnerButtonClick(plus, 100);
                 }
             }, threshold);
         };
 
-        spinner.on(Metro.events.start, ".spinner-button", function(){
-            that.repeat_timer = true;
-            click(this, o.repeatThreshold);
+        spinner.on(Metro.events.click, function(e){
+            $(".focused").removeClass("focused");
+            spinner.addClass("focused");
+            e.preventDefault();
+            e.stopPropagation();
         });
 
-        spinner.on(Metro.events.stop, ".spinner-button", function(){
+        spinner_buttons.on(Metro.events.start, function(e){
+            e.preventDefault();
+            that.repeat_timer = true;
+            spinnerButtonClick($(this).hasClass("spinner-button-plus"), o.repeatThreshold);
+        });
+
+        spinner_buttons.on(Metro.events.stop, function(){
+            that.repeat_timer = false;
+        });
+
+        element.on(Metro.events.keydown, function(e){
+            if (e.keyCode === Metro.keyCode.UP_ARROW || e.keyCode === Metro.keyCode.DOWN_ARROW) {
+                that.repeat_timer = true;
+                spinnerButtonClick(e.keyCode === Metro.keyCode.UP_ARROW, o.repeatThreshold);
+            }
+        });
+
+        spinner.on(Metro.events.keyup, function(){
             that.repeat_timer = false;
         });
     },
 
-    _setValue: function(val, change){
+    _setValue: function(val, trigger_change){
         var element = this.element, o = this.options;
-        var spinner = element.closest(".spinner");
-        var wrapper = spinner.find(".input-wrapper");
+
+        if (Utils.exec(o.onBeforeChange, [val], element[0]) !== true) {
+            return ;
+        }
 
         if (Utils.isValue(o.maxValue) && val > Number(o.maxValue)) {
             val =  Number(o.maxValue);
@@ -15643,12 +19019,13 @@ var Spinner = {
         }
 
         element.val(val);
-        wrapper.text(val);
 
         Utils.exec(o.onChange, [val], element[0]);
 
-        if (change === true) {
-            element.trigger("change");
+        if (trigger_change === true) {
+            element.fire("change", {
+                val: val
+            });
         }
     },
 
@@ -15666,6 +19043,9 @@ var Spinner = {
         var val = Utils.isValue(o.defaultValue) ? Number(o.defaultValue) : 0;
         this._setValue(val.toFixed(o.fixed), true);
         Utils.exec(o.onChange, [val], element[0]);
+        element.fire("change", {
+            val: val
+        });
     },
 
     disable: function(){
@@ -15679,13 +19059,12 @@ var Spinner = {
     },
 
     toggleState: function(){
-        if (this.element.data("disabled") === false) {
+        if (this.elem.disabled) {
             this.disable();
         } else {
             this.enable();
         }
     },
-
 
     changeAttribute: function(attributeName){
         var that = this, element = this.element;
@@ -15715,10 +19094,269 @@ var Spinner = {
 
 Metro.plugin('spinner', Spinner);
 
+$(document).on(Metro.events.click, function(){
+    $(".spinner").removeClass("focused");
+});
+
+
+
+// Source: js/plugins/splitter.js
+
+var SplitterDefaultConfig = {
+    splitMode: "horizontal", // horizontal or vertical
+    splitSizes: null,
+    gutterSize: 4,
+    minSizes: null,
+    children: "*",
+    gutterClick: "expand", // TODO expand or collapse
+    saveState: false,
+    onResizeStart: Metro.noop,
+    onResizeStop: Metro.noop,
+    onResizeSplit: Metro.noop,
+    onSplitterCreate: Metro.noop
+};
+
+Metro.splitterSetup = function (options) {
+    SplitterDefaultConfig = $.extend({}, SplitterDefaultConfig, options);
+};
+
+if (typeof window.metroSplitterSetup !== undefined) {
+    Metro.splitterSetup(window.metroSplitterSetup);
+}
+
+var Splitter = {
+    init: function( options, elem ) {
+        this.options = $.extend( {}, SplitterDefaultConfig, options );
+        this.elem  = elem;
+        this.element = $(elem);
+        this.storage = Utils.isValue(Metro.storage) ? Metro.storage : null;
+        this.storageKey = "SPLITTER:";
+
+        this._setOptionsFromDOM();
+        this._create();
+
+        return this;
+    },
+
+    _setOptionsFromDOM: function(){
+        var that = this, element = this.element, o = this.options;
+
+        $.each(element.data(), function(key, value){
+            if (key in o) {
+                try {
+                    o[key] = JSON.parse(value);
+                } catch (e) {
+                    o[key] = value;
+                }
+            }
+        });
+    },
+
+    _create: function(){
+        var that = this, element = this.element, o = this.options;
+
+        this._createStructure();
+        this._createEvents();
+
+        Utils.exec(o.onSplitterCreate, null, element[0]);
+        element.fire("splittercreate");
+    },
+
+    _createStructure: function(){
+        var that = this, element = this.element, o = this.options;
+        var children = element.children(o.children).addClass("split-block");
+        var i, children_sizes = [];
+        var gutters, resizeProp = o.splitMode === "horizontal" ? "width" : "height";
+
+        if (!Utils.isValue(element.attr("id"))) {
+            element.attr("id", Utils.elementId("splitter"));
+        }
+
+        element.addClass("splitter");
+        if (o.splitMode.toLowerCase() === "vertical") {
+            element.addClass("vertical");
+        }
+
+        for (i = 0; i < children.length - 1; i++) {
+            $("<div>").addClass("gutter").css(resizeProp, o.gutterSize).insertAfter($(children[i]));
+        }
+
+        gutters = element.children(".gutter");
+
+        if (!Utils.isValue(o.splitSizes)) {
+            children.css({
+                flexBasis: "calc("+(100/children.length)+"% - "+(gutters.length * o.gutterSize)+"px)"
+            })
+        } else {
+            children_sizes = Utils.strToArray(o.splitSizes);
+            for(i = 0; i < children_sizes.length; i++) {
+                $(children[i]).css({
+                    flexBasis: "calc("+children_sizes[i]+"% - "+(gutters.length * o.gutterSize)+"px)"
+                });
+            }
+        }
+
+        if (Utils.isValue(o.minSizes)) {
+            if (String(o.minSizes).contains(",")) {
+                children_sizes = Utils.strToArray(o.minSizes);
+                for (i = 0; i < children_sizes.length; i++) {
+                    $(children[i]).data("min-size", children_sizes[i]);
+                    children[i].style.setProperty('min-'+resizeProp, String(children_sizes[i]).contains("%") ? children_sizes[i] : String(children_sizes[i]).replace("px", "")+"px", 'important');
+                }
+            } else {
+                $.each(children, function(){
+                    this.style.setProperty('min-'+resizeProp, String(o.minSizes).contains("%") ? o.minSizes : String(o.minSizes).replace("px", "")+"px", 'important');
+                });
+            }
+        }
+
+        if (o.saveState && this.storage !== null) {
+            this._getSize();
+        }
+    },
+
+    _createEvents: function(){
+        var that = this, element = this.element, o = this.options;
+        var gutters = element.children(".gutter");
+
+        gutters.on(Metro.events.start, function(e){
+            var w = o.splitMode === "horizontal" ? element.width() : element.height();
+            var gutter = $(this);
+            var prev_block = gutter.prev(".split-block");
+            var next_block = gutter.next(".split-block");
+            var prev_block_size = 100 * (o.splitMode === "horizontal" ? prev_block.outerWidth(true) : prev_block.outerHeight(true)) / w;
+            var next_block_size = 100 * (o.splitMode === "horizontal" ? next_block.outerWidth(true) : next_block.outerHeight(true)) / w;
+            var start_pos = Utils.getCursorPosition(element, e);
+
+            gutter.addClass("active");
+
+            prev_block.addClass("stop-select stop-pointer");
+            next_block.addClass("stop-select stop-pointer");
+
+            Utils.exec(o.onResizeStart, [start_pos, gutter[0], prev_block[0], next_block[0]], element[0]);
+            element.fire("resizestart", {
+                pos: start_pos,
+                gutter: gutter[0],
+                prevBlock: prev_block[0],
+                nextBlock: next_block[0]
+            });
+
+            $(window).on(Metro.events.move + "-" + element.attr("id"), function(e){
+                var pos = Utils.getCursorPosition(element, e);
+                var new_pos;
+
+                if (o.splitMode === "horizontal") {
+                    new_pos = (pos.x * 100 / w) - (start_pos.x * 100 / w);
+
+                } else {
+                    new_pos = (pos.y * 100 / w) - (start_pos.y * 100 / w);
+                }
+
+                prev_block.css("flex-basis", "calc(" + (prev_block_size + new_pos) + "% - "+(gutters.length * o.gutterSize)+"px)");
+                next_block.css("flex-basis", "calc(" + (next_block_size - new_pos) + "% - "+(gutters.length * o.gutterSize)+"px)");
+
+                Utils.exec(o.onResizeSplit, [pos, gutter[0], prev_block[0], next_block[0]], element[0]);
+                element.fire("resizesplit", {
+                    pos: pos,
+                    gutter: gutter[0],
+                    prevBlock: prev_block[0],
+                    nextBlock: next_block[0]
+                });
+            });
+
+            $(window).on(Metro.events.stop + "-" + element.attr("id"), function(e){
+                var cur_pos;
+
+                prev_block.removeClass("stop-select stop-pointer");
+                next_block.removeClass("stop-select stop-pointer");
+
+                that._saveSize();
+
+                gutter.removeClass("active");
+
+                $(window).off(Metro.events.move + "-" + element.attr("id"));
+                $(window).off(Metro.events.stop + "-" + element.attr("id"));
+
+                cur_pos = Utils.getCursorPosition(element, e);
+
+                Utils.exec(o.onResizeStop, [cur_pos, gutter[0], prev_block[0], next_block[0]], element[0]);
+                element.fire("resizestop", {
+                    pos: cur_pos,
+                    gutter: gutter[0],
+                    prevBlock: prev_block[0],
+                    nextBlock: next_block[0]
+                });
+            })
+        });
+    },
+
+    _saveSize: function(){
+        var that = this, element = this.element, o = this.options;
+        var storage = this.storage, itemsSize = [];
+
+        if (o.saveState === true && storage !== null) {
+
+            $.each(element.children(".split-block"), function(){
+                var item = $(this);
+                itemsSize.push(item.css("flex-basis"));
+            });
+
+            storage.setItem(this.storageKey + element.attr("id"), itemsSize);
+        }
+
+    },
+
+    _getSize: function(){
+        var that = this, element = this.element, o = this.options;
+        var storage = this.storage, itemsSize = [];
+
+        if (o.saveState === true && storage !== null) {
+
+            itemsSize = storage.getItem(this.storageKey + element.attr("id"));
+
+            $.each(element.children(".split-block"), function(i, v){
+                var item = $(v);
+                if (Utils.isValue(itemsSize) && Utils.isValue(itemsSize[i])) item.css("flex-basis", itemsSize[i]);
+            });
+        }
+    },
+
+    changeAttribute: function(attributeName){
+
+    },
+
+    destroy: function(){}
+};
+
+Metro.plugin('splitter', Splitter);
+
 // Source: js/plugins/stepper.js
+
+var StepperDefaultConfig = {
+    view: Metro.stepperView.SQUARE, // square, cycle, diamond
+    steps: 3,
+    step: 1,
+    stepClick: false,
+    clsStepper: "",
+    clsStep: "",
+    clsComplete: "",
+    clsCurrent: "",
+    onStep: Metro.noop,
+    onStepClick: Metro.noop,
+    onStepperCreate: Metro.noop
+};
+
+Metro.stepperSetup = function (options) {
+    StepperDefaultConfig = $.extend({}, StepperDefaultConfig, options);
+};
+
+if (typeof window.metroStepperSetup !== undefined) {
+    Metro.stepperSetup(window.metroStepperSetup);
+}
+
 var Stepper = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, StepperDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
         this.current = 0;
@@ -15727,20 +19365,6 @@ var Stepper = {
         this._create();
 
         return this;
-    },
-
-    options: {
-        view: Metro.stepperView.SQUARE, // square, cycle, diamond
-        steps: 3,
-        step: 1,
-        stepClick: false,
-        clsStepper: "",
-        clsStep: "",
-        clsComplete: "",
-        clsCurrent: "",
-        onStep: Metro.noop,
-        onStepClick: Metro.noop,
-        onStepperCreate: Metro.noop
     },
 
     _setOptionsFromDOM: function(){
@@ -15767,7 +19391,8 @@ var Stepper = {
         this._createStepper();
         this._createEvents();
 
-        Utils.exec(o.onStepperCreate, [element]);
+        Utils.exec(o.onStepperCreate, null, element[0]);
+        element.fire("steppercreate");
     },
 
     _createStepper: function(){
@@ -15791,7 +19416,10 @@ var Stepper = {
             var step = $(this).data("step");
             if (o.stepClick === true) {
                 that.toStep(step);
-                Utils.exec(o.onStepClick, [step, element]);
+                Utils.exec(o.onStepClick, [step], element[0]);
+                element.fire("stepclick", {
+                    step: step
+                });
             }
         });
     },
@@ -15849,7 +19477,10 @@ var Stepper = {
         target.addClass("current").addClass(o.clsCurrent);
         target.prevAll().addClass("complete").addClass(o.clsComplete);
 
-        Utils.exec(o.onStep, [this.current, element]);
+        Utils.exec(o.onStep, [this.current], element[0]);
+        element.fire("step", {
+            step: this.current
+        });
     },
 
     changeAttribute: function(attributeName){
@@ -15860,46 +19491,63 @@ var Stepper = {
 Metro.plugin('stepper', Stepper);
 
 // Source: js/plugins/streamer.js
+
+var StreamerDefaultConfig = {
+    duration: METRO_ANIMATION_DURATION,
+    defaultClosedIcon: "",
+    defaultOpenIcon: "",
+    changeUri: true,
+    encodeLink: true,
+    closed: false,
+    chromeNotice: false,
+    startFrom: null,
+    slideToStart: true,
+    startSlideSleep: 1000,
+    source: null,
+    data: null,
+    eventClick: "select",
+    selectGlobal: true,
+    streamSelect: false,
+    excludeSelectElement: null,
+    excludeClickElement: null,
+    excludeElement: null,
+    excludeSelectClass: "",
+    excludeClickClass: "",
+    excludeClass: "",
+
+    onDataLoad: Metro.noop,
+    onDataLoaded: Metro.noop,
+    onDataLoadError: Metro.noop,
+
+    onStreamClick: Metro.noop,
+    onStreamSelect: Metro.noop,
+    onEventClick: Metro.noop,
+    onEventSelect: Metro.noop,
+    onEventsScroll: Metro.noop,
+    onStreamerCreate: Metro.noop
+};
+
+Metro.streamerSetup = function (options) {
+    StreamerDefaultConfig = $.extend({}, StreamerDefaultConfig, options);
+};
+
+if (typeof window.metroStreamerSetup !== undefined) {
+    Metro.streamerSetup(window.metroStreamerSetup);
+}
+
 var Streamer = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, StreamerDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
         this.data = null;
+        this.scroll = 0;
+        this.scrollDir = "left";
 
         this._setOptionsFromDOM();
         this._create();
 
         return this;
-    },
-
-    options: {
-        duration: METRO_ANIMATION_DURATION,
-        defaultClosedIcon: "",
-        defaultOpenIcon: "",
-        changeUri: true,
-        encodeLink: true,
-        closed: false,
-        chromeNotice: false,
-        startFrom: null,
-        slideToStart: true,
-        startSlideSleep: 1000,
-        source: null,
-        data: null,
-        eventClick: "select",
-        selectGlobal: true,
-        streamSelect: false,
-        excludeSelectElement: null,
-        excludeClickElement: null,
-        excludeElement: null,
-        excludeSelectClass: "",
-        excludeClickClass: "",
-        excludeClass: "",
-        onStreamClick: Metro.noop,
-        onStreamSelect: Metro.noop,
-        onEventClick: Metro.noop,
-        onEventSelect: Metro.noop,
-        onStreamerCreate: Metro.noop
     },
 
     _setOptionsFromDOM: function(){
@@ -15933,9 +19581,26 @@ var Streamer = {
         $("<div>").addClass("events-area").appendTo(element);
 
         if (o.source !== null) {
+
+            Utils.exec(o.onDataLoad, [o.source], element[0]);
+            element.fire("dataload", {
+                source: o.source
+            });
+
             $.get(o.source, function(data){
+                Utils.exec(o.onDataLoaded, [o.source, data], element[0]);
+                element.fire("dataloaded", {
+                    source: o.source,
+                    data: data
+                });
                 that.data = data;
                 that.build();
+            }).fail(function(xhr){
+                Utils.exec(o.onDataLoadError, [o.source, xhr], element[0]);
+                element.fire("dataloaderror", {
+                    source: o.source,
+                    xhr: xhr
+                });
             });
         } else {
             this.data = o.data;
@@ -16014,6 +19679,7 @@ var Streamer = {
 
         if (data.streams !== undefined) {
             $.each(data.streams, function(stream_index){
+                var stream_height = 75, rows = 0;
                 var stream_item = this;
                 var stream = $("<div>").addClass("stream").addClass(this.cls).appendTo(streams);
                 stream
@@ -16036,12 +19702,19 @@ var Streamer = {
                 if (stream_item.events !== undefined) {
                     $.each(stream_item.events, function(event_index){
                         var event_item = this;
+                        var row = event_item.row === undefined ? 1 : parseInt(event_item.row);
                         var _icon;
                         var sid = stream_index+":"+event_index;
                         var custom_html = event_item.custom !== undefined ? event_item.custom : "";
                         var custom_html_open = event_item.custom_open !== undefined ? event_item.custom_open : "";
                         var custom_html_close = event_item.custom_close !== undefined ? event_item.custom_close : "";
-                        var event = $("<div>")
+                        var event;
+
+                        if (event_item.skip !== undefined && Utils.bool(event_item.skip)) {
+                            return ;
+                        }
+
+                        event = $("<div>")
                             .data("origin", event_item)
                             .data("sid", sid)
                             .data("data", event_item.data)
@@ -16054,59 +19727,78 @@ var Streamer = {
 
 
                         var left = timeline.find(".js-time-point-"+this.time.replace(":", "-"))[0].offsetLeft - stream.outerWidth();
+                        var top = 75 * (row - 1);
+
+                        if (row > rows) {
+                            rows = row;
+                        }
 
                         event.css({
                             position: "absolute",
-                            left: left
+                            left: left,
+                            top: top
                         });
 
 
-                        var slide = $("<div>").addClass("stream-event-slide").appendTo(event);
-                        var slide_logo = $("<div>").addClass("slide-logo").appendTo(slide);
-                        var slide_data = $("<div>").addClass("slide-data").appendTo(slide);
+                        if (Utils.isNull(event_item.html)) {
 
-                        if (event_item.icon !== undefined) {
-                            if (Utils.isTag(event_item.icon)) {
-                                $(event_item.icon).addClass("icon").appendTo(slide_logo);
-                            } else {
-                                $("<img>").addClass("icon").attr("src", event_item.icon).appendTo(slide_logo);
+                            var slide = $("<div>").addClass("stream-event-slide").appendTo(event);
+                            var slide_logo = $("<div>").addClass("slide-logo").appendTo(slide);
+                            var slide_data = $("<div>").addClass("slide-data").appendTo(slide);
+
+                            if (event_item.icon !== undefined) {
+                                if (Utils.isTag(event_item.icon)) {
+                                    $(event_item.icon).addClass("icon").appendTo(slide_logo);
+                                } else {
+                                    $("<img>").addClass("icon").attr("src", event_item.icon).appendTo(slide_logo);
+                                }
                             }
-                        }
 
-                        $("<span>").addClass("time").css({
-                            backgroundColor: bg,
-                            color: fg
-                        }).html(event_item.time).appendTo(slide_logo);
+                            $("<span>").addClass("time").css({
+                                backgroundColor: bg,
+                                color: fg
+                            }).html(event_item.time).appendTo(slide_logo);
 
-                        $("<div>").addClass("title").html(event_item.title).appendTo(slide_data);
-                        $("<div>").addClass("subtitle").html(event_item.subtitle).appendTo(slide_data);
-                        $("<div>").addClass("desc").html(event_item.desc).appendTo(slide_data);
+                            $("<div>").addClass("title").html(event_item.title).appendTo(slide_data);
+                            $("<div>").addClass("subtitle").html(event_item.subtitle).appendTo(slide_data);
+                            $("<div>").addClass("desc").html(event_item.desc).appendTo(slide_data);
 
-                        if (o.closed === false && (element.attr("id") === StreamerIDS_i && StreamerIDS_a.indexOf(sid) !== -1) || event_item.selected === true || parseInt(event_item.selected) === 1) {
-                            event.addClass("selected");
-                        }
+                            if (o.closed === false && (element.attr("id") === StreamerIDS_i && StreamerIDS_a.indexOf(sid) !== -1) || event_item.selected === true || parseInt(event_item.selected) === 1) {
+                                event.addClass("selected");
+                            }
 
-                        if (o.closed === true || event_item.closed === true || parseInt(event_item.closed) === 1) {
-                            _icon = event_item.closedIcon !== undefined ? Utils.isTag(event_item.closedIcon) ? event_item.closedIcon : "<span>"+event_item.closedIcon+"</span>" : Utils.isTag(o.defaultClosedIcon) ? o.defaultClosedIcon : "<span>"+o.defaultClosedIcon+"</span>";
-                            $(_icon).addClass("state-icon").addClass(event_item.clsClosedIcon).appendTo(slide);
-                            event
-                                .data("closed", true)
-                                .data("target", event_item.target);
-                            event.append(custom_html_open);
+                            if (o.closed === true || event_item.closed === true || parseInt(event_item.closed) === 1) {
+                                _icon = event_item.closedIcon !== undefined ? Utils.isTag(event_item.closedIcon) ? event_item.closedIcon : "<span>" + event_item.closedIcon + "</span>" : Utils.isTag(o.defaultClosedIcon) ? o.defaultClosedIcon : "<span>" + o.defaultClosedIcon + "</span>";
+                                $(_icon).addClass("state-icon").addClass(event_item.clsClosedIcon).appendTo(slide);
+                                event
+                                    .data("closed", true)
+                                    .data("target", event_item.target);
+                                event.append(custom_html_open);
+                            } else {
+                                _icon = event_item.openIcon !== undefined ? Utils.isTag(event_item.openIcon) ? event_item.openIcon : "<span>" + event_item.openIcon + "</span>" : Utils.isTag(o.defaultOpenIcon) ? o.defaultOpenIcon : "<span>" + o.defaultOpenIcon + "</span>";
+                                $(_icon).addClass("state-icon").addClass(event_item.clsOpenIcon).appendTo(slide);
+                                event
+                                    .data("closed", false);
+                                event.append(custom_html_close);
+                            }
+
+                            event.append(custom_html);
                         } else {
-                            _icon = event_item.openIcon !== undefined ? Utils.isTag(event_item.openIcon) ? event_item.openIcon : "<span>"+event_item.openIcon+"</span>"  : Utils.isTag(o.defaultOpenIcon) ? o.defaultOpenIcon : "<span>"+o.defaultOpenIcon+"</span>";
-                            $(_icon).addClass("state-icon").addClass(event_item.clsOpenIcon).appendTo(slide);
-                            event
-                                .data("closed", false);
-                            event.append(custom_html_close);
+                            event.html(event_item.html);
                         }
-
-                        event.append(custom_html);
                     });
 
-                    var last_child = stream_events.find(".stream-event:last-child");
+                    var last_child = stream_events.find(".stream-event").last();
                     if (last_child.length > 0) stream_events.outerWidth(last_child[0].offsetLeft + last_child.outerWidth());
                 }
+
+                stream_events.css({
+                    height: stream_height * rows
+                });
+
+                element.find(".stream").eq(stream_events.index()).css({
+                    height: stream_height * rows
+                })
             });
         }
 
@@ -16151,7 +19843,25 @@ var Streamer = {
             }, o.startSlideSleep);
         }
 
-        Utils.exec(o.onStreamerCreate, [element]);
+        Utils.exec(o.onStreamerCreate, null, element[0]);
+        element.fire("streamercreate");
+
+        this._fireScroll();
+    },
+
+    _fireScroll: function(){
+        var that = this, element = this.element, o = this.options;
+        var oldScroll = this.scroll;
+        this.scrollDir = this.scroll < element[0].scrollLeft ? "left" : "right";
+        this.scroll = element[0].scrollLeft;
+
+        Utils.exec(o.onEventsScroll, [element[0].scrollLeft, oldScroll, this.scrollDir], element[0]);
+
+        element.fire("eventsscroll", {
+            scrollLeft: element[0].scrollLeft,
+            oldScroll: oldScroll,
+            scrollDir: that.scrollDir
+        });
     },
 
     _createEvents: function(){
@@ -16186,7 +19896,11 @@ var Streamer = {
                         if (o.changeUri === true) {
                             that._changeURI();
                         }
-                        Utils.exec(o.onEventSelect, [event, event.hasClass("selected")]);
+                        Utils.exec(o.onEventSelect, [event[0], event.hasClass("selected")], element[0]);
+                        element.fire("eventselect", {
+                            event: event[0],
+                            selected: event.hasClass("selected")
+                        });
                     }
                 }
             } else {
@@ -16198,7 +19912,10 @@ var Streamer = {
 
                     } else {
 
-                        Utils.exec(o.onEventClick, [event]);
+                        Utils.exec(o.onEventClick, [event[0]], element[0]);
+                        element.fire("eventclick", {
+                            event: event[0]
+                        });
 
                         if (o.closed === true || event.data("closed") === true) {
                             var target = event.data("target");
@@ -16220,6 +19937,8 @@ var Streamer = {
                 return;
             }
 
+            console.log(index, element.data("stream"));
+
             if (element.data("stream") === index) {
                 element.find(".stream-event").removeClass("disabled");
                 element.data("stream", -1);
@@ -16227,27 +19946,38 @@ var Streamer = {
                 element.data("stream", index);
                 element.find(".stream-event").addClass("disabled");
                 that.enableStream(stream);
-                Utils.exec(o.onStreamSelect, [stream]);
+                Utils.exec(o.onStreamSelect, [stream], element[0]);
+                element.fire("streamselect", {
+                    stream: stream
+                });
             }
 
-            Utils.exec(o.onStreamClick, [stream]);
+            Utils.exec(o.onStreamClick, [stream], element[0]);
+            element.fire("streamclick", {
+                stream: stream
+            });
         });
 
         if (Utils.isTouchDevice() !== true) {
             element.on(Metro.events.mousewheel, ".events-area", function(e) {
-                var acrollable = $(this);
+                var scroll, scrollable = $(this);
 
                 if (e.deltaY === undefined || e.deltaFactor === undefined) {
                     return ;
                 }
 
                 if (e.deltaFactor > 1) {
-                    var scroll = acrollable.scrollLeft() - ( e.deltaY * 30 );
-                    acrollable.scrollLeft(scroll);
-                    e.preventDefault();
+                    scroll = scrollable.scrollLeft() - ( e.deltaY * 30 );
+                    scrollable.scrollLeft(scroll);
                 }
+
+                e.preventDefault();
             });
         }
+
+        element.find(".events-area").last().on("scroll", function(){
+            that._fireScroll();
+        });
 
         if (Utils.isTouchDevice() === true) {
             element.on(Metro.events.click, ".stream", function(){
@@ -16283,14 +20013,14 @@ var Streamer = {
 
     enableStream: function(stream){
         var that = this, element = this.element, o = this.options, data = this.data;
-        var index = stream.index();
+        var index = stream.index()-1;
         stream.removeClass("disabled").data("streamDisabled", false);
         element.find(".stream-events").eq(index).find(".stream-event").removeClass("disabled");
     },
 
     disableStream: function(stream){
         var that = this, element = this.element, o = this.options, data = this.data;
-        var index = stream.index();
+        var index = stream.index()-1;
         stream.addClass("disabled").data("streamDisabled", true);
         element.find(".stream-events").eq(index).find(".stream-event").addClass("disabled");
     },
@@ -16363,21 +20093,25 @@ var Streamer = {
     },
 
     source: function(s){
+        var that = this, element = this.element, o = this.options;
+
         if (s === undefined) {
             return this.options.source;
         }
+
+        element.attr("data-source", s);
 
         this.options.source = s;
         this.changeSource();
     },
 
-    data: function(s){
+    dataSet: function(s){
         if (s === undefined) {
-            return this.options.source;
+            return this.options.data;
         }
 
         this.options.data = s;
-        this.changeData();
+        this.changeData(s);
     },
 
     getStreamerData: function(){
@@ -16415,7 +20149,11 @@ var Streamer = {
         if (o.changeUri === true) {
             that._changeURI();
         }
-        Utils.exec(o.onEventSelect, [event, state]);
+        Utils.exec(o.onEventSelect, [event[0], state], element[0]);
+        element.fire("eventselect", {
+            event: event[0],
+            selected: state
+        });
     },
 
     changeSource: function(){
@@ -16428,28 +20166,44 @@ var Streamer = {
 
         o.source = new_source;
 
-        $.get(o.source, function(data){
-            that.data = data;
-            that.build();
+        Utils.exec(o.onDataLoad, [o.source], element[0]);
+        element.fire("dataload", {
+            source: o.source
         });
 
-        element.trigger("sourcechanged");
+        $.get(o.source, function(data){
+            Utils.exec(o.onDataLoaded, [o.source, data], element[0]);
+            element.fire("dataloaded", {
+                source: o.source,
+                data: data
+            });
+            that.data = data;
+            that.build();
+        }).fail(function(xhr){
+            Utils.exec(o.onDataLoadError, [o.source, xhr], element[0]);
+            element.fire("dataloaderror", {
+                source: o.source,
+                xhr: xhr
+            });
+        });
+
+        element.fire("sourcechange");
     },
 
-    changeData: function(){
-        var that = this, element = this.element, o = this.options, data = this.data;
-        var new_data = element.attr("data-data");
+    changeData: function(data){
+        var that = this, element = this.element, o = this.options;
+        var old_data = this.data;
 
-        if (String(new_data).trim() === "") {
-            return ;
-        }
+        o.data =  typeof data === 'object' ? data : JSON.parse(element.attr("data-data"));
 
-        o.data = new_data;
+        this.data = o.data;
 
-        this.data = JSON.parse(o.data);
         this.build();
 
-        element.trigger("datachanged");
+        element.fire("datachange", {
+            oldData: old_data,
+            newData: o.data
+        });
     },
 
     changeStreamSelectOption: function(){
@@ -16470,31 +20224,40 @@ var Streamer = {
 Metro.plugin('streamer', Streamer);
 
 // Source: js/plugins/switch.js
+
+var SwitchDefaultConfig = {
+    material: false,
+    transition: true,
+    caption: "",
+    captionPosition: "right",
+    clsSwitch: "",
+    clsCheck: "",
+    clsCaption: "",
+    onSwitchCreate: Metro.noop
+};
+
+Metro.switchSetup = function (options) {
+    SwitchDefaultConfig = $.extend({}, SwitchDefaultConfig, options);
+};
+
+if (typeof window.metroSwitchSetup !== undefined) {
+    Metro.switchSetup(window.metroSwitchSetup);
+}
+
 var Switch = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, SwitchDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
 
         this._setOptionsFromDOM();
         this._create();
 
-        Utils.exec(this.options.onSwitchCreate, [this.element]);
-
         return this;
-    },
-    options: {
-        caption: "",
-        captionPosition: "right",
-        disabled: false,
-        clsElement: "",
-        clsCheck: "",
-        clsCaption: "",
-        onSwitchCreate: Metro.noop
     },
 
     _setOptionsFromDOM: function(){
-        var that = this, element = this.element, o = this.options;
+        var element = this.element, o = this.options;
 
         $.each(element.data(), function(key, value){
             if (key in o) {
@@ -16508,24 +20271,21 @@ var Switch = {
     },
 
     _create: function(){
-        var that = this, element = this.element, o = this.options;
-        var prev = element.prev();
-        var parent = element.parent();
-        var container = $("<label>").addClass("switch " + element[0].className);
+        var element = this.element, o = this.options;
+        var container = $("<label>").addClass((o.material === true ? " switch-material " : " switch ") + element[0].className);
         var check = $("<span>").addClass("check");
         var caption = $("<span>").addClass("caption").html(o.caption);
 
         element.attr("type", "checkbox");
 
-        if (prev.length === 0) {
-            parent.prepend(container);
-        } else {
-            container.insertAfter(prev);
-        }
-
+        container.insertBefore(element);
         element.appendTo(container);
         check.appendTo(container);
         caption.appendTo(container);
+
+        if (o.transition === true) {
+            container.addClass("transition-on");
+        }
 
         if (o.captionPosition === 'left') {
             container.addClass("caption-left");
@@ -16533,15 +20293,18 @@ var Switch = {
 
         element[0].className = '';
 
-        container.addClass(o.clsElement);
+        container.addClass(o.clsSwitch);
         caption.addClass(o.clsCaption);
         check.addClass(o.clsCheck);
 
-        if (o.disabled === true && element.is(':disabled')) {
+        if (element.is(':disabled')) {
             this.disable();
         } else {
             this.enable();
         }
+
+        Utils.exec(o.onSwitchCreate, null, element[0]);
+        element.fire("switchcreate");
     },
 
     disable: function(){
@@ -16555,7 +20318,7 @@ var Switch = {
     },
 
     toggleState: function(){
-        if (this.element.data("disabled") === false) {
+        if (this.elem.disabled) {
             this.disable();
         } else {
             this.enable();
@@ -16572,14 +20335,143 @@ var Switch = {
 Metro.plugin('switch', Switch);
 
 // Source: js/plugins/table.js
+
+var TableDefaultConfig = {
+    templateBeginToken: "<%",
+    templateEndToken: "%>",
+    paginationDistance: 5,
+
+    locale: METRO_LOCALE,
+
+    horizontalScroll: false,
+    horizontalScrollStop: null,
+    check: false,
+    checkType: "checkbox",
+    checkStyle: 1,
+    checkColIndex: 0,
+    checkName: null,
+    checkStoreKey: "TABLE:$1:KEYS",
+    rownum: false,
+    rownumTitle: "#",
+
+    filters: null,
+    filtersOperator: "and",
+
+    source: null,
+
+    searchMinLength: 1,
+    searchThreshold: 500,
+    searchFields: null,
+
+    showRowsSteps: true,
+    showSearch: true,
+    showTableInfo: true,
+    showPagination: true,
+    paginationShortMode: true,
+    showActivity: true,
+    muteTable: true,
+
+    rows: 10,
+    rowsSteps: "10,25,50,100",
+
+    staticView: false,
+    viewSaveMode: "client",
+    viewSavePath: "TABLE:$1:OPTIONS",
+
+    sortDir: "asc",
+    decimalSeparator: ".",
+    thousandSeparator: ",",
+
+    tableRowsCountTitle: "Show entries:",
+    tableSearchTitle: "Search:",
+    tableInfoTitle: "Showing $1 to $2 of $3 entries",
+    paginationPrevTitle: "Prev",
+    paginationNextTitle: "Next",
+    allRecordsTitle: "All",
+    inspectorTitle: "Inspector",
+
+    activityType: "cycle",
+    activityStyle: "color",
+    activityTimeout: 100,
+
+    searchWrapper: null,
+    rowsWrapper: null,
+    infoWrapper: null,
+    paginationWrapper: null,
+
+    cellWrapper: true,
+
+    clsComponent: "",
+    clsTableContainer: "",
+    clsTable: "",
+
+    clsHead: "",
+    clsHeadRow: "",
+    clsHeadCell: "",
+
+    clsBody: "",
+    clsBodyRow: "",
+    clsBodyCell: "",
+    clsCellWrapper: "",
+
+    clsFooter: "",
+    clsFooterRow: "",
+    clsFooterCell: "",
+
+    clsTableTop: "",
+    clsRowsCount: "",
+    clsSearch: "",
+
+    clsTableBottom: "",
+    clsTableInfo: "",
+    clsTablePagination: "",
+
+    clsPagination: "",
+
+    clsEvenRow: "",
+    clsOddRow: "",
+    clsRow: "",
+
+    onDraw: Metro.noop,
+    onDrawRow: Metro.noop,
+    onDrawCell: Metro.noop,
+    onAppendRow: Metro.noop,
+    onAppendCell: Metro.noop,
+    onSortStart: Metro.noop,
+    onSortStop: Metro.noop,
+    onSortItemSwitch: Metro.noop,
+    onSearch: Metro.noop,
+    onRowsCountChange: Metro.noop,
+    onDataLoad: Metro.noop,
+    onDataLoadError: Metro.noop,
+    onDataLoaded: Metro.noop,
+    onFilterRowAccepted: Metro.noop,
+    onFilterRowDeclined: Metro.noop,
+    onCheckClick: Metro.noop,
+    onCheckClickAll: Metro.noop,
+    onCheckDraw: Metro.noop,
+    onViewSave: Metro.noop,
+    onViewGet: Metro.noop,
+    onViewCreated: Metro.noop,
+    onTableCreate: Metro.noop
+};
+
+Metro.tableSetup = function(options){
+    TableDefaultConfig = $.extend({}, TableDefaultConfig, options);
+};
+
+if (typeof window.metroTableSetup !== undefined) {
+    Metro.tableSetup(window.metroTableSetup);
+}
+
 var Table = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, TableDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
         this.currentPage = 1;
         this.pagesCount = 1;
-        this.filterString = "";
+        this.searchString = "";
         this.data = null;
         this.activity = null;
         this.busy = false;
@@ -16589,13 +20481,14 @@ var Table = {
         this.wrapperRows = null;
         this.wrapperPagination = null;
         this.filterIndex = null;
-        this.filtersIndexes = null;
+        this.filtersIndexes = [];
         this.component = null;
         this.inspector = null;
         this.view = {};
         this.viewDefault = {};
         this.locale = Metro.locales["en-US"];
         this.input_interval = null;
+        this.searchFields = [];
 
         this.sort = {
             dir: "asc",
@@ -16609,114 +20502,12 @@ var Table = {
 
         this.filteredItems = [];
 
+        this.index = {};
+
         this._setOptionsFromDOM();
         this._create();
 
         return this;
-    },
-
-    options: {
-        locale: METRO_LOCALE,
-
-        check: false,
-        checkColIndex: 0,
-        checkName: null,
-        checkType: "checkbox",
-        checkStyle: 1,
-        checkStoreKey: "TABLE:$1:KEYS",
-        rownum: false,
-
-        filter: null,
-        filters: null,
-        source: null,
-
-        filterMinLength: 1,
-        filterThreshold: 500,
-
-        showRowsSteps: true,
-        showSearch: true,
-        showTableInfo: true,
-        showPagination: true,
-        paginationShortMode: true,
-        showActivity: true,
-
-        muteTable: true,
-
-        rows: 10,
-        rowsSteps: "10,25,50,100",
-
-        viewSaveMode: "client",
-        viewSavePath: "TABLE:$1:OPTIONS",
-
-        sortDir: "asc",
-        decimalSeparator: ".",
-        thousandSeparator: ",",
-
-        tableRowsCountTitle: "Show entries:",
-        tableSearchTitle: "Search:",
-        tableInfoTitle: "Showing $1 to $2 of $3 entries",
-        paginationPrevTitle: "Prev",
-        paginationNextTitle: "Next",
-        allRecordsTitle: "All",
-        inspectorTitle: "Inspector",
-
-        activityType: "cycle",
-        activityStyle: "color",
-        activityTimeout: 100,
-
-        searchWrapper: null,
-        rowsWrapper: null,
-        infoWrapper: null,
-        paginationWrapper: null,
-
-        cellWrapper: true,
-
-        clsComponent: "",
-        clsTable: "",
-
-        clsHead: "",
-        clsHeadRow: "",
-        clsHeadCell: "",
-
-        clsBody: "",
-        clsBodyRow: "",
-        clsBodyCell: "",
-
-        clsFooter: "",
-        clsFooterRow: "",
-        clsFooterCell: "",
-
-        clsTableTop: "",
-        clsRowsCount: "",
-        clsSearch: "",
-
-        clsTableBottom: "",
-        clsTableInfo: "",
-        clsTablePagination: "",
-
-        clsPagination: "",
-
-        onDraw: Metro.noop,
-        onDrawRow: Metro.noop,
-        onDrawCell: Metro.noop,
-        onAppendRow: Metro.noop,
-        onAppendCell: Metro.noop,
-        onSortStart: Metro.noop,
-        onSortStop: Metro.noop,
-        onSortItemSwitch: Metro.noop,
-        onSearch: Metro.noop,
-        onRowsCountChange: Metro.noop,
-        onDataLoad: Metro.noop,
-        onDataLoaded: Metro.noop,
-        onFilterRowAccepted: Metro.noop,
-        onFilterRowDeclined: Metro.noop,
-        onCheckClick: Metro.noop,
-        onCheckClickAll: Metro.noop,
-        onCheckDraw: Metro.noop,
-        onViewSave: Metro.noop,
-        onViewGet: Metro.noop,
-        onViewCreated: Metro.noop,
-        onTableCreate: Metro.noop
     },
 
     _setOptionsFromDOM: function(){
@@ -16745,8 +20536,15 @@ var Table = {
             this.locale = Metro.locales[o.locale];
         }
 
+        if (Utils.isValue(o.searchFields)) {
+            this.searchFields = Utils.strToArray(o.searchFields);
+        }
+
         if (o.source !== null) {
             Utils.exec(o.onDataLoad, [o.source], element[0]);
+            element.fire("dataload", {
+                source: o.source
+            });
 
             $.get(o.source, function(data){
                 if (typeof data !== "object") {
@@ -16754,12 +20552,29 @@ var Table = {
                 }
                 that._build(data);
                 Utils.exec(o.onDataLoaded, [o.source, data], element[0]);
+                element.fire("dataloaded", {
+                    source: o.source,
+                    data: data
+                })
             }).fail(function( jqXHR, textStatus, errorThrown) {
-                console.log(textStatus); console.log(jqXHR); console.log(errorThrown);
+                Utils.exec(o.onDataLoadError, [o.source, jqXHR, textStatus, errorThrown], element[0]);
+                element.fire("dataloaderror", {
+                    source: o.source,
+                    xhr: jqXHR
+                })
             });
         } else {
             that._build();
         }
+    },
+
+    _createIndex: function(){
+        var that = this, colIndex = this.options.checkColIndex;
+        setImmediate(function(){
+            that.items.forEach(function(v, i){
+                that.index[v[colIndex]] = i;
+            });
+        });
     },
 
     _build: function(data){
@@ -16778,6 +20593,9 @@ var Table = {
             this._createItemsFromHTML()
         }
 
+        // Create index
+        this._createIndex();
+
         this.view = this._createView();
         this.viewDefault = Utils.objectClone(this.view);
 
@@ -16786,6 +20604,10 @@ var Table = {
             if (Utils.isValue(view) && Utils.objectLength(view) === Utils.objectLength(this.view)) {
                 this.view = view;
                 Utils.exec(o.onViewGet, [view], element[0]);
+                element.fire("viewget", {
+                    source: "client",
+                    view: view
+                });
             }
             this._final();
         } else {
@@ -16798,6 +20620,10 @@ var Table = {
                     if (Utils.isValue(view) && Utils.objectLength(view) === Utils.objectLength(that.view)) {
                         that.view = view;
                         Utils.exec(o.onViewGet, [view], element[0]);
+                        element.fire("viewget", {
+                            source: "server",
+                            view: view
+                        });
                     }
                     that._final();
                 }
@@ -16820,47 +20646,43 @@ var Table = {
         this._createEvents();
 
         Utils.exec(o.onTableCreate, [element], element[0]);
+
+        element.fire("tablecreate");
     },
 
     _service: function(){
         var o = this.options;
-        var item_check, item_rownum;
-        var service = [];
 
-        this.service = {};
-
-        item_rownum = {
-            title: "#",
-            format: undefined,
-            name: undefined,
-            sortable: false,
-            sortDir: undefined,
-            clsColumn: o.rownum !== true ? "d-none" : "",
-            cls: o.rownum !== true ? "d-none" : "",
-            colspan: undefined,
-            type: "rownum"
-        };
-
-        item_check = {
-            title: o.checkType === "checkbox" ? "<input type='checkbox' data-role='checkbox' class='table-service-check-all' data-style='"+o.checkStyle+"'>" : "",
-            format: undefined,
-            name: undefined,
-            sortable: false,
-            sortDir: undefined,
-            clsColumn: o.check !== true ? "d-none" : "",
-            cls: o.check !== true ? "d-none" : "",
-            colspan: undefined,
-            type: "rowcheck"
-        };
-
-        service.push(item_rownum);
-        service.push(item_check);
-
-        this.service = service;
+        this.service = [
+            {
+                // Rownum
+                title: o.rownumTitle,
+                format: undefined,
+                name: undefined,
+                sortable: false,
+                sortDir: undefined,
+                clsColumn: "rownum-cell " + (o.rownum !== true ? "d-none" : ""),
+                cls: "rownum-cell " + (o.rownum !== true ? "d-none" : ""),
+                colspan: undefined,
+                type: "rownum"
+            },
+            {
+                // Check
+                title: o.checkType === "checkbox" ? "<input type='checkbox' data-role='checkbox' class='table-service-check-all' data-style='"+o.checkStyle+"'>" : "",
+                format: undefined,
+                name: undefined,
+                sortable: false,
+                sortDir: undefined,
+                clsColumn: "check-cell " + (o.check !== true ? "d-none" : ""),
+                cls: "check-cell "+(o.check !== true ? "d-none" : ""),
+                colspan: undefined,
+                type: "rowcheck"
+            }
+        ];
     },
 
     _createView: function(){
-        var view, o = this.options;
+        var view, element = this.element, o = this.options;
 
         view = {};
 
@@ -16878,6 +20700,9 @@ var Table = {
         });
 
         Utils.exec(o.onViewCreated, [view], view);
+        element.fire("viewcreated", {
+            view: view
+        });
         return view;
     },
 
@@ -16898,10 +20723,10 @@ var Table = {
             row.data('index-view', i);
             $("<td>").html("<input type='checkbox' data-style='"+o.checkStyle+"' data-role='checkbox' name='column_show_check[]' value='"+i+"' "+(Utils.bool(that.view[i]['show']) ? "checked" : "")+">").appendTo(row);
             $("<td>").html(this.title).appendTo(row);
-            $("<td>").html("<input type='number' name='column_size' value='"+that.view[i]['size']+"' data-index='"+i+"'>").appendTo(row);
+            $("<td>").html("<input type='number' data-role='spinner' name='column_size' value='"+that.view[i]['size']+"' data-index='"+i+"'>").appendTo(row);
             $("<td>").html("" +
-                "<button class='button mini js-table-inspector-field-up' type='button'><span class='mif-arrow-up'></span></button>" +
-                "<button class='button mini js-table-inspector-field-down' type='button'><span class='mif-arrow-down'></span></button>" +
+                "<button class='button square js-table-inspector-field-up' type='button'><span class='mif-arrow-up'></span></button>" +
+                "<button class='button square js-table-inspector-field-down' type='button'><span class='mif-arrow-down'></span></button>" +
                 "").appendTo(row);
             tds[that.view[i]['index-view']] = row;
         });
@@ -16914,10 +20739,10 @@ var Table = {
 
     _createInspector: function(){
         var o = this.options;
-        var component = this.component;
         var inspector, table_wrap, table, tbody, actions;
 
         inspector = $("<div data-role='draggable' data-drag-element='.table-inspector-header' data-drag-area='body'>").addClass("table-inspector");
+        inspector.attr("for", this.element.attr("id"));
 
         $("<div class='table-inspector-header'>"+o.inspectorTitle+"</div>").appendTo(inspector);
 
@@ -16935,9 +20760,10 @@ var Table = {
         $("<button class='button secondary js-table-inspector-reset ml-2 mr-2' type='button'>").html(this.locale.buttons.reset).appendTo(actions);
         $("<button class='button link js-table-inspector-cancel place-right' type='button'>").html(this.locale.buttons.cancel).appendTo(actions);
 
+        inspector.data("open", false);
         this.inspector = inspector;
 
-        component.append(inspector);
+        $("body").append(inspector);
 
         this._createInspectorEvents();
     },
@@ -16957,29 +20783,42 @@ var Table = {
             var item = $(this);
             var dir, head_item, item_class;
 
-            if (item.hasClass("sort-asc")) {
-                dir = "asc";
-            } else if (item.hasClass("sort-desc")) {
-                dir = "desc"
+            if (Utils.isValue(item.data('sort-dir'))) {
+                dir = item.data('sort-dir');
             } else {
-                dir = undefined;
+                if (item.hasClass("sort-asc")) {
+                    dir = "asc";
+                } else if (item.hasClass("sort-desc")) {
+                    dir = "desc"
+                } else {
+                    dir = undefined;
+                }
             }
 
             item_class = item[0].className.replace("sortable-column", "");
             item_class = item_class.replace("sort-asc", "");
             item_class = item_class.replace("sort-desc", "");
+            item_class = item_class.replace("hidden", "");
 
             head_item = {
+                type: "data",
                 title: item.html(),
-                format: Utils.isValue(item.data("format")) ? item.data("format") : undefined,
-                name: Utils.isValue(item.data("name")) ? item.data("name") : undefined,
-                sortable: item.hasClass("sortable-column"),
+                name: Utils.isValue(item.data("name")) ? item.data("name") : item.text().replace(" ", "_"),
+                sortable: item.hasClass("sortable-column") || (Utils.isValue(item.data('sortable')) && JSON.parse(item.data('sortable') === true)),
                 sortDir: dir,
+                format: Utils.isValue(item.data("format")) ? item.data("format") : "string",
                 clsColumn: Utils.isValue(item.data("cls-column")) ? item.data("cls-column") : "",
                 cls: item_class,
                 colspan: item.attr("colspan"),
-                type: "data",
-                size: Utils.isValue(item.data("size")) ? item.data("size") : ""
+                size: Utils.isValue(item.data("size")) ? item.data("size") : "",
+                show: !(item.hasClass("hidden") || (Utils.isValue(item.data('show')) && JSON.parse(item.data('show')) === false)),
+
+                required: Utils.isValue(item.data("required")) ? JSON.parse(item.data("required")) === true  : false,
+                field: Utils.isValue(item.data("field")) ? item.data("field") : "input",
+                fieldType: Utils.isValue(item.data("field-type")) ? item.data("field-type") : "text",
+                validator: Utils.isValue(item.data("validator")) ? item.data("validator") : null,
+
+                template: Utils.isValue(item.data("template")) ? item.data("template") : null
             };
             that.heads.push(head_item);
         });
@@ -17058,7 +20897,7 @@ var Table = {
         var element = this.element, o = this.options;
         var head = $("<thead>").html('');
         var tr, th, tds = [], j, cells;
-        var view = this.view;
+        var view = o.staticView ? this._createView() : this.view;
 
         element.find("thead").remove();
 
@@ -17076,8 +20915,6 @@ var Table = {
             if (Utils.isValue(item.title)) {th.html(item.title);}
             if (Utils.isValue(item.size)) {th.css({width: item.size});}
             if (Utils.isValue(item.cls)) {classes.push(item.cls);}
-            if (item.type === 'rowcheck') {classes.push("check-cell");}
-            if (item.type === 'rownum') {classes.push("rownum-cell");}
             classes.push(o.clsHeadCell);
             th.addClass(classes.join(" "));
         });
@@ -17111,9 +20948,6 @@ var Table = {
             if (Utils.bool(view[cell_index]['show']) === false) {
                 classes.push("hidden");
             }
-
-            if (item.type === 'rowcheck') {classes.push("check-cell");}
-            if (item.type === 'rownum') {classes.push("rownum-cell");}
 
             classes.push(o.clsHeadCell);
 
@@ -17183,10 +21017,11 @@ var Table = {
 
     _createTopBlock: function (){
         var that = this, element = this.element, o = this.options;
-        var top_block = $("<div>").addClass("table-top").addClass(o.clsTableTop).insertBefore(element);
+        var top_block = $("<div>").addClass("table-top").addClass(o.clsTableTop).insertBefore(element.parent());
         var search_block, search_input, rows_block, rows_select;
 
         search_block = Utils.isValue(this.wrapperSearch) ? this.wrapperSearch : $("<div>").addClass("table-search-block").addClass(o.clsSearch).appendTo(top_block);
+        search_block.addClass(o.clsSearch);
 
         search_input = $("<input>").attr("type", "text").appendTo(search_block);
         search_input.input({
@@ -17197,7 +21032,8 @@ var Table = {
             search_block.hide();
         }
 
-        rows_block = Utils.isValue(this.wrapperRows) ? this.wrapperRows : $("<div>").addClass("table-rows-block").addClass(o.clsRowsCount).appendTo(top_block);
+        rows_block = Utils.isValue(this.wrapperRows) ? this.wrapperRows : $("<div>").addClass("table-rows-block").appendTo(top_block);
+        rows_block.addClass(o.clsRowsCount);
 
         rows_select = $("<select>").appendTo(rows_block);
         $.each(Utils.strToArray(o.rowsSteps), function () {
@@ -17218,7 +21054,10 @@ var Table = {
                 o.rows = val;
                 that.currentPage = 1;
                 that._draw();
-                Utils.exec(o.onRowsCountChange, [val], element[0])
+                Utils.exec(o.onRowsCountChange, [val], element[0]);
+                element.fire("rowscountchange", {
+                    val: val
+                });
             }
         });
 
@@ -17231,15 +21070,17 @@ var Table = {
 
     _createBottomBlock: function (){
         var element = this.element, o = this.options;
-        var bottom_block = $("<div>").addClass("table-bottom").addClass(o.clsTableBottom).insertAfter(element);
+        var bottom_block = $("<div>").addClass("table-bottom").addClass(o.clsTableBottom).insertAfter(element.parent());
         var info, pagination;
 
-        info = Utils.isValue(this.wrapperInfo) ? this.wrapperInfo : $("<div>").addClass("table-info").addClass(o.clsTableInfo).appendTo(bottom_block);
+        info = Utils.isValue(this.wrapperInfo) ? this.wrapperInfo : $("<div>").addClass("table-info").appendTo(bottom_block);
+        info.addClass(o.clsTableInfo);
         if (o.showTableInfo !== true) {
             info.hide();
         }
 
-        pagination = Utils.isValue(this.wrapperPagination) ? this.wrapperPagination : $("<div>").addClass("table-pagination").addClass(o.clsTablePagination).appendTo(bottom_block);
+        pagination = Utils.isValue(this.wrapperPagination) ? this.wrapperPagination : $("<div>").addClass("table-pagination").appendTo(bottom_block);
+        pagination.addClass(o.clsTablePagination);
         if (o.showPagination !== true) {
             pagination.hide();
         }
@@ -17249,7 +21090,7 @@ var Table = {
 
     _createStructure: function(){
         var that = this, element = this.element, o = this.options;
-        var table_component, columns;
+        var table_container, table_component, columns;
         var w_search = $(o.searchWrapper), w_info = $(o.infoWrapper), w_rows = $(o.rowsWrapper), w_paging = $(o.paginationWrapper);
 
         if (w_search.length > 0) {this.wrapperSearch = w_search;}
@@ -17257,11 +21098,17 @@ var Table = {
         if (w_rows.length > 0) {this.wrapperRows = w_rows;}
         if (w_paging.length > 0) {this.wrapperPagination = w_paging;}
 
-        if (!element.parent().hasClass("table-component")) {
-            table_component = $("<div>").addClass("table-component").insertBefore(element);
-            element.appendTo(table_component);
-        } else {
-            table_component = element.parent();
+        table_component = $("<div>").addClass("table-component");
+        table_component.insertBefore(element);
+
+        table_container = $("<div>").addClass("table-container").addClass(o.clsTableContainer).appendTo(table_component);
+        element.appendTo(table_container);
+
+        if (o.horizontalScroll === true) {
+            table_container.addClass("horizontal-scroll");
+        }
+        if (!Utils.isNull(o.horizontalScrollStop) && Utils.mediaExist(o.horizontalScrollStop)) {
+            table_container.removeClass("horizontal-scroll");
         }
 
         table_component.addClass(o.clsComponent);
@@ -17306,14 +21153,6 @@ var Table = {
 
         var filter_func;
 
-        if (Utils.isValue(o.filter)) {
-            filter_func = Utils.isFunc(o.filter);
-            if (filter_func === false) {
-                filter_func = Utils.func(o.filter);
-            }
-            that.filterIndex = that.addFilter(filter_func);
-        }
-
         if (Utils.isValue(o.filters)) {
             $.each(Utils.strToArray(o.filters), function(){
                 filter_func = Utils.isFunc(this);
@@ -17335,10 +21174,21 @@ var Table = {
 
     _createEvents: function(){
         var that = this, element = this.element, o = this.options;
-        var component = element.parent();
+        var component = element.closest(".table-component");
+        var table_container = component.find(".table-container");
         var search = component.find(".table-search-block input");
         var customSearch;
         var id = element.attr("id");
+
+        $(window).on(Metro.events.resize+"-"+id, function(){
+            if (o.horizontalScroll === true) {
+                if (!Utils.isNull(o.horizontalScrollStop) && Utils.mediaExist(o.horizontalScrollStop)) {
+                    table_container.removeClass("horizontal-scroll");
+                } else {
+                    table_container.addClass("horizontal-scroll");
+                }
+            }
+        });
 
         element.on(Metro.events.click, ".sortable-column", function(){
 
@@ -17354,7 +21204,7 @@ var Table = {
             that.activity.show(o.activityTimeout, function(){
                 that.currentPage = 1;
                 that.sort.colIndex = col.data("index");
-                if (!col.has("sort-asc") && !col.hasClass("sort-desc")) {
+                if (!col.hasClass("sort-asc") && !col.hasClass("sort-desc")) {
                     that.sort.dir = o.sortDir;
                 } else {
                     if (col.hasClass("sort-asc")) {
@@ -17380,6 +21230,11 @@ var Table = {
             var store_key = o.checkStoreKey.replace("$1", id);
             var storage = Metro.storage;
             var data = storage.getItem(store_key);
+            var is_radio = check.attr('type') === 'radio';
+
+            if (is_radio) {
+                data = [];
+            }
 
             if (status) {
                 if (!Utils.isValue(data)) {
@@ -17400,6 +21255,10 @@ var Table = {
             storage.setItem(store_key, data);
 
             Utils.exec(o.onCheckClick, [status], this);
+            element.fire("checkclick", {
+                check: this,
+                status: status
+            });
         });
 
         element.on(Metro.events.click, ".table-service-check-all input", function(){
@@ -17421,21 +21280,21 @@ var Table = {
             that._draw();
 
             Utils.exec(o.onCheckClickAll, [status], this);
+            element.fire("checkclickall", {
+                check: this,
+                status: status
+            });
         });
 
-        var _search = function(e){
-            that.filterString = this.value.trim().toLowerCase();
-
-            if (that.filterString[that.filterString.length - 1] === ":") {
-                return ;
-            }
+        var _search = function(){
+            that.searchString = this.value.trim().toLowerCase();
 
             clearInterval(that.input_interval); that.input_interval = false;
             if (!that.input_interval) that.input_interval = setTimeout(function(){
                 that.currentPage = 1;
                 that._draw();
                 clearInterval(that.input_interval); that.input_interval = false;
-            }, o.filterThreshold);
+            }, o.searchThreshold);
         };
 
         search.on(Metro.events.inputchange, _search);
@@ -17488,6 +21347,10 @@ var Table = {
         }
 
         this._createInspectorEvents();
+
+        element.on(Metro.events.click, ".js-table-crud-button", function(){
+
+        });
     },
 
     _createInspectorEvents: function(){
@@ -17604,7 +21467,7 @@ var Table = {
             that.openInspector(false);
         });
 
-        inspector.on(Metro.events.click, ".js-table-inspector-reset", function(e){
+        inspector.on(Metro.events.click, ".js-table-inspector-reset", function(){
             that.resetView();
         });
     },
@@ -17628,6 +21491,11 @@ var Table = {
         if (o.viewSaveMode.toLowerCase() === "client") {
             Metro.storage.setItem(o.viewSavePath.replace("$1", id), view);
             Utils.exec(o.onViewSave, [o.viewSavePath, view], element[0]);
+            element.fire("viewsave", {
+                target: "client",
+                path: o.viewSavePath,
+                view: view
+            });
         } else {
             $.post(
                 o.viewSavePath,
@@ -17637,6 +21505,11 @@ var Table = {
                 },
                 function(data, status, xhr){
                     Utils.exec(o.onViewSave, [o.viewSavePath, view, data, status, xhr], element[0]);
+                    element.fire("viewsave", {
+                        target: "server",
+                        path: o.viewSavePath,
+                        view: view
+                    });
                 }
             );
         }
@@ -17644,7 +21517,7 @@ var Table = {
 
     _info: function(start, stop, length){
         var element = this.element, o = this.options;
-        var component = element.parent();
+        var component = element.closest(".table-component");
         var info = Utils.isValue(this.wrapperInfo) ? this.wrapperInfo : component.find(".table-info");
         var text;
 
@@ -17668,134 +21541,85 @@ var Table = {
     },
 
     _paging: function(length){
-        var that = this, element = this.element, o = this.options;
-        var component = element.parent();
-        var pagination_wrapper = Utils.isValue(this.wrapperPagination) ? this.wrapperPagination : component.find(".table-pagination");
-        var i, prev, next;
-        var shortDistance = 5;
-        var pagination;
-
-        pagination_wrapper.html("");
-
-        pagination = $("<ul>").addClass("pagination").addClass(o.clsPagination).appendTo(pagination_wrapper);
-
-        if (this.items.length === 0) {
-            return ;
-        }
-
-        if (o.rows === -1) {
-            return ;
-        }
-
-        this.pagesCount = Math.ceil(length / o.rows);
-
-        var add_item = function(item_title, item_type, data){
-            var li, a;
-
-            li = $("<li>").addClass("page-item").addClass(item_type);
-            a  = $("<a>").addClass("page-link").html(item_title);
-            a.data("page", data);
-            a.appendTo(li);
-
-            return li;
-        };
-
-        prev = add_item(o.paginationPrevTitle, "service prev-page", "prev");
-        pagination.append(prev);
-
-        pagination.append(add_item(1, that.currentPage === 1 ? "active" : "", 1));
-
-        if (o.paginationShortMode !== true || this.pagesCount <= 7) {
-            for (i = 2; i < this.pagesCount; i++) {
-                pagination.append(add_item(i, i === that.currentPage ? "active" : "", i));
-            }
-        } else {
-            if (that.currentPage < shortDistance) {
-                for (i = 2; i <= shortDistance; i++) {
-                    pagination.append(add_item(i, i === that.currentPage ? "active" : "", i));
-                }
-
-                if (this.pagesCount > shortDistance) {
-                    pagination.append(add_item("...", "no-link", null));
-                }
-            } else if (that.currentPage <= that.pagesCount && that.currentPage > that.pagesCount - shortDistance + 1) {
-                if (this.pagesCount > shortDistance) {
-                    pagination.append(add_item("...", "no-link", null));
-                }
-
-                for (i = that.pagesCount - shortDistance + 1; i < that.pagesCount; i++) {
-                    pagination.append(add_item(i, i === that.currentPage ? "active" : "", i));
-                }
-            } else {
-                pagination.append(add_item("...", "no-link", null));
-
-                pagination.append(add_item(that.currentPage - 1, "", that.currentPage - 1));
-                pagination.append(add_item(that.currentPage, "active", that.currentPage));
-                pagination.append(add_item(that.currentPage + 1, "", that.currentPage + 1));
-
-                pagination.append(add_item("...", "no-link", null));
-            }
-        }
-
-        if (that.pagesCount > 1 || that.currentPage < that.pagesCount) pagination.append(add_item(that.pagesCount, that.currentPage === that.pagesCount ? "active" : "", that.pagesCount));
-
-        next = add_item(o.paginationNextTitle, "service next-page", "next");
-        pagination.append(next);
-
-        if (this.currentPage === 1) {
-            prev.addClass("disabled");
-        }
-
-        if (this.currentPage === this.pagesCount) {
-            next.addClass("disabled");
-        }
-
-        if (this.filteredItems.length === 0) {
-            pagination.addClass("disabled");
-            pagination.children().addClass("disabled");
-        }
+        var element = this.element, o = this.options;
+        var component = element.closest(".table-component");
+        this.pagesCount = Math.ceil(length / o.rows); // Костыль
+        createPagination({
+            length: length,
+            rows: o.rows,
+            current: this.currentPage,
+            target: Utils.isValue(this.wrapperPagination) ? this.wrapperPagination : component.find(".table-pagination"),
+            claPagination: o.clsPagination,
+            prevTitle: o.paginationPrevTitle,
+            nextTitle: o.paginationNextTitle,
+            distance: o.paginationShortMode === true ? o.paginationDistance : 0
+        });
     },
 
     _filter: function(){
         var that = this, o = this.options, element = this.element;
-        var items, flt, idx = -1, i;
-        if ((Utils.isValue(this.filterString) && that.filterString.length >= o.filterMinLength) || this.filters.length > 0) {
-            flt = this.filterString.split(":");
-            if (flt.length > 1) {
-                $.each(that.heads, function (i, v) {
-                    if (flt[0] === v.title.toLowerCase()) {
-                        idx = i;
-                    }
-                })
-            }
+        var items;
+        if ((Utils.isValue(this.searchString) && that.searchString.length >= o.searchMinLength) || this.filters.length > 0) {
             items = this.items.filter(function(row){
-                var row_data = "" + (flt.length > 1 && idx > -1 ? row[idx] : row.join());
-                var c1 = row_data.replace(/[\n\r]+|[\s]{2,}/g, ' ').trim().toLowerCase();
-                var result = Utils.isValue(that.filterString) && that.filterString.length >= o.filterMinLength ? ~c1.indexOf(flt.length > 1 ? flt[1] : flt[0]) : true;
 
-                if (result === true && that.filters.length > 0) {
+                var row_data = "", result, search_result, i, j = 0;
+
+                if (that.filters.length > 0) {
+
+                    result = o.filtersOperator.toLowerCase() === "and";
                     for (i = 0; i < that.filters.length; i++) {
-                        if (!Utils.isValue(that.filters[i])) continue;
-                        if (Utils.exec(that.filters[i], [row, that.heads]) !== true) {
-                            result = false;
-                            break;
-                        }
+                        if (Utils.isNull(that.filters[i])) continue;
+                        j++;
+                        result = o.filtersOperator.toLowerCase() === "and" ?
+                            result && Utils.exec(that.filters[i], [row, that.heads]) :
+                            result || Utils.exec(that.filters[i], [row, that.heads])
+                        ;
                     }
+
+                    if (j === 0) result = true;
+                } else {
+                    result = true;
                 }
+
+                if (that.searchFields.length > 0) {
+                    $.each(that.heads, function(i, v){
+                        if (that.searchFields.indexOf(v.name) > -1) {
+                            row_data += "•"+row[i];
+                        }
+                    })
+                } else {
+                    row_data = row.join("•");
+                }
+
+                row_data = row_data.replace(/[\n\r]+|[\s]{2,}/g, ' ').trim().toLowerCase();
+                search_result = Utils.isValue(that.searchString) && that.searchString.length >= o.searchMinLength ? ~row_data.indexOf(that.searchString) : true;
+
+                result = result && search_result;
 
                 if (result) {
                     Utils.exec(o.onFilterRowAccepted, [row], element[0]);
+                    element.fire("filterrowaccepted", {
+                        row: row
+                    });
                 } else {
                     Utils.exec(o.onFilterRowDeclined, [row], element[0]);
+                    element.fire("filterrowdeclined", {
+                        row: row
+                    });
                 }
 
                 return result;
             });
 
-            Utils.exec(o.onSearch, [that.filterString, items], element[0])
         } else {
             items = this.items;
         }
+
+        Utils.exec(o.onSearch, [that.searchString, items], element[0]);
+        element.fire("search", {
+            search: that.searchString,
+            items: items
+        });
 
         this.filteredItems = items;
 
@@ -17810,85 +21634,122 @@ var Table = {
             stop = parseInt(o.rows) === -1 ? this.items.length - 1 : start + o.rows - 1;
         var items;
         var stored_keys = Metro.storage.getItem(o.checkStoreKey.replace("$1", element.attr('id')));
-        var view = this.view;
+
+        var view = o.staticView ? this.viewDefault : this.view;
 
         body.html("");
 
         items = this._filter();
 
         for (i = start; i <= stop; i++) {
-            var j, tr, td, check, cells = [], tds = [];
-            if (Utils.isValue(items[i])) {
-                tr = $("<tr>").addClass(o.clsBodyRow);
+            var j, tr, td, check, cells = items[i], tds = [], is_even_row;
+            if (!Utils.isValue(cells)) {continue;}
+            tr = $("<tr>").addClass(o.clsBodyRow);
+            tr.data('original', cells);
 
-                // Rownum
-                td = $("<td>").html(i + 1);
-                if (that.service[0].clsColumn !== undefined) {
-                    td.addClass(that.service[0].clsColumn);
-                }
-                td.appendTo(tr);
+            // Rownum
 
-                // Checkbox
-                td = $("<td>");
-                if (o.checkType === "checkbox") {
-                    check = $("<input type='checkbox' data-style='"+o.checkStyle+"' data-role='checkbox' name='" + (Utils.isValue(o.checkName) ? o.checkName : 'table_row_check') + "[]' value='" + items[i][o.checkColIndex] + "'>");
-                } else {
-                    check = $("<input type='radio' data-style='"+o.checkStyle+"' data-role='radio' name='" + (Utils.isValue(o.checkName) ? o.checkName : 'table_row_check') + "' value='" + items[i][o.checkColIndex] + "'>");
-                }
+            is_even_row = i % 2 === 0;
 
-                if (Utils.isValue(stored_keys) && Array.isArray(stored_keys) && stored_keys.indexOf(""+items[i][o.checkColIndex]) > -1) {
-                    check.prop("checked", true);
-                }
-
-                check.addClass("table-service-check");
-                Utils.exec(o.onCheckDraw, [check], check[0]);
-                check.appendTo(td);
-                if (that.service[1].clsColumn !== undefined) {
-                    td.addClass(that.service[1].clsColumn);
-                }
-                td.appendTo(tr);
-
-                cells = items[i];
-
-                for (j = 0; j < cells.length; j++){
-                    tds[j] = null;
-                }
-
-                $.each(cells, function(cell_index){
-                    if (o.cellWrapper === true) {
-                        td = $("<td>");
-                        $("<div>").addClass("cell-wrapper").html(this).appendTo(td);
-                    } else {
-                        td = $("<td>").html(this);
-                    }
-                    td.addClass(o.clsBodyCell);
-                    if (Utils.isValue(that.heads[cell_index].clsColumn)) {
-                        td.addClass(that.heads[cell_index].clsColumn);
-                    }
-
-                    if (Utils.bool(view[cell_index].show) === false) {
-                        td.addClass("hidden");
-                    }
-
-                    if (Utils.bool(view[cell_index].show)) {
-                        td.removeClass("hidden");
-                    }
-
-                    tds[view[cell_index]['index-view']] = td;
-                    Utils.exec(o.onDrawCell, [td, this, cell_index, that.heads[cell_index]], td[0]);
-                });
-
-                for (j = 0; j < cells.length; j++){
-                    tds[j].appendTo(tr);
-                    Utils.exec(o.onAppendCell, [tds[j], tr, j, element], tds[j][0])
-                }
-
-                Utils.exec(o.onDrawRow, [tr, that.view, that.heads, element], tr[0]);
-
-                tr.appendTo(body);
-
-                Utils.exec(o.onAppendRow, [tr, element], tr[0]);
+            td = $("<td>").html(i + 1);
+            if (that.service[0].clsColumn !== undefined) {
+                td.addClass(that.service[0].clsColumn);
             }
+            td.appendTo(tr);
+
+            // Checkbox
+            td = $("<td>");
+            if (o.checkType === "checkbox") {
+                check = $("<input type='checkbox' data-style='"+o.checkStyle+"' data-role='checkbox' name='" + (Utils.isValue(o.checkName) ? o.checkName : 'table_row_check') + "[]' value='" + items[i][o.checkColIndex] + "'>");
+            } else {
+                check = $("<input type='radio' data-style='"+o.checkStyle+"' data-role='radio' name='" + (Utils.isValue(o.checkName) ? o.checkName : 'table_row_check') + "' value='" + items[i][o.checkColIndex] + "'>");
+            }
+
+            if (Utils.isValue(stored_keys) && Array.isArray(stored_keys) && stored_keys.indexOf(""+items[i][o.checkColIndex]) > -1) {
+                check.prop("checked", true);
+            }
+
+            check.addClass("table-service-check");
+            Utils.exec(o.onCheckDraw, [check], check[0]);
+            element.fire("checkdraw", {
+                check: check
+            });
+            check.appendTo(td);
+            if (that.service[1].clsColumn !== undefined) {
+                td.addClass(that.service[1].clsColumn);
+            }
+            td.appendTo(tr);
+
+            for (j = 0; j < cells.length; j++){
+                tds[j] = null;
+            }
+
+            $.each(cells, function(cell_index){
+                var val = this;
+
+                if (Utils.isValue(that.heads[cell_index].template)) {
+                    val = TemplateEngine(that.heads[cell_index].template, {cellValue: val}, {
+                        beginToken: o.templateBeginToken,
+                        endToken: o.templateEndToken
+                    })
+                }
+
+                if (o.cellWrapper === true) {
+                    td = $("<td>");
+                    $("<div>").addClass("cell-wrapper").addClass(o.clsCellWrapper).html(val).appendTo(td);
+                } else {
+                    td = $("<td>").html(val);
+                }
+                td.addClass(o.clsBodyCell);
+                if (Utils.isValue(that.heads[cell_index].clsColumn)) {
+                    td.addClass(that.heads[cell_index].clsColumn);
+                }
+
+                if (Utils.bool(view[cell_index].show) === false) {
+                    td.addClass("hidden");
+                }
+
+                if (Utils.bool(view[cell_index].show)) {
+                    td.removeClass("hidden");
+                }
+
+                td.data('original',this);
+
+                tds[view[cell_index]['index-view']] = td;
+                Utils.exec(o.onDrawCell, [td, val, cell_index, that.heads[cell_index], cells], td[0]);
+                element.fire("drawcell", {
+                    td: td,
+                    val: val,
+                    cellIndex: cell_index,
+                    head: that.heads[cell_index],
+                    items: cells
+                });
+            });
+
+            for (j = 0; j < cells.length; j++){
+                tds[j].appendTo(tr);
+                Utils.exec(o.onAppendCell, [tds[j], tr, j, element], tds[j][0]);
+                element.fire("appendcell", {
+                    td: tds[j],
+                    tr: tr,
+                    index: j
+                })
+            }
+
+            Utils.exec(o.onDrawRow, [tr, that.view, that.heads, cells], tr[0]);
+            element.fire("drawrow", {
+                tr: tr,
+                view: that.view,
+                heads: that.heads,
+                items: cells
+            });
+
+            tr.addClass(o.clsRow).addClass(is_even_row ? o.clsEvenRow : o.clsOddRow).appendTo(body);
+
+            Utils.exec(o.onAppendRow, [tr, element], tr[0]);
+            element.fire("appendrow", {
+                tr: tr
+            });
         }
 
         this._info(start + 1, stop + 1, items.length);
@@ -17898,18 +21759,17 @@ var Table = {
 
         Utils.exec(o.onDraw, [element], element[0]);
 
+        element.fire("draw", element[0]);
+
         if (cb !== undefined) {
             Utils.exec(cb, [element], element[0])
         }
     },
 
     _getItemContent: function(row){
-
-        // console.log(this.sort);
-
         var result, col = row[this.sort.colIndex];
         var format = this.heads[this.sort.colIndex].format;
-        var formatMask = this.heads[this.sort.colIndex].formatMask;
+        var formatMask = !Utils.isNull(this.heads) && !Utils.isNull(this.heads[this.sort.colIndex]) && Utils.isValue(this.heads[this.sort.colIndex]['formatMask']) ? this.heads[this.sort.colIndex]['formatMask'] : "%Y-%m-%d";
         var o = this.options;
 
         result = (""+col).toLowerCase().replace(/[\n\r]+|[\s]{2,}/g, ' ').trim();
@@ -17926,14 +21786,93 @@ var Table = {
                 case "int": result = parseInt(result); break;
                 case "float": result = parseFloat(result); break;
                 case "money": result = Utils.parseMoney(result); break;
+                case "card": result = Utils.parseCard(result); break;
+                case "phone": result = Utils.parsePhone(result); break;
             }
         }
 
         return result;
     },
 
+    updateItem: function(key, field, value){
+        var item = this.items[this.index[key]];
+        var fieldIndex = null;
+        if (Utils.isNull(item)) {
+            console.log('Item is undefined for update');
+            return this;
+        }
+        if (isNaN(field)) {
+            this.heads.forEach(function(v, i){
+                if (v['name'] === field) {
+                    fieldIndex = i;
+                }
+            });
+        }
+        if (Utils.isNull(fieldIndex)) {
+            console.log('Item is undefined for update. Field ' + field + ' not found in data structure');
+            return this;
+        }
+
+        item[fieldIndex] = value;
+        this.items[this.index[key]] = item;
+        return this;
+    },
+
+    getItem: function(key){
+        return this.items[this.index[key]];
+    },
+
+    deleteItem: function(fieldIndex, value){
+        var i, deleteIndexes = [];
+        var is_func = Utils.isFunc(value);
+        for(i = 0; i < this.items.length; i++) {
+            if (is_func) {
+                if (Utils.exec(value, [this.items[i][fieldIndex]])) {
+                    deleteIndexes.push(i);
+                }
+            } else {
+                if (this.items[i][fieldIndex] === value) {
+                    deleteIndexes.push(i);
+                }
+            }
+        }
+
+        this.items = Utils.arrayDeleteByMultipleKeys(this.items, deleteIndexes);
+
+        return this;
+    },
+
+    deleteItemByName: function(fieldName, value){
+        var i, fieldIndex, deleteIndexes = [];
+        var is_func = Utils.isFunc(value);
+
+        for(i = 0; i < this.heads.length; i++) {
+            if (this.heads[i]['name'] === fieldName) {
+                fieldIndex = i;
+                break;
+            }
+        }
+
+        for(i = 0; i < this.items.length; i++) {
+            if (is_func) {
+                if (Utils.exec(value, [this.items[i][fieldIndex]])) {
+                    deleteIndexes.push(i);
+                }
+            } else {
+                if (this.items[i][fieldIndex] === value) {
+                    deleteIndexes.push(i);
+                }
+            }
+        }
+
+        this.items = Utils.arrayDeleteByMultipleKeys(this.items, deleteIndexes);
+
+        return this;
+    },
+
     draw: function(){
-        return this._draw();
+        this._draw();
+        return this;
     },
 
     sorting: function(dir){
@@ -17944,6 +21883,7 @@ var Table = {
         }
 
         Utils.exec(o.onSortStart, [this.items], element[0]);
+        element.fire("sortstart", this.items);
 
         this.items.sort(function(a, b){
             var c1 = that._getItemContent(a);
@@ -17959,71 +21899,118 @@ var Table = {
 
             if (result !== 0) {
                 Utils.exec(o.onSortItemSwitch, [a, b, result], element[0]);
+                element.fire("sortitemswitch", {
+                    a: a,
+                    b: b,
+                    result: result
+                })
             }
 
             return result;
         });
 
         Utils.exec(o.onSortStop, [this.items], element[0]);
+        element.fire("sortstop", this.items);
+
+        return this;
     },
 
-    filter: function(val){
-        this.filterString = val.trim().toLowerCase();
+    search: function(val){
+        this.searchString = val.trim().toLowerCase();
         this.currentPage = 1;
         this._draw();
+        return this;
+    },
+
+    _rebuild: function(review){
+        var that = this, element = this.element;
+        var need_sort = false, sortable_columns;
+
+        this._createIndex();
+
+        if (review === true) {
+            this.view = this._createView();
+        }
+
+        this._createTableHeader();
+        this._createTableBody();
+        this._createTableFooter();
+
+        if (this.heads.length > 0) $.each(this.heads, function(i){
+            var item = this;
+            if (!need_sort && ["asc", "desc"].indexOf(item.sortDir) > -1) {
+                need_sort = true;
+                that.sort.colIndex = i;
+                that.sort.dir = item.sortDir;
+            }
+        });
+
+        if (need_sort) {
+            sortable_columns = element.find(".sortable-column");
+            this._resetSortClass(sortable_columns);
+            $(sortable_columns.get(that.sort.colIndex)).addClass("sort-"+that.sort.dir);
+            this.sorting();
+        }
+
+        that.currentPage = 1;
+
+        that._draw();
+    },
+
+    setHeads: function(data){
+        this.heads = data;
+        return this;
+    },
+
+    setHeadItem: function(name, data){
+        var i, index;
+        for(i = 0; i < this.heads.length; i++) {
+            if (item.name === name) {
+                index = i;
+                break;
+            }
+        }
+        this.heads[index] = data;
+        return this;
+    },
+
+    setItems: function(data){
+        this.items = data;
+        return this;
+    },
+
+    setData: function(/*obj*/ data){
+        this.items = [];
+        this.heads = [];
+        this.foots = [];
+
+        this._createItemsFromJSON(data);
+
+        this._rebuild(true);
+
+        return this;
     },
 
     loadData: function(source, review){
         var that = this, element = this.element, o = this.options;
-        var need_sort = false;
-        var sortable_columns;
 
         if (!Utils.isValue(review)) {
             review = true;
-        }
-
-        function redraw(){
-
-            if (review === true) {
-                that.view = that._createView();
-            }
-
-            that._createTableHeader();
-            that._createTableBody();
-            that._createTableFooter();
-
-            if (that.heads.length > 0) $.each(that.heads, function(i){
-                var item = this;
-                if (!need_sort && ["asc", "desc"].indexOf(item.sortDir) > -1) {
-                    need_sort = true;
-                    that.sort.colIndex = i;
-                    that.sort.dir = item.sortDir;
-                }
-            });
-
-            if (need_sort) {
-                sortable_columns = element.find(".sortable-column");
-                that._resetSortClass(sortable_columns);
-                $(sortable_columns.get(that.sort.colIndex)).addClass("sort-"+that.sort.dir);
-                that.sorting();
-            }
-
-            that.currentPage = 1;
-
-            that._draw();
         }
 
         element.html("");
 
         if (!Utils.isValue(source)) {
 
-            // this._createItemsFromHTML();
-            redraw();
+            this._rebuild(review);
 
         } else {
             o.source = source;
 
             Utils.exec(o.onDataLoad, [o.source], element[0]);
+            element.fire("dataload", {
+                source: o.source
+            });
 
             $.get(o.source, function(data){
 
@@ -18033,11 +22020,19 @@ var Table = {
 
                 that._createItemsFromJSON(data);
 
-                redraw();
+                that._rebuild(review);
 
                 Utils.exec(o.onDataLoaded, [o.source, data], element[0]);
+                element.fire("dataloaded", {
+                    source: o.source,
+                    data: data
+                })
             }).fail(function( jqXHR, textStatus, errorThrown) {
-                console.log(textStatus); console.log(jqXHR); console.log(errorThrown);
+                Utils.exec(o.onDataLoadError, [o.source, jqXHR, textStatus, errorThrown], element[0]);
+                element.fire("dataloaderror", {
+                    source: o.source,
+                    xhr: jqXHR
+                })
             });
         }
     },
@@ -18054,6 +22049,7 @@ var Table = {
             return ;
         }
         this._draw();
+        return this;
     },
 
     prev: function(){
@@ -18064,18 +22060,21 @@ var Table = {
             return ;
         }
         this._draw();
+        return this;
     },
 
     first: function(){
         if (this.items.length === 0) return ;
         this.currentPage = 1;
         this._draw();
+        return this;
     },
 
     last: function(){
         if (this.items.length === 0) return ;
         this.currentPage = this.pagesCount;
         this._draw();
+        return this;
     },
 
     page: function(num){
@@ -18089,21 +22088,34 @@ var Table = {
 
         this.currentPage = num;
         this._draw();
+        return this;
     },
 
     addFilter: function(f, redraw){
-        var func = Utils.isFunc(f);
+        var filterIndex = null, i, func = Utils.isFunc(f);
         if (func === false) {
             return ;
         }
-        this.filters.push(func);
+
+        for(i = 0; i < this.filters.length; i++) {
+            if (Utils.isNull(this.filters[i])) {
+                filterIndex = i;
+                this.filters[i] = func;
+                break;
+            }
+        }
+
+        if (Utils.isNull(filterIndex)) {
+            this.filters.push(func);
+            filterIndex = this.filters.length - 1;
+        }
 
         if (redraw === true) {
             this.currentPage = 1;
             this.draw();
         }
 
-        return this.filters.length - 1;
+        return filterIndex
     },
 
     removeFilter: function(key, redraw){
@@ -18121,6 +22133,7 @@ var Table = {
             this.currentPage = 1;
             this.draw();
         }
+        return this;
     },
 
     getItems: function(){
@@ -18172,20 +22185,30 @@ var Table = {
         return this.filters;
     },
 
-    getFilterIndex: function(){
-        return this.filterIndex;
-    },
-
     getFiltersIndexes: function(){
         return this.filtersIndexes;
     },
 
     openInspector: function(mode){
-        this.inspector[mode ? "addClass" : "removeClass"]("open");
+        var ins = this.inspector;
+        if (mode) {
+            ins.show(0, function(){
+                ins.css({
+                    top: ($(window).height()  - ins.outerHeight(true)) / 2 + pageYOffset,
+                    left: ($(window).width() - ins.outerWidth(true)) / 2 + pageXOffset
+                }).data("open", true);
+            });
+        } else {
+            ins.hide().data("open", false);
+        }
+    },
+
+    closeInspector: function(){
+        this.openInspector(false);
     },
 
     toggleInspector: function(){
-        this.inspector.toggleClass("open");
+        this.openInspector(!this.inspector.data("open"));
     },
 
     resetView: function(){
@@ -18200,6 +22223,14 @@ var Table = {
         this._saveTableView();
     },
 
+    rebuildIndex: function(){
+        this._createIndex();
+    },
+
+    getIndex: function(){
+        return this.index;
+    },
+
     export: function(to, mode, filename, options){
         var that = this, o = this.options;
         var table = document.createElement("table");
@@ -18207,6 +22238,10 @@ var Table = {
         var body = $("<tbody>").appendTo(table);
         var i, j, cells, tds = [], items, tr, td;
         var start, stop;
+
+        if (typeof Export.tableToCSV !== 'function') {
+            return ;
+        }
 
         mode = Utils.isValue(mode) ? mode.toLowerCase() : "all-filtered";
         filename = Utils.isValue(filename) ? filename : Utils.elementId("table")+"-export.csv";
@@ -18278,9 +22313,10 @@ var Table = {
             }
         }
 
-        switch (to) {
-            default: Export.tableToCSV(table, filename, options);
-        }
+        // switch (to) {
+        //     default: Export.tableToCSV(table, filename, options);
+        // }
+        Export.tableToCSV(table, filename, options);
         table.remove();
     },
 
@@ -18310,33 +22346,41 @@ var Table = {
 
 Metro.plugin('table', Table);
 
-// Source: js/plugins/tabs.js
-var Tabs = {
+// Source: js/plugins/tabs-material.js
+
+var MaterialTabsDefaultConfig = {
+    deep: false,
+    fixedTabs: false,
+
+    clsComponent: "",
+    clsTab: "",
+    clsTabActive: "",
+    clsMarker: "",
+
+    onBeforeTabOpen: Metro.noop_true,
+    onTabOpen: Metro.noop,
+    onTabsCreate: Metro.noop
+};
+
+Metro.materialTabsSetup = function (options) {
+    MaterialTabsDefaultConfig = $.extend({}, MaterialTabsDefaultConfig, options);
+};
+
+if (typeof window.metroMaterialTabsSetup !== undefined) {
+    Metro.materialTabsSetup(window.metroMaterialTabsSetup);
+}
+
+var MaterialTabs = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, MaterialTabsDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
-        this._targets = [];
+        this.marker = null;
 
         this._setOptionsFromDOM();
         this._create();
 
-        Utils.exec(this.options.onTabsCreate, [this.element], this.elem);
-
         return this;
-    },
-
-    options: {
-        expand: null,
-        tabsPosition: "top",
-
-        clsTabs: "",
-        clsTabsList: "",
-        clsTabsListItem: "",
-
-        onTab: Metro.noop,
-        onBeforeTab: Metro.noop_true,
-        onTabsCreate: Metro.noop
     },
 
     _setOptionsFromDOM: function(){
@@ -18355,31 +22399,229 @@ var Tabs = {
 
     _create: function(){
         var that = this, element = this.element, o = this.options;
+
+        this._createStructure();
+        this._createEvents();
+
+        Utils.exec(o.onTabsCreate, null, element[0]);
+        element.fire("tabscreate");
+    },
+
+    _applyColor: function(to, color, option){
+
+        if (!Utils.isJQueryObject(to)) {
+            to = $(to);
+        }
+
+        if (Utils.isValue(color)) {
+            if (Utils.isColor(color)) {
+                to.css(option, color);
+            } else {
+                to.addClass(color);
+            }
+        }
+    },
+
+    _createStructure: function(){
+        var that = this, element = this.element, o = this.options;
+        var tabs = element.find("li"), active_tab = element.find("li.active");
+
+        element.addClass("tabs-material").addClass(o.clsComponent);
+        tabs.addClass(o.clsTab);
+
+        if (o.deep === true) {
+            element.addClass("deep");
+        }
+
+        if (o.fixedTabs === true) {
+            element.addClass("fixed-tabs");
+        }
+
+        this.marker = element.find(".tab-marker");
+
+        if (this.marker.length === 0) {
+            this.marker = $("<span>").addClass("tab-marker").addClass(o.clsMarker).appendTo(element);
+        }
+
+        this.openTab(active_tab.length === 0 ? tabs[0] : active_tab[0]);
+    },
+
+    _createEvents: function(){
+        var that = this, element = this.element, o = this.options;
+        var tabs = element.find("li");
+
+        element.on(Metro.events.click, "li", function(e){
+            var tab = $(this);
+            var active_tab = element.find("li.active");
+            var tab_next = tabs.index(tab) > tabs.index(active_tab);
+            var target = tab.children("a").attr("href");
+
+            if (Utils.isValue(target) && target[0] === "#") {
+                if (tab.hasClass("active")) return;
+                if (tab.hasClass("disabled")) return;
+                if (Utils.exec(o.onBeforeTabOpen, [tab, target, tab_next], this) === false) return;
+                if (!Utils.isValue(target)) return;
+                that.openTab(tab, tab_next);
+                e.preventDefault();
+            }
+        });
+
+        var addMouseWheel = function (){
+            $(element).mousewheel(function(event, delta, deltaX, deltaY){
+                var scroll_value = delta * METRO_SCROLL_MULTIPLE;
+                element.scrollLeft(element.scrollLeft() - scroll_value);
+                return false;
+            });
+        };
+
+        if (!$('html').hasClass("metro-touch-device")) {
+            addMouseWheel();
+        }
+    },
+
+    openTab: function(tab, tab_next){
+        var that = this, element = this.element, o = this.options;
+        var tabs = element.find("li"), element_scroll = element.scrollLeft();
+        var magic = 32, shift, width = element.width(), tab_width, target, tab_left;
+
+        if (!Utils.isJQueryObject(tab)) {
+            tab = $(tab);
+        }
+
+        $.each(tabs, function(){
+            var target = $(this).find("a").attr("href");
+            if (!Utils.isValue(target)) return;
+            if (target.trim() !== "#" && $(target).length > 0) $(target).hide();
+        });
+
+        tab_left = tab.position().left;
+        tab_width = tab.width();
+        shift = tab.position().left + tab.width();
+
+        tabs.removeClass("active").removeClass(o.clsTabActive);
+        tab.addClass("active").addClass(o.clsTabActive);
+
+        if (shift + magic > width) {
+            element.animate({
+                scrollLeft: element_scroll + (shift - width) + (tab_width / 2)
+            });
+        }
+
+        if (tab_left - magic < 0) {
+            element.animate({
+                scrollLeft: tab_left + element_scroll - (tab_width / 2)
+            });
+        }
+
+        this.marker.animate({
+            left: tab_left + element_scroll,
+            width: tab.width()
+        });
+
+        target = tab.find("a").attr("href");
+        if (Utils.isValue(target)) {
+            if (target.trim() !== "#" && $(target).length > 0) $(target).show();
+        }
+
+        Utils.exec(o.onTabOpen, [tab[0], target, tab_next], element[0]);
+        element.fire("tabopen", {
+            tab: tab[0],
+            target: target,
+            tab_next: tab_next
+        });
+    },
+
+    changeAttribute: function(attributeName){
+
+    },
+
+    destroy: function(){}
+};
+
+Metro.plugin('materialtabs', MaterialTabs);
+
+// Source: js/plugins/tabs.js
+
+var TabsDefaultConfig = {
+    expand: false,
+    expandPoint: null,
+    tabsPosition: "top",
+    tabsType: "default",
+
+    clsTabs: "",
+    clsTabsList: "",
+    clsTabsListItem: "",
+    clsTabsListItemActive: "",
+
+    onTab: Metro.noop,
+    onBeforeTab: Metro.noop_true,
+    onTabsCreate: Metro.noop
+};
+
+Metro.tabsSetup = function (options) {
+    TabsDefaultConfig = $.extend({}, TabsDefaultConfig, options);
+};
+
+if (typeof window.metroTabsSetup !== undefined) {
+    Metro.tabsSetup(window.metroTabsSetup);
+}
+
+var Tabs = {
+    init: function( options, elem ) {
+        this.options = $.extend( {}, TabsDefaultConfig, options );
+        this.elem  = elem;
+        this.element = $(elem);
+        this._targets = [];
+
+        this._setOptionsFromDOM();
+        this._create();
+
+        return this;
+    },
+
+    _setOptionsFromDOM: function(){
+        var element = this.element, o = this.options;
+
+        $.each(element.data(), function(key, value){
+            if (key in o) {
+                try {
+                    o[key] = JSON.parse(value);
+                } catch (e) {
+                    o[key] = value;
+                }
+            }
+        });
+    },
+
+    _create: function(){
+        var element = this.element, o = this.options;
         var tab = element.find(".active").length > 0 ? $(element.find(".active")[0]) : undefined;
 
         this._createStructure();
         this._createEvents();
         this._open(tab);
+
+        Utils.exec(o.onTabsCreate, null, element[0]);
+        element.fire("tabscreate");
     },
 
     _createStructure: function(){
-        var that = this, element = this.element, o = this.options;
-        var prev = element.prev();
+        var element = this.element, o = this.options;
         var parent = element.parent();
         var right_parent = parent.hasClass("tabs");
         var container = right_parent ? parent : $("<div>").addClass("tabs tabs-wrapper");
         var expandTitle, hamburger;
 
-        if (Utils.isValue(o.expand)) {
-            container.addClass("tabs-expand-"+o.expand);
+        if (!Utils.isValue(element.attr("id"))) {
+            element.attr("id", Utils.elementId("tabs"));
         }
 
         container.addClass(o.tabsPosition.replace(["-", "_", "+"], " "));
-        if (o.tabsPosition.contains("vertical")) {
-            container.addClass("tabs-expand-fs"); // TODO need redesign this behavior
-        }
 
         element.addClass("tabs-list");
+        if (o.tabsType !== "default") {
+            element.addClass("tabs-"+o.tabsType);
+        }
         if (!right_parent) {
             container.insertBefore(element);
             element.appendTo(container);
@@ -18403,11 +22645,41 @@ var Tabs = {
         container.addClass(o.clsTabs);
         element.addClass(o.clsTabsList);
         element.children("li").addClass(o.clsTabsListItem);
+
+        if (o.expand === true && !o.tabsPosition.contains("vertical")) {
+            container.addClass("tabs-expand");
+        } else {
+            if (Utils.isValue(o.expandPoint) && Utils.mediaExist(o.expandPoint) && !o.tabsPosition.contains("vertical")) {
+                container.addClass("tabs-expand");
+            }
+        }
+
+        if (o.tabsPosition.contains("vertical")) {
+            container.addClass("tabs-expand");
+        }
+
     },
 
     _createEvents: function(){
         var that = this, element = this.element, o = this.options;
         var container = element.parent();
+
+        $(window).on(Metro.events.resize+"-"+element.attr("id"), function(){
+
+            if (o.tabsPosition.contains("vertical")) {
+                return ;
+            }
+
+            if (o.expand === true && !o.tabsPosition.contains("vertical")) {
+                container.addClass("tabs-expand");
+            } else {
+                if (Utils.isValue(o.expandPoint) && Utils.mediaExist(o.expandPoint) && !o.tabsPosition.contains("vertical")) {
+                    if (!container.hasClass("tabs-expand")) container.addClass("tabs-expand");
+                } else {
+                    if (container.hasClass("tabs-expand")) container.removeClass("tabs-expand");
+                }
+            }
+        });
 
         container.on(Metro.events.click, ".hamburger, .expand-title", function(){
             if (element.data('expanded') === false) {
@@ -18451,6 +22723,8 @@ var Tabs = {
         var that = this, element = this.element;
         var tabs = element.find("li");
 
+        this._targets = [];
+
         $.each(tabs, function(){
             var target = $(this).find("a").attr("href").trim();
             if (target.length > 1 && target[0] === "#") {
@@ -18460,7 +22734,7 @@ var Tabs = {
     },
 
     _open: function(tab){
-        var that = this, element = this.element, o = this.options;
+        var element = this.element, o = this.options;
         var tabs = element.find("li");
         var expandTitle = element.siblings(".expand-title");
 
@@ -18499,11 +22773,16 @@ var Tabs = {
 
         expandTitle.html(tab.find("a").html());
 
-        Utils.exec(o.onTab, [tab, element]);
+        tab.addClass(o.clsTabsListItemActive);
+
+        Utils.exec(o.onTab, [tab[0]], element[0]);
+        element.fire("tab", {
+            tab: tab[0]
+        })
     },
 
     next: function(){
-        var that = this, element = this.element, o = this.options;
+        var element = this.element;
         var next, active_tab = element.find("li.active");
 
         next = active_tab.next("li");
@@ -18513,7 +22792,7 @@ var Tabs = {
     },
 
     prev: function(){
-        var that = this, element = this.element, o = this.options;
+        var element = this.element;
         var next, active_tab = element.find("li.active");
 
         next = active_tab.prev("li");
@@ -18523,7 +22802,7 @@ var Tabs = {
     },
 
     open: function(tab){
-        var that = this, element = this.element, o = this.options;
+        var element = this.element;
         var tabs = element.find("li");
 
         if (!Utils.isValue(tab)) {
@@ -18545,9 +22824,34 @@ var Tabs = {
 Metro.plugin('tabs', Tabs);
 
 // Source: js/plugins/tag-input.js
+
+var TagInputDefaultConfig = {
+    randomColor: false,
+    maxTags: 0,
+    tagSeparator: ",",
+    tagTrigger: "13,188",
+    clsTag: "",
+    clsTagTitle: "",
+    clsTagRemover: "",
+    onBeforeTagAdd: Metro.noop_true,
+    onTagAdd: Metro.noop,
+    onBeforeTagRemove: Metro.noop_true,
+    onTagRemove: Metro.noop,
+    onTag: Metro.noop,
+    onTagInputCreate: Metro.noop
+};
+
+Metro.tagInputSetup = function (options) {
+    TagInputDefaultConfig = $.extend({}, TagInputDefaultConfig, options);
+};
+
+if (typeof window.metroTagInputSetup !== undefined) {
+    Metro.tagInputSetup(window.metroTagInputSetup);
+}
+
 var TagInput = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, TagInputDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
         this.values = [];
@@ -18556,22 +22860,6 @@ var TagInput = {
         this._create();
 
         return this;
-    },
-
-    options: {
-        randomColor: false,
-        maxTags: 0,
-        tagSeparator: ",",
-        tagTrigger: "13,188",
-        clsTag: "",
-        clsTagTitle: "",
-        clsTagRemover: "",
-        onBeforeTagAdd: Metro.noop_true,
-        onTagAdd: Metro.noop,
-        onBeforeTagRemove: Metro.noop_true,
-        onTagRemove: Metro.noop,
-        onTag: Metro.noop,
-        onTagInputCreate: Metro.noop
     },
 
     _setOptionsFromDOM: function(){
@@ -18594,7 +22882,8 @@ var TagInput = {
         this._createStructure();
         this._createEvents();
 
-        Utils.exec(o.onTagInputCreate, [element], element[0]);
+        Utils.exec(o.onTagInputCreate, null, element[0]);
+        element.fire("taginputcreate");
     },
 
     _createStructure: function(){
@@ -18608,13 +22897,19 @@ var TagInput = {
         element[0].className = "";
 
         element.addClass("original-input");
-        input = $("<input type='text'>").addClass("input-wrapper");
+        input = $("<input type='text'>").addClass("input-wrapper").attr("size", 1);
         input.appendTo(container);
 
         if (Utils.isValue(values)) {
             $.each(Utils.strToArray(values, o.tagSeparator), function(){
                 that._addTag(this);
             })
+        }
+
+        if (element.is(":disabled")) {
+            this.disable();
+        } else {
+            this.enable();
         }
     },
 
@@ -18631,6 +22926,10 @@ var TagInput = {
             container.removeClass("focused");
         });
 
+        input.on(Metro.events.inputchange, function(){
+            input.attr("size", Math.ceil(input.val().length / 2) + 2);
+        });
+
         input.on(Metro.events.keyup, function(e){
             var val = input.val().trim();
 
@@ -18642,6 +22941,7 @@ var TagInput = {
 
             input.val("");
             that._addTag(val.replace(",", ""));
+            input.attr("size", 1);
 
             if (e.keyCode === Metro.keyCode.ENTER) {
                 e.preventDefault();
@@ -18665,6 +22965,10 @@ var TagInput = {
         var tag, title, remover;
 
         if (o.maxTags > 0 && this.values.length === o.maxTags) {
+            return ;
+        }
+
+        if ((""+val).trim() === "") {
             return ;
         }
 
@@ -18702,23 +23006,46 @@ var TagInput = {
         this.values.push(val);
         element.val(this.values.join(o.tagSeparator));
 
-        Utils.exec(o.onTagAdd, [tag, val, this.values], element[0]);
-        Utils.exec(o.onTag, [tag, val, this.values], element[0]);
+        Utils.exec(o.onTagAdd, [tag[0], val, this.values], element[0]);
+        element.fire("tagadd", {
+            tag: tag[0],
+            val: val,
+            values: this.values
+        });
+
+        Utils.exec(o.onTag, [tag[0], val, this.values], element[0]);
+        element.fire("tag", {
+            tag: tag[0],
+            val: val,
+            values: this.values
+        });
     },
 
     _delTag: function(tag) {
         var element = this.element, o = this.options;
         var val = tag.data("value");
 
-        if (!Utils.exec(o.onBeforeTagAdd, [tag, val, this.values, tag], element[0])) {
+        if (!Utils.exec(o.onBeforeTagRemove, [tag, val, this.values], element[0])) {
             return ;
         }
 
         Utils.arrayDelete(this.values, val);
         element.val(this.values.join(o.tagSeparator));
 
-        Utils.exec(o.onTagRemove, [tag, val, this.values], element[0]);
-        Utils.exec(o.onTag, [tag, val, this.values], element[0]);
+        Utils.exec(o.onTagRemove, [tag[0], val, this.values], element[0]);
+        element.fire("tagremove", {
+            tag: tag[0],
+            val: val,
+            values: this.values
+        });
+
+        Utils.exec(o.onTag, [tag[0], val, this.values], element[0]);
+        element.fire("tag", {
+            tag: tag[0],
+            val: val,
+            values: this.values
+        });
+
         tag.remove();
     },
 
@@ -18735,8 +23062,8 @@ var TagInput = {
 
         this.values = [];
 
-        if (Utils.isValue(values)) {
-            $.each(Utils.strToArray(values, o.tagSeparator), function(){
+        if (Utils.isValue(v)) {
+            $.each(Utils.strToArray(v, o.tagSeparator), function(){
                 that._addTag(this);
             })
         }
@@ -18752,8 +23079,40 @@ var TagInput = {
         container.find(".tag").remove();
     },
 
-    changeAttribute: function(attributeName){
+    disable: function(){
+        this.element.data("disabled", true);
+        this.element.parent().addClass("disabled");
+    },
 
+    enable: function(){
+        this.element.data("disabled", false);
+        this.element.parent().removeClass("disabled");
+    },
+
+    toggleState: function(){
+        if (this.elem.disabled) {
+            this.disable();
+        } else {
+            this.enable();
+        }
+    },
+
+    changeAttribute: function(attributeName){
+        var that = this, element = this.element, o = this.options;
+
+        var changeValue = function(){
+            var val = element.attr("value").trim();
+            that.clear();
+            if (!Utils.isValue(val)) {
+                return ;
+            }
+            that.val(Utils.strToArray(val, ","));
+        };
+
+        switch (attributeName) {
+            case "value": changeValue(); break;
+            case "disabled": this.toggleState(); break;
+        }
     },
 
     destroy: function(){
@@ -18775,31 +23134,47 @@ var TagInput = {
 Metro.plugin('taginput', TagInput);
 
 // Source: js/plugins/textarea.js
+
+var TextareaDefaultConfig = {
+    charsCounter: null,
+    charsCounterTemplate: "$1",
+    defaultValue: "",
+    prepend: "",
+    append: "",
+    copyInlineStyles: true,
+    clearButton: true,
+    clearButtonIcon: "<span class='default-icon-cross'></span>",
+    autoSize: true,
+    clsPrepend: "",
+    clsAppend: "",
+    clsComponent: "",
+    clsTextarea: "",
+    onChange: Metro.noop,
+    onTextareaCreate: Metro.noop
+};
+
+Metro.textareaSetup = function (options) {
+    TextareaDefaultConfig = $.extend({}, TextareaDefaultConfig, options);
+};
+
+if (typeof window.metroTextareaSetup !== undefined) {
+    Metro.textareaSetup(window.metroTextareaSetup);
+}
+
 var Textarea = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, TextareaDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
 
         this._setOptionsFromDOM();
         this._create();
 
-        Utils.exec(this.options.onTextareaCreate, [this.element]);
-
         return this;
-    },
-    options: {
-        prepend: "",
-        copyInlineStyles: true,
-        clearButton: true,
-        clearButtonIcon: "<span class='default-icon-cross'></span>",
-        autoSize: false,
-        disabled: false,
-        onTextareaCreate: Metro.noop
     },
 
     _setOptionsFromDOM: function(){
-        var that = this, element = this.element, o = this.options;
+        var element = this.element, o = this.options;
 
         $.each(element.data(), function(key, value){
             if (key in o) {
@@ -18813,6 +23188,16 @@ var Textarea = {
     },
 
     _create: function(){
+        var element = this.element, o = this.options;
+
+        this._createStructure();
+        this._createEvents();
+
+        Utils.exec(o.onTextareaCreate, null, element[0]);
+        element.fire("textareacreate");
+    },
+
+    _createStructure: function(){
         var that = this, element = this.element, o = this.options;
         var prev = element.prev();
         var parent = element.parent();
@@ -18826,21 +23211,12 @@ var Textarea = {
             container.insertAfter(prev);
         }
 
-
         if (o.clearButton !== false) {
             clearButton = $("<button>").addClass("button input-clear-button").attr("tabindex", -1).attr("type", "button").html(o.clearButtonIcon);
-            clearButton.on(Metro.events.click, function(){
-                element.val("").trigger('change').trigger('keyup').focus();
-            });
             clearButton.appendTo(container);
         }
 
         element.appendTo(container);
-
-        var resize = function(){
-            element[0].style.cssText = 'height:auto;';
-            element[0].style.cssText = 'height:' + element[0].scrollHeight + 'px';
-        };
 
         if (o.autoSize) {
 
@@ -18848,16 +23224,8 @@ var Textarea = {
 
             timer = setTimeout(function(){
                 timer = null;
-                resize();
+                that.resize();
             }, 0);
-
-            element.on(Metro.events.keyup, resize);
-            element.on(Metro.events.keydown, resize);
-            element.on(Metro.events.change, resize);
-            element.on(Metro.events.focus, resize);
-            element.on(Metro.events.cut, resize);
-            element.on(Metro.events.paste, resize);
-            element.on(Metro.events.drop, resize);
         }
 
         if (element.attr('dir') === 'rtl' ) {
@@ -18865,8 +23233,16 @@ var Textarea = {
         }
 
         if (o.prepend !== "") {
-            var prepend = Utils.isTag(o.prepend) ? $(o.prepend) : $("<span>"+o.prepend+"</span>");
+            var prepend = $("<div>").html(o.prepend);
             prepend.addClass("prepend").addClass(o.clsPrepend).appendTo(container);
+        }
+
+        if (o.append !== "") {
+            var append = $("<div>").html(o.append);
+            append.addClass("append").addClass(o.clsAppend).appendTo(container);
+            clearButton.css({
+                right: append.outerWidth() + 4
+            });
         }
 
         element[0].className = '';
@@ -18876,14 +23252,76 @@ var Textarea = {
             }
         }
 
-        element.on(Metro.events.blur, function(){container.removeClass("focused");});
-        element.on(Metro.events.focus, function(){container.addClass("focused");});
+        if (Utils.isValue(o.defaultValue) && element.val().trim() === "") {
+            element.val(o.defaultValue);
+        }
 
-        if (o.disabled === true || element.is(':disabled')) {
+        container.addClass(o.clsComponent);
+        element.addClass(o.clsTextarea);
+
+        if (element.is(':disabled')) {
             this.disable();
         } else {
             this.enable();
         }
+    },
+
+    _createEvents: function(){
+        var that = this, element = this.element, o = this.options;
+        var textarea = element.closest(".textarea");
+        var chars_counter = $(o.charsCounter);
+
+        textarea.on(Metro.events.click, ".input-clear-button", function(){
+            element.val(Utils.isValue(o.defaultValue) ? o.defaultValue : "").trigger('change').trigger('keyup').focus();
+        });
+
+        if (o.autoSize) {
+            element.on(Metro.events.keyup, $.proxy(this.resize, that));
+            element.on(Metro.events.keydown, $.proxy(this.resize, that));
+            element.on(Metro.events.change, $.proxy(this.resize, that));
+            element.on(Metro.events.focus, $.proxy(this.resize, that));
+            element.on(Metro.events.cut, $.proxy(this.resize, that));
+            element.on(Metro.events.paste, $.proxy(this.resize, that));
+            element.on(Metro.events.drop, $.proxy(this.resize, that));
+        }
+
+        element.on(Metro.events.blur, function(){textarea.removeClass("focused");});
+        element.on(Metro.events.focus, function(){textarea.addClass("focused");});
+
+        element.on(Metro.events.keyup, function(){
+            if (Utils.isValue(o.charsCounter) && chars_counter.length > 0) {
+                if (chars_counter[0].tagName === "INPUT") {
+                    chars_counter.val(that.length());
+                } else {
+                    chars_counter.html(o.charsCounterTemplate.replace("$1", that.length()));
+                }
+            }
+            Utils.exec(o.onChange, [element.val(), that.length()], element[0]);
+            element.fire("change", {
+                val: element.val(),
+                length: that.length()
+            });
+        })
+    },
+
+    resize: function(){
+        var element = this.element;
+
+        element[0].style.cssText = 'height:auto;';
+        element[0].style.cssText = 'height:' + element[0].scrollHeight + 'px';
+    },
+
+    clear: function(){
+        this.element.val("").trigger('change').trigger('keyup').focus();
+    },
+
+    toDefault: function(){
+        this.element.val(Utils.isValue(this.options.defaultValue) ? this.options.defaultValue : "").trigger('change').trigger('keyup').focus();
+    },
+
+    length: function(){
+        var characters = this.elem.value.split('');
+        return characters.length;
     },
 
     disable: function(){
@@ -18897,7 +23335,7 @@ var Textarea = {
     },
 
     toggleState: function(){
-        if (this.element.data("disabled") === false) {
+        if (this.elem.disabled) {
             this.disable();
         } else {
             this.enable();
@@ -18914,9 +23352,31 @@ var Textarea = {
 Metro.plugin('textarea', Textarea);
 
 // Source: js/plugins/tiles.js
+
+var TileDefaultConfig = {
+    size: "medium",
+    cover: "",
+    coverPosition: "center",
+    effect: "",
+    effectInterval: 3000,
+    effectDuration: 500,
+    target: null,
+    canTransform: true,
+    onClick: Metro.noop,
+    onTileCreate: Metro.noop
+};
+
+Metro.tileSetup = function (options) {
+    TileDefaultConfig = $.extend({}, TileDefaultConfig, options);
+};
+
+if (typeof window.metroTileSetup !== undefined) {
+    Metro.tileSetup(window.metroTileSetup);
+}
+
 var Tile = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, TileDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
         this.effectInterval = false;
@@ -18929,18 +23389,6 @@ var Tile = {
         this._create();
 
         return this;
-    },
-
-    options: {
-        size: "medium",
-        cover: "",
-        effect: "",
-        effectInterval: 3000,
-        effectDuration: 500,
-        target: null,
-        canTransform: true,
-        onClick: Metro.noop,
-        onTileCreate: Metro.noop
     },
 
     _setOptionsFromDOM: function(){
@@ -18963,7 +23411,8 @@ var Tile = {
         this._createTile();
         this._createEvents();
 
-        Utils.exec(o.onTileCreate, [element]);
+        Utils.exec(o.onTileCreate, null, element[0]);
+        element.fire("tilecreate");
     },
 
     _createTile: function(){
@@ -18988,7 +23437,7 @@ var Tile = {
                 var slide = $(this);
 
                 if (slide.data("cover") !== undefined) {
-                    that._setCover(slide, slide.data("cover"));
+                    that._setCover(slide, slide.data("cover"), slide.data("cover-position"));
                 }
             })
         }
@@ -19000,7 +23449,7 @@ var Tile = {
                 that.slides.push(this);
 
                 if (slide.data("cover") !== undefined) {
-                    that._setCover(slide, slide.data("cover"));
+                    that._setCover(slide, slide.data("cover"), slide.data("cover-position"));
                 }
 
                 if (i > 0) {
@@ -19078,11 +23527,15 @@ var Tile = {
         this.effectInterval = false;
     },
 
-    _setCover: function(to, src){
+    _setCover: function(to, src, pos){
+        if (!Utils.isValue(pos)) {
+            pos = this.options.coverPosition;
+        }
         to.css({
             backgroundImage: "url("+src+")",
             backgroundSize: "cover",
-            backgroundRepeat: "no-repeat"
+            backgroundRepeat: "no-repeat",
+            backgroundPosition: pos
         });
     },
 
@@ -19116,7 +23569,10 @@ var Tile = {
                     }, 100);
                 }
 
-                Utils.exec(o.onClick, [tile]);
+                Utils.exec(o.onClick, [side], element[0]);
+                element.fire("click", {
+                    side: side
+                });
             }
         });
 
@@ -19144,9 +23600,45 @@ var Tile = {
 Metro.plugin('tile', Tile);
 
 // Source: js/plugins/timepicker.js
+
+var TimePickerDefaultConfig = {
+    hoursStep: 1,
+    minutesStep: 1,
+    secondsStep: 1,
+    value: null,
+    locale: METRO_LOCALE,
+    distance: 3,
+    hours: true,
+    minutes: true,
+    seconds: true,
+    showLabels: true,
+    scrollSpeed: 1,
+    copyInlineStyles: true,
+    clsPicker: "",
+    clsPart: "",
+    clsHours: "",
+    clsMinutes: "",
+    clsSeconds: "",
+    okButtonIcon: "<span class='default-icon-check'></span>",
+    cancelButtonIcon: "<span class='default-icon-cross'></span>",
+    onSet: Metro.noop,
+    onOpen: Metro.noop,
+    onClose: Metro.noop,
+    onScroll: Metro.noop,
+    onTimePickerCreate: Metro.noop
+};
+
+Metro.timePickerSetup = function (options) {
+    TimePickerDefaultConfig = $.extend({}, TimePickerDefaultConfig, options);
+};
+
+if (typeof window.metroTimePickerSetup !== undefined) {
+    Metro.timePickerSetup(window.metroTimePickerSetup);
+}
+
 var TimePicker = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, TimePickerDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
         this.picker = null;
@@ -19158,33 +23650,6 @@ var TimePicker = {
         this._create();
 
         return this;
-    },
-
-    options: {
-        hoursStep: 1,
-        minutesStep: 1,
-        secondsStep: 1,
-        value: null,
-        locale: METRO_LOCALE,
-        distance: 3,
-        hours: true,
-        minutes: true,
-        seconds: true,
-        showLabels: true,
-        scrollSpeed: 5,
-        copyInlineStyles: true,
-        clsPicker: "",
-        clsPart: "",
-        clsHours: "",
-        clsMinutes: "",
-        clsSeconds: "",
-        okButtonIcon: "<span class='default-icon-check'></span>",
-        cancelButtonIcon: "<span class='default-icon-cross'></span>",
-        onSet: Metro.noop,
-        onOpen: Metro.noop,
-        onClose: Metro.noop,
-        onScroll: Metro.noop,
-        onTimePickerCreate: Metro.noop
     },
 
     _setOptionsFromDOM: function(){
@@ -19245,7 +23710,8 @@ var TimePicker = {
         this._createEvents();
         this._set();
 
-        Utils.exec(o.onTimePickerCreate, [element, picker]);
+        Utils.exec(o.onTimePickerCreate, null, element[0]);
+        element.fire("timepickercreate");
     },
 
     _normalizeValue: function(){
@@ -19401,7 +23867,7 @@ var TimePicker = {
     },
 
     _addScrollEvents: function(){
-        var picker = this.picker, o = this.options;
+        var element = this.element, picker = this.picker, o = this.options;
         var lists = ['hours', 'minutes', 'seconds'];
 
         $.each(lists, function(){
@@ -19423,7 +23889,11 @@ var TimePicker = {
                     scrollTop: scroll_to
                 }, 100, function(){
                     target_element.addClass("active");
-                    Utils.exec(o.onScroll, [target_element, list, picker]);
+                    Utils.exec(o.onScroll, [target_element[0], list[0]], element[0]);
+                    element.fire("scroll", {
+                        target: target_element[0],
+                        list: list[0]
+                    });
                 });
             });
         });
@@ -19443,21 +23913,21 @@ var TimePicker = {
         var h = "00", m = "00", s = "00";
 
         if (o.hours === true) {
-            h = this.value[0];
+            h = parseInt(this.value[0]);
             if (h < 10) {
                 h = "0"+h;
             }
             picker.find(".hours").html(h);
         }
         if (o.minutes === true) {
-            m = this.value[1];
+            m = parseInt(this.value[1]);
             if (m < 10) {
                 m = "0"+m;
             }
             picker.find(".minutes").html(m);
         }
         if (o.seconds === true) {
-            s = this.value[2];
+            s = parseInt(this.value[2]);
             if (s < 10) {
                 s = "0"+s;
             }
@@ -19466,7 +23936,11 @@ var TimePicker = {
 
         element.val([h, m, s].join(":")).trigger("change");
 
-        Utils.exec(o.onSet, [this.value, element.val(), element, picker]);
+        Utils.exec(o.onSet, [this.value, element.val()], element[0]);
+        element.fire("set", {
+            val: this.value,
+            elementVal: element.val()
+        });
     },
 
     open: function(){
@@ -19521,14 +23995,20 @@ var TimePicker = {
 
         this.isOpen = true;
 
-        Utils.exec(o.onOpen, [this.value, element, picker]);
+        Utils.exec(o.onOpen, [this.value], element[0]);
+        element.fire("open", {
+            val: this.value
+        });
     },
 
     close: function(){
         var picker = this.picker, o = this.options, element = this.element;
         picker.find(".select-wrapper").hide();
         this.isOpen = false;
-        Utils.exec(o.onClose, [this.value, element, picker]);
+        Utils.exec(o.onClose, [this.value], element[0]);
+        element.fire("close", {
+            val: this.value
+        });
     },
 
     _convert: function(t){
@@ -19608,17 +24088,41 @@ $(document).on(Metro.events.click, function(e){
 
 
 // Source: js/plugins/toast.js
+
 var Toast = {
-    create: function(message, callback, timeout, cls){
+
+    options: {
+        callback: Metro.noop,
+        timeout: METRO_TIMEOUT,
+        distance: 20,
+        showTop: false,
+        clsToast: ""
+    },
+
+    create: function(message, callback, timeout, cls, options){
+        var o = options || Toast.options;
         var toast = $("<div>").addClass("toast").html(message).appendTo($("body")).hide();
         var width = toast.outerWidth();
         var timer = null;
-        timeout = timeout || METRO_TIMEOUT;
+
+        timeout = timeout || o.timeout;
+        callback = callback || o.callback;
+        cls = cls || o.clsToast;
+
+        if (o.showTop === true) {
+            toast.addClass("show-top").css({
+                top: o.distance
+            });
+        } else {
+            toast.css({
+                bottom: o.distance
+            })
+        }
 
         toast.css({
             'left': '50%',
             'margin-left': -(width / 2)
-        }).addClass(cls).fadeIn(METRO_ANIMATION_DURATION);
+        }).addClass(o.clsToast).addClass(cls).fadeIn(METRO_ANIMATION_DURATION);
 
         timer = setTimeout(function(){
             timer = null;
@@ -19632,12 +24136,81 @@ var Toast = {
 
 Metro['toast'] = Toast;
 
-// Source: js/plugins/treeview.js
-var Treeview = {
+// Source: js/plugins/touch.js
+
+var TouchConst = {
+    LEFT : "left",
+    RIGHT : "right",
+    UP : "up",
+    DOWN : "down",
+    IN : "in",
+    OUT : "out",
+    NONE : "none",
+    AUTO : "auto",
+    SWIPE : "swipe",
+    PINCH : "pinch",
+    TAP : "tap",
+    DOUBLE_TAP : "doubletap",
+    LONG_TAP : "longtap",
+    HOLD : "hold",
+    HORIZONTAL : "horizontal",
+    VERTICAL : "vertical",
+    ALL_FINGERS : "all",
+    DOUBLE_TAP_THRESHOLD : 10,
+    PHASE_START : "start",
+    PHASE_MOVE : "move",
+    PHASE_END : "end",
+    PHASE_CANCEL : "cancel",
+    SUPPORTS_TOUCH : 'ontouchstart' in window,
+    SUPPORTS_POINTER_IE10 : window.navigator.msPointerEnabled && !window.navigator.pointerEnabled && !('ontouchstart' in window),
+    SUPPORTS_POINTER : (window.navigator.pointerEnabled || window.navigator.msPointerEnabled) && !('ontouchstart' in window),
+    IN_TOUCH: "intouch"
+};
+
+var Touch = {
     init: function( options, elem ) {
         this.options = $.extend( {}, this.options, options );
         this.elem  = elem;
         this.element = $(elem);
+
+        this.useTouchEvents = (TouchConst.SUPPORTS_TOUCH || TouchConst.SUPPORTS_POINTER || !this.options.fallbackToMouseEvents);
+        this.START_EV = this.useTouchEvents ? (TouchConst.SUPPORTS_POINTER ? (TouchConst.SUPPORTS_POINTER_IE10 ? 'MSPointerDown' : 'pointerdown') : 'touchstart') : 'mousedown';
+        this.MOVE_EV = this.useTouchEvents ? (TouchConst.SUPPORTS_POINTER ? (TouchConst.SUPPORTS_POINTER_IE10 ? 'MSPointerMove' : 'pointermove') : 'touchmove') : 'mousemove';
+        this.END_EV = this.useTouchEvents ? (TouchConst.SUPPORTS_POINTER ? (TouchConst.SUPPORTS_POINTER_IE10 ? 'MSPointerUp' : 'pointerup') : 'touchend') : 'mouseup';
+        this.LEAVE_EV = this.useTouchEvents ? (TouchConst.SUPPORTS_POINTER ? 'mouseleave' : null) : 'mouseleave'; //we manually detect leave on touch devices, so null event here
+        this.CANCEL_EV = (TouchConst.SUPPORTS_POINTER ? (TouchConst.SUPPORTS_POINTER_IE10 ? 'MSPointerCancel' : 'pointercancel') : 'touchcancel');
+
+        //touch properties
+        this.distance = 0;
+        this.direction = null;
+        this.currentDirection = null;
+        this.duration = 0;
+        this.startTouchesDistance = 0;
+        this.endTouchesDistance = 0;
+        this.pinchZoom = 1;
+        this.pinchDistance = 0;
+        this.pinchDirection = 0;
+        this.maximumsMap = null;
+
+        //Current phase of th touch cycle
+        this.phase = "start";
+
+        // the current number of fingers being used.
+        this.fingerCount = 0;
+
+        //track mouse points / delta
+        this.fingerData = {};
+
+        //track times
+        this.startTime = 0;
+        this.endTime = 0;
+        this.previousTouchEndTime = 0;
+        this.fingerCountAtRelease = 0;
+        this.doubleTapStartTime = 0;
+
+        //Timeouts
+        this.singleTapTimeout = null;
+        this.holdTimeout = null;
 
         this._setOptionsFromDOM();
         this._create();
@@ -19646,18 +24219,1130 @@ var Treeview = {
     },
 
     options: {
-        effect: "slide",
-        duration: 100,
-        onNodeClick: Metro.noop,
-        onNodeDblClick: Metro.noop,
-        onNodeDelete: Metro.noop,
-        onNodeInsert: Metro.noop,
-        onNodeClean: Metro.noop,
-        onCheckClick: Metro.noop,
-        onRadioClick: Metro.noop,
-        onExpandNode: Metro.noop,
-        onCollapseNode: Metro.noop,
-        onTreeviewCreate: Metro.noop
+        fingers: 2,
+        threshold: 75,
+        cancelThreshold: null,
+        pinchThreshold: 20,
+        maxTimeThreshold: null,
+        fingerReleaseThreshold: 250,
+        longTapThreshold: 500,
+        doubleTapThreshold: 200,
+        triggerOnTouchEnd: true,
+        triggerOnTouchLeave: false,
+        allowPageScroll: "auto",
+        fallbackToMouseEvents: true,
+        excludedElements: ".no-swipe",
+        preventDefaultEvents: true,
+
+        onSwipe: Metro.noop,
+        onSwipeLeft: Metro.noop,
+        onSwipeRight: Metro.noop,
+        onSwipeUp: Metro.noop,
+        onSwipeDown: Metro.noop,
+        onSwipeStatus: Metro.noop_true, // params: phase, direction, distance, duration, fingerCount, fingerData, currentDirection
+        onPinchIn: Metro.noop,
+        onPinchOut: Metro.noop,
+        onPinchStatus: Metro.noop_true,
+        onTap: Metro.noop,
+        onDoubleTap: Metro.noop,
+        onLongTap: Metro.noop,
+        onHold: Metro.noop,
+
+        onSwipeCreate: Metro.noop
+    },
+
+    _setOptionsFromDOM: function(){
+        var element = this.element, o = this.options;
+
+        $.each(element.data(), function(key, value){
+            if (key in o) {
+                try {
+                    o[key] = JSON.parse(value);
+                } catch (e) {
+                    o[key] = value;
+                }
+            }
+        });
+    },
+
+    _create: function(){
+        var that = this, element = this.element, o = this.options;
+
+        if (o.allowPageScroll === undefined && (o.onSwipe !== Metro.noop || o.onSwipeStatus !== Metro.noop)) {
+            o.allowPageScroll = TouchConst.NONE;
+        }
+
+        try {
+            element.bind(this.START_EV, $.proxy(this.touchStart, that));
+            element.bind(this.CANCEL_EV, $.proxy(this.touchCancel, that));
+        } catch (e) {
+            $.error('Events not supported ' + this.START_EV + ',' + this.CANCEL_EV + ' on Swipe');
+        }
+
+        Utils.exec(o.onSwipeCreate, null, element[0]);
+        element.fire("swipecreate");
+    },
+
+    touchStart: function(e) {
+        var element = this.element, options = this.options;
+
+        //If we already in a touch event (a finger already in use) then ignore subsequent ones..
+        if (this.getTouchInProgress()) {
+            return;
+        }
+
+        //Check if this element matches any in the excluded elements selectors,  or its parent is excluded, if so, DON'T swipe
+        if ($(e.target).closest(options.excludedElements, element).length > 0) {
+            return;
+        }
+
+        //As we use Jquery bind for events, we need to target the original event object
+        //If these events are being programmatically triggered, we don't have an original event object, so use the Jq one.
+        var event = e.originalEvent ? e.originalEvent : e;
+
+        var ret,
+            touches = event.touches,
+            evt = touches ? touches[0] : event;
+
+        this.phase = TouchConst.PHASE_START;
+
+        //If we support touches, get the finger count
+        if (touches) {
+            // get the total number of fingers touching the screen
+            this.fingerCount = touches.length;
+        }
+        //Else this is the desktop, so stop the browser from dragging content
+        else if (options.preventDefaultEvents !== false) {
+            e.preventDefault(); //call this on jq event so we are cross browser
+        }
+
+        //clear vars..
+        this.distance = 0;
+        this.direction = null;
+        this.currentDirection=null;
+        this.pinchDirection = null;
+        this.duration = 0;
+        this.startTouchesDistance = 0;
+        this.endTouchesDistance = 0;
+        this.pinchZoom = 1;
+        this.pinchDistance = 0;
+        this.maximumsMap = this.createMaximumsData();
+        this.cancelMultiFingerRelease();
+
+        //Create the default finger data
+        this.createFingerData(0, evt);
+
+        // check the number of fingers is what we are looking for, or we are capturing pinches
+        if (!touches || (this.fingerCount === options.fingers || options.fingers === TouchConst.ALL_FINGERS) || this.hasPinches()) {
+            // get the coordinates of the touch
+            this.startTime = this.getTimeStamp();
+
+            if (this.fingerCount === 2) {
+                //Keep track of the initial pinch distance, so we can calculate the diff later
+                //Store second finger data as start
+                this.createFingerData(1, touches[1]);
+                this.startTouchesDistance = this.endTouchesDistance = this.calculateTouchesDistance(this.fingerData[0].start, this.fingerData[1].start);
+            }
+
+            if (options.onSwipeStatus !== Metro.noop || options.onPinchStatus !== Metro.noop) {
+                ret = this.triggerHandler(event, this.phase);
+            }
+        } else {
+            //A touch with more or less than the fingers we are looking for, so cancel
+            ret = false;
+        }
+
+        //If we have a return value from the users handler, then return and cancel
+        if (ret === false) {
+            this.phase = TouchConst.PHASE_CANCEL;
+            this.triggerHandler(event, this.phase);
+            return ret;
+        } else {
+            if (options.onHold !== Metro.noop) {
+                this.holdTimeout = setTimeout($.proxy(function() {
+                    //Trigger the event
+                    element.trigger('hold', [event.target]);
+                    //Fire the callback
+                    if (options.onHold !== Metro.noop) { // TODO Remove this if
+                        ret = Utils.exec(options.onHold, [event, event.target], element[0]);
+                        element.fire("hold", {
+                            event: event,
+                            target: event.target
+                        });
+                    }
+                }, this), options.longTapThreshold);
+            }
+
+            this.setTouchInProgress(true);
+        }
+
+        return null;
+    },
+
+    touchMove: function(e) {
+        //As we use Jquery bind for events, we need to target the original event object
+        //If these events are being programmatically triggered, we don't have an original event object, so use the Jq one.
+        var event = e.originalEvent ? e.originalEvent : e;
+
+        //If we are ending, cancelling, or within the threshold of 2 fingers being released, don't track anything..
+        if (this.phase === TouchConst.PHASE_END || this.phase === TouchConst.PHASE_CANCEL || this.inMultiFingerRelease())
+            return;
+
+        var ret,
+            touches = event.touches,
+            evt = touches ? touches[0] : event;
+
+        //Update the  finger data
+        var currentFinger = this.updateFingerData(evt);
+        this.endTime = this.getTimeStamp();
+
+        if (touches) {
+            this.fingerCount = touches.length;
+        }
+
+        if (this.options.onHold !== Metro.noop) {
+            clearTimeout(this.holdTimeout);
+        }
+
+        this.phase = TouchConst.PHASE_MOVE;
+
+        //If we have 2 fingers get Touches distance as well
+        if (this.fingerCount === 2) {
+
+            //Keep track of the initial pinch distance, so we can calculate the diff later
+            //We do this here as well as the start event, in case they start with 1 finger, and the press 2 fingers
+            if (this.startTouchesDistance === 0) {
+                //Create second finger if this is the first time...
+                this.createFingerData(1, touches[1]);
+
+                this.startTouchesDistance = this.endTouchesDistance = this.calculateTouchesDistance(this.fingerData[0].start, this.fingerData[1].start);
+            } else {
+                //Else just update the second finger
+                this.updateFingerData(touches[1]);
+
+                this.endTouchesDistance = this.calculateTouchesDistance(this.fingerData[0].end, this.fingerData[1].end);
+                this.pinchDirection = this.calculatePinchDirection(this.fingerData[0].end, this.fingerData[1].end);
+            }
+
+            this.pinchZoom = this.calculatePinchZoom(this.startTouchesDistance, this.endTouchesDistance);
+            this.pinchDistance = Math.abs(this.startTouchesDistance - this.endTouchesDistance);
+        }
+
+        if ((this.fingerCount === this.options.fingers || this.options.fingers === TouchConst.ALL_FINGERS) || !touches || this.hasPinches()) {
+
+            //The overall direction of the swipe. From start to now.
+            this.direction = this.calculateDirection(currentFinger.start, currentFinger.end);
+
+            //The immediate direction of the swipe, direction between the last movement and this one.
+            this.currentDirection = this.calculateDirection(currentFinger.last, currentFinger.end);
+
+            //Check if we need to prevent default event (page scroll / pinch zoom) or not
+            this.validateDefaultEvent(e, this.currentDirection);
+
+            //Distance and duration are all off the main finger
+            this.distance = this.calculateDistance(currentFinger.start, currentFinger.end);
+            this.duration = this.calculateDuration();
+
+            //Cache the maximum distance we made in this direction
+            this.setMaxDistance(this.direction, this.distance);
+
+            //Trigger status handler
+            ret = this.triggerHandler(event, this.phase);
+
+
+            //If we trigger end events when threshold are met, or trigger events when touch leaves element
+            if (!this.options.triggerOnTouchEnd || this.options.triggerOnTouchLeave) {
+
+                var inBounds = true;
+
+                //If checking if we leave the element, run the bounds check (we can use touchleave as its not supported on webkit)
+                if (this.options.triggerOnTouchLeave) {
+                    var bounds = this.getBounds(this);
+                    inBounds = this.isInBounds(currentFinger.end, bounds);
+                }
+
+                //Trigger end handles as we swipe if thresholds met or if we have left the element if the user has asked to check these..
+                if (!this.options.triggerOnTouchEnd && inBounds) {
+                    this.phase = this.getNextPhase(TouchConst.PHASE_MOVE);
+                }
+                //We end if out of bounds here, so set current phase to END, and check if its modified
+                else if (this.options.triggerOnTouchLeave && !inBounds) {
+                    this.phase = this.getNextPhase(TouchConst.PHASE_END);
+                }
+
+                if (this.phase === TouchConst.PHASE_CANCEL || this.phase === TouchConst.PHASE_END) {
+                    this.triggerHandler(event, this.phase);
+                }
+            }
+        } else {
+            this.phase = TouchConst.PHASE_CANCEL;
+            this.triggerHandler(event, this.phase);
+        }
+
+        if (ret === false) {
+            this.phase = TouchConst.PHASE_CANCEL;
+            this.triggerHandler(event, this.phase);
+        }
+    },
+
+    touchEnd: function(e) {
+        //As we use Jquery bind for events, we need to target the original event object
+        //If these events are being programmatically triggered, we don't have an original event object, so use the Jq one.
+        var event = e.originalEvent ? e.originalEvent : e,
+            touches = event.touches;
+
+        //If we are still in a touch with the device wait a fraction and see if the other finger comes up
+        //if it does within the threshold, then we treat it as a multi release, not a single release and end the touch / swipe
+        if (touches) {
+            if (touches.length && !this.inMultiFingerRelease()) {
+                this.startMultiFingerRelease(event);
+                return true;
+            } else if (touches.length && this.inMultiFingerRelease()) {
+                return true;
+            }
+        }
+
+        //If a previous finger has been released, check how long ago, if within the threshold, then assume it was a multifinger release.
+        //This is used to allow 2 fingers to release fractionally after each other, whilst maintaining the event as containing 2 fingers, not 1
+        if (this.inMultiFingerRelease()) {
+            this.fingerCount = this.fingerCountAtRelease;
+        }
+
+        //Set end of swipe
+        this.endTime = this.getTimeStamp();
+
+        //Get duration incase move was never fired
+        this.duration = this.calculateDuration();
+
+        //If we trigger handlers at end of swipe OR, we trigger during, but they didnt trigger and we are still in the move phase
+        if (this.didSwipeBackToCancel() || !this.validateSwipeDistance()) {
+            this.phase = TouchConst.PHASE_CANCEL;
+            this.triggerHandler(event, this.phase);
+        } else if (this.options.triggerOnTouchEnd || (this.options.triggerOnTouchEnd === false && this.phase === TouchConst.PHASE_MOVE)) {
+            //call this on jq event so we are cross browser
+            if (this.options.preventDefaultEvents !== false) {
+                e.preventDefault();
+            }
+            this.phase = TouchConst.PHASE_END;
+            this.triggerHandler(event, this.phase);
+        }
+        //Special cases - A tap should always fire on touch end regardless,
+        //So here we manually trigger the tap end handler by itself
+        //We dont run trigger handler as it will re-trigger events that may have fired already
+        else if (!this.options.triggerOnTouchEnd && this.hasTap()) {
+            //Trigger the pinch events...
+            this.phase = TouchConst.PHASE_END;
+            this.triggerHandlerForGesture(event, this.phase, TouchConst.TAP);
+        } else if (this.phase === TouchConst.PHASE_MOVE) {
+            this.phase = TouchConst.PHASE_CANCEL;
+            this.triggerHandler(event, this.phase);
+        }
+
+        this.setTouchInProgress(false);
+
+        return null;
+    },
+
+    touchCancel: function() {
+        // reset the variables back to default values
+        this.fingerCount = 0;
+        this.endTime = 0;
+        this.startTime = 0;
+        this.startTouchesDistance = 0;
+        this.endTouchesDistance = 0;
+        this.pinchZoom = 1;
+
+        //If we were in progress of tracking a possible multi touch end, then re set it.
+        this.cancelMultiFingerRelease();
+
+        this.setTouchInProgress(false);
+    },
+
+    touchLeave: function(e) {
+        //If these events are being programmatically triggered, we don't have an original event object, so use the Jq one.
+        var event = e.originalEvent ? e.originalEvent : e;
+
+        //If we have the trigger on leave property set....
+        if (this.options.triggerOnTouchLeave) {
+            this.phase = this.getNextPhase(TouchConst.PHASE_END);
+            this.triggerHandler(event, this.phase);
+        }
+    },
+
+    getNextPhase: function(currentPhase) {
+        var options  = this.options;
+        var nextPhase = currentPhase;
+
+        // Ensure we have valid swipe (under time and over distance  and check if we are out of bound...)
+        var validTime = this.validateSwipeTime();
+        var validDistance = this.validateSwipeDistance();
+        var didCancel = this.didSwipeBackToCancel();
+
+        //If we have exceeded our time, then cancel
+        if (!validTime || didCancel) {
+            nextPhase = TouchConst.PHASE_CANCEL;
+        }
+        //Else if we are moving, and have reached distance then end
+        else if (validDistance && currentPhase === TouchConst.PHASE_MOVE && (!options.triggerOnTouchEnd || options.triggerOnTouchLeave)) {
+            nextPhase = TouchConst.PHASE_END;
+        }
+        //Else if we have ended by leaving and didn't reach distance, then cancel
+        else if (!validDistance && currentPhase === TouchConst.PHASE_END && options.triggerOnTouchLeave) {
+            nextPhase = TouchConst.PHASE_CANCEL;
+        }
+
+        return nextPhase;
+    },
+
+    triggerHandler: function(event, phase) {
+        var ret,
+            touches = event.touches;
+
+        // SWIPE GESTURES
+        if (this.didSwipe() || this.hasSwipes()) {
+            ret = this.triggerHandlerForGesture(event, phase, TouchConst.SWIPE);
+        }
+
+        // PINCH GESTURES (if the above didn't cancel)
+        if ((this.didPinch() || this.hasPinches()) && ret !== false) {
+            ret = this.triggerHandlerForGesture(event, phase, TouchConst.PINCH);
+        }
+
+        // CLICK / TAP (if the above didn't cancel)
+        if (this.didDoubleTap() && ret !== false) {
+            //Trigger the tap events...
+            ret = this.triggerHandlerForGesture(event, phase, TouchConst.DOUBLE_TAP);
+        }
+
+        // CLICK / TAP (if the above didn't cancel)
+        else if (this.didLongTap() && ret !== false) {
+            //Trigger the tap events...
+            ret = this.triggerHandlerForGesture(event, phase, TouchConst.LONG_TAP);
+        }
+
+        // CLICK / TAP (if the above didn't cancel)
+        else if (this.didTap() && ret !== false) {
+            //Trigger the tap event..
+            ret = this.triggerHandlerForGesture(event, phase, TouchConst.TAP);
+        }
+
+        // If we are cancelling the gesture, then manually trigger the reset handler
+        if (phase === TouchConst.PHASE_CANCEL) {
+            this.touchCancel(event);
+        }
+
+        // If we are ending the gesture, then manually trigger the reset handler IF all fingers are off
+        if (phase === TouchConst.PHASE_END) {
+            //If we support touch, then check that all fingers are off before we cancel
+            if (touches) {
+                if (!touches.length) {
+                    this.touchCancel(event);
+                }
+            } else {
+                this.touchCancel(event);
+            }
+        }
+
+        return ret;
+    },
+
+    triggerHandlerForGesture: function(event, phase, gesture) {
+
+        var ret, element = this.element, options = this.options;
+
+        //SWIPES....
+        if (gesture === TouchConst.SWIPE) {
+            //Trigger status every time..
+            element.trigger('swipeStatus', [phase, this.direction || null, this.distance || 0, this.duration || 0, this.fingerCount, this.fingerData, this.currentDirection]);
+
+            ret = Utils.exec(options.onSwipeStatus, [event, phase, this.direction || null, this.distance || 0, this.duration || 0, this.fingerCount, this.fingerData, this.currentDirection], element[0]);
+            element.fire("swipestatus", {
+                event: event,
+                phase: phase,
+                direction: this.direction,
+                distance: this.distance,
+                duration: this.duration,
+                fingerCount: this.fingerCount,
+                fingerData: this.fingerData,
+                currentDirection: this.currentDirection
+            });
+            if (ret === false) return false;
+
+            if (phase === TouchConst.PHASE_END && this.validateSwipe()) {
+
+                //Cancel any taps that were in progress...
+                clearTimeout(this.singleTapTimeout);
+                clearTimeout(this.holdTimeout);
+
+                element.trigger('swipe', [this.direction, this.distance, this.duration, this.fingerCount, this.fingerData, this.currentDirection]);
+
+                ret = Utils.exec(options.onSwipe, [event, this.direction, this.distance, this.duration, this.fingerCount, this.fingerData, this.currentDirection], element[0]);
+                element.fire("swipe", {
+                    event: event,
+                    direction: this.direction,
+                    distance: this.distance,
+                    duration: this.duration,
+                    fingerCount: this.fingerCount,
+                    fingerData: this.fingerData,
+                    currentDirection: this.currentDirection
+                });
+
+                if (ret === false) return false;
+
+                //trigger direction specific event handlers
+                switch (this.direction) {
+                    case TouchConst.LEFT:
+                        element.trigger('swipeLeft', [this.direction, this.distance, this.duration, this.fingerCount, this.fingerData, this.currentDirection]);
+                        ret = Utils.exec(options.onSwipeLeft, [event, this.direction, this.distance, this.duration, this.fingerCount, this.fingerData, this.currentDirection], element[0]);
+                        element.fire("swipeleft", {
+                            event: event,
+                            direction: this.direction,
+                            distance: this.distance,
+                            duration: this.duration,
+                            fingerCount: this.fingerCount,
+                            fingerData: this.fingerData,
+                            currentDirection: this.currentDirection
+                        });
+                        break;
+
+                    case TouchConst.RIGHT:
+                        element.trigger('swipeRight', [this.direction, this.distance, this.duration, this.fingerCount, this.fingerData, this.currentDirection]);
+                        ret = Utils.exec(options.onSwipeRight, [event, this.direction, this.distance, this.duration, this.fingerCount, this.fingerData, this.currentDirection], element[0]);
+                        element.fire("swiperight", {
+                            event: event,
+                            direction: this.direction,
+                            distance: this.distance,
+                            duration: this.duration,
+                            fingerCount: this.fingerCount,
+                            fingerData: this.fingerData,
+                            currentDirection: this.currentDirection
+                        });
+                        break;
+
+                    case TouchConst.UP:
+                        element.trigger('swipeUp', [this.direction, this.distance, this.duration, this.fingerCount, this.fingerData, this.currentDirection]);
+                        ret = Utils.exec(options.onSwipeUp, [event, this.direction, this.distance, this.duration, this.fingerCount, this.fingerData, this.currentDirection], element[0]);
+                        element.fire("swipeup", {
+                            event: event,
+                            direction: this.direction,
+                            distance: this.distance,
+                            duration: this.duration,
+                            fingerCount: this.fingerCount,
+                            fingerData: this.fingerData,
+                            currentDirection: this.currentDirection
+                        });
+                        break;
+
+                    case TouchConst.DOWN:
+                        element.trigger('swipeDown', [this.direction, this.distance, this.duration, this.fingerCount, this.fingerData, this.currentDirection]);
+                        ret = Utils.exec(options.onSwipeDown, [event, this.direction, this.distance, this.duration, this.fingerCount, this.fingerData, this.currentDirection], element[0]);
+                        element.fire("swipedown", {
+                            event: event,
+                            direction: this.direction,
+                            distance: this.distance,
+                            duration: this.duration,
+                            fingerCount: this.fingerCount,
+                            fingerData: this.fingerData,
+                            currentDirection: this.currentDirection
+                        });
+                        break;
+                }
+            }
+        }
+
+
+        //PINCHES....
+        if (gesture === TouchConst.PINCH) {
+            element.trigger('pinchStatus', [phase, this.pinchDirection || null, this.pinchDistance || 0, this.duration || 0, this.fingerCount, this.fingerData, this.pinchZoom]);
+
+            ret = Utils.exec(options.onPinchStatus, [event, phase, this.pinchDirection || null, this.pinchDistance || 0, this.duration || 0, this.fingerCount, this.fingerData, this.pinchZoom], element[0]);
+            element.fire("pinchstatus", {
+                event: event,
+                phase: phase,
+                direction: this.pinchDirection,
+                distance: this.pinchDistance,
+                duration: this.duration,
+                fingerCount: this.fingerCount,
+                fingerData: this.fingerData,
+                zoom: this.pinchZoom
+            });
+            if (ret === false) return false;
+
+            if (phase === TouchConst.PHASE_END && this.validatePinch()) {
+
+                switch (this.pinchDirection) {
+                    case TouchConst.IN:
+                        element.trigger('pinchIn', [this.pinchDirection || null, this.pinchDistance || 0, this.duration || 0, this.fingerCount, this.fingerData, this.pinchZoom]);
+                        ret = Utils.exec(options.onPinchIn, [event, this.pinchDirection || null, this.pinchDistance || 0, this.duration || 0, this.fingerCount, this.fingerData, this.pinchZoom], element[0]);
+                        element.fire("pinchin", {
+                            event: event,
+                            direction: this.pinchDirection,
+                            distance: this.pinchDistance,
+                            duration: this.duration,
+                            fingerCount: this.fingerCount,
+                            fingerData: this.fingerData,
+                            zoom: this.pinchZoom
+                        });
+                        break;
+
+                    case TouchConst.OUT:
+                        element.trigger('pinchOut', [this.pinchDirection || null, this.pinchDistance || 0, this.duration || 0, this.fingerCount, this.fingerData, this.pinchZoom]);
+                        ret = Utils.exec(options.onPinchOut, [event, this.pinchDirection || null, this.pinchDistance || 0, this.duration || 0, this.fingerCount, this.fingerData, this.pinchZoom], element[0]);
+                        element.fire("pinchout", {
+                            event: event,
+                            direction: this.pinchDirection,
+                            distance: this.pinchDistance,
+                            duration: this.duration,
+                            fingerCount: this.fingerCount,
+                            fingerData: this.fingerData,
+                            zoom: this.pinchZoom
+                        });
+                        break;
+                }
+            }
+        }
+
+        if (gesture === TouchConst.TAP) {
+            if (phase === TouchConst.PHASE_CANCEL || phase === TouchConst.PHASE_END) {
+
+                clearTimeout(this.singleTapTimeout);
+                clearTimeout(this.holdTimeout);
+
+                //If we are also looking for doubelTaps, wait incase this is one...
+                if (this.hasDoubleTap() && !this.inDoubleTap()) {
+                    this.doubleTapStartTime = this.getTimeStamp();
+
+                    //Now wait for the double tap timeout, and trigger this single tap
+                    //if its not cancelled by a double tap
+                    this.singleTapTimeout = setTimeout($.proxy(function() {
+                        this.doubleTapStartTime = null;
+                        ret = Utils.exec(options.onTap, [event, event.target], element[0]);
+                        element.fire("tap", {
+                            event: event,
+                            target: event.target
+                        });
+                    }, this), options.doubleTapThreshold);
+
+                } else {
+                    this.doubleTapStartTime = null;
+                    ret = Utils.exec(options.onTap, [event, event.target], element[0]);
+                    element.fire("tap", {
+                        event: event,
+                        target: event.target
+                    });
+                }
+            }
+        } else if (gesture === TouchConst.DOUBLE_TAP) {
+            if (phase === TouchConst.PHASE_CANCEL || phase === TouchConst.PHASE_END) {
+                clearTimeout(this.singleTapTimeout);
+                clearTimeout(this.holdTimeout);
+                this.doubleTapStartTime = null;
+
+                ret = Utils.exec(options.onDoubleTap, [event, event.target], element[0]);
+                element.fire("doubletap", {
+                    event: event,
+                    target: event.target
+                });
+            }
+        } else if (gesture === TouchConst.LONG_TAP) {
+            if (phase === TouchConst.PHASE_CANCEL || phase === TouchConst.PHASE_END) {
+                clearTimeout(this.singleTapTimeout);
+                this.doubleTapStartTime = null;
+
+                ret = Utils.exec(options.onLongTap, [event, event.target], element[0]);
+                element.fire("longtap", {
+                    event: event,
+                    target: event.target
+                });
+            }
+        }
+
+        return ret;
+    },
+
+    validateSwipeDistance: function() {
+        var valid = true;
+        //If we made it past the min swipe distance..
+        if (this.options.threshold !== null) {
+            valid = this.distance >= this.options.threshold;
+        }
+
+        return valid;
+    },
+
+    didSwipeBackToCancel: function() {
+        var options = this.options;
+        var cancelled = false;
+        if (options.cancelThreshold !== null && this.direction !== null) {
+            cancelled = (this.getMaxDistance(this.direction) - this.distance) >= options.cancelThreshold;
+        }
+
+        return cancelled;
+    },
+
+    validatePinchDistance: function() {
+        if (this.options.pinchThreshold !== null) {
+            return this.pinchDistance >= this.options.pinchThreshold;
+        }
+        return true;
+    },
+
+    validateSwipeTime: function() {
+        var result, options = this.options;
+
+        if (options.maxTimeThreshold) {
+            result = duration < options.maxTimeThreshold;
+        } else {
+            result = true;
+        }
+
+        return result;
+    },
+
+    validateDefaultEvent: function(e, direction) {
+        var options = this.options;
+
+        //If the option is set, allways allow the event to bubble up (let user handle weirdness)
+        if (options.preventDefaultEvents === false) {
+            return;
+        }
+
+        if (options.allowPageScroll === TouchConst.NONE) {
+            e.preventDefault();
+        } else {
+            var auto = options.allowPageScroll === TouchConst.AUTO;
+
+            switch (direction) {
+                case TouchConst.LEFT:
+                    if ((options.onSwipeLeft !== Metro.noop && auto) || (!auto && options.allowPageScroll.toLowerCase() !== TouchConst.HORIZONTAL)) {
+                        e.preventDefault();
+                    }
+                    break;
+
+                case TouchConst.RIGHT:
+                    if ((options.onSwipeRight !== Metro.noop && auto) || (!auto && options.allowPageScroll.toLowerCase() !== TouchConst.HORIZONTAL)) {
+                        e.preventDefault();
+                    }
+                    break;
+
+                case TouchConst.UP:
+                    if ((options.onSwipeUp !== Metro.noop && auto) || (!auto && options.allowPageScroll.toLowerCase() !== TouchConst.VERTICAL)) {
+                        e.preventDefault();
+                    }
+                    break;
+
+                case TouchConst.DOWN:
+                    if ((options.onSwipeDown !== Metro.noop && auto) || (!auto && options.allowPageScroll.toLowerCase() !== TouchConst.VERTICAL)) {
+                        e.preventDefault();
+                    }
+                    break;
+
+                case TouchConst.NONE:
+
+                    break;
+            }
+        }
+    },
+
+    validatePinch: function() {
+        var hasCorrectFingerCount = this.validateFingers();
+        var hasEndPoint = this.validateEndPoint();
+        var hasCorrectDistance = this.validatePinchDistance();
+        return hasCorrectFingerCount && hasEndPoint && hasCorrectDistance;
+    },
+
+    hasPinches: function() {
+        //Enure we dont return 0 or null for false values
+        return !!(this.options.onPinchStatus || this.options.onPinchIn || this.options.onPinchOut);
+    },
+
+    didPinch: function() {
+        //Enure we dont return 0 or null for false values
+        return !!(this.validatePinch() && this.hasPinches());
+    },
+
+    validateSwipe: function() {
+        //Check validity of swipe
+        var hasValidTime = this.validateSwipeTime();
+        var hasValidDistance = this.validateSwipeDistance();
+        var hasCorrectFingerCount = this.validateFingers();
+        var hasEndPoint = this.validateEndPoint();
+        var didCancel = this.didSwipeBackToCancel();
+
+        // if the user swiped more than the minimum length, perform the appropriate action
+        // hasValidDistance is null when no distance is set
+        return !didCancel && hasEndPoint && hasCorrectFingerCount && hasValidDistance && hasValidTime;
+    },
+
+    hasSwipes: function() {
+        var o = this.options;
+        //Enure we dont return 0 or null for false values
+        return !!(
+            o.onSwipe !== Metro.noop
+            || o.onSwipeStatus  !== Metro.noop
+            || o.onSwipeLeft  !== Metro.noop
+            || o.onSwipeRight  !== Metro.noop
+            || o.onSwipeUp  !== Metro.noop
+            || o.onSwipeDown !== Metro.noop
+        );
+    },
+
+    didSwipe: function() {
+        //Enure we dont return 0 or null for false values
+        return !!(this.validateSwipe() && this.hasSwipes());
+    },
+
+    validateFingers: function() {
+        //The number of fingers we want were matched, or on desktop we ignore
+        return ((this.fingerCount === this.options.fingers || this.options.fingers === TouchConst.ALL_FINGERS) || !TouchConst.SUPPORTS_TOUCH);
+    },
+
+    validateEndPoint: function() {
+        //We have an end value for the finger
+        return this.fingerData[0].end.x !== 0;
+    },
+
+    hasTap: function() {
+        //Enure we dont return 0 or null for false values
+        return this.options.onTap !== Metro.noop;
+    },
+
+    hasDoubleTap: function() {
+        //Enure we dont return 0 or null for false values
+        return this.options.onDoubleTap !== Metro.noop;
+    },
+
+    hasLongTap: function() {
+        //Enure we dont return 0 or null for false values
+        return this.options.onLongTap !== Metro.noop;
+    },
+
+    validateDoubleTap: function() {
+        if (this.doubleTapStartTime == null) {
+            return false;
+        }
+        var now = this.getTimeStamp();
+        return (this.hasDoubleTap() && ((now - this.doubleTapStartTime) <= this.options.doubleTapThreshold));
+    },
+
+    inDoubleTap: function() {
+        return this.validateDoubleTap();
+    },
+
+    validateTap: function() {
+        return ((this.fingerCount === 1 || !TouchConst.SUPPORTS_TOUCH) && (isNaN(this.distance) || this.distance < this.options.threshold));
+    },
+
+    validateLongTap: function() {
+        var options = this.options;
+        //slight threshold on moving finger
+        return ((this.duration > options.longTapThreshold) && (this.distance < TouchConst.DOUBLE_TAP_THRESHOLD)); // check double_tab_threshold where from
+    },
+
+    didTap: function() {
+        //Enure we dont return 0 or null for false values
+        return !!(this.validateTap() && this.hasTap());
+    },
+
+    didDoubleTap: function() {
+        //Enure we dont return 0 or null for false values
+        return !!(this.validateDoubleTap() && this.hasDoubleTap());
+    },
+
+    didLongTap: function() {
+        //Enure we dont return 0 or null for false values
+        return !!(this.validateLongTap() && this.hasLongTap());
+    },
+
+    startMultiFingerRelease: function(event) {
+        this.previousTouchEndTime = this.getTimeStamp();
+        this.fingerCountAtRelease = event.touches.length + 1;
+    },
+
+    cancelMultiFingerRelease: function() {
+        this.previousTouchEndTime = 0;
+        this.fingerCountAtRelease = 0;
+    },
+
+    inMultiFingerRelease: function() {
+        var withinThreshold = false;
+
+        if (this.previousTouchEndTime) {
+            var diff = this.getTimeStamp() - this.previousTouchEndTime;
+            if (diff <= this.options.fingerReleaseThreshold) {
+                withinThreshold = true;
+            }
+        }
+
+        return withinThreshold;
+    },
+
+    getTouchInProgress: function() {
+        var element = this.element;
+        //strict equality to ensure only true and false are returned
+        return (element.data('intouch') === true);
+    },
+
+    setTouchInProgress: function(val) {
+        var element = this.element;
+
+        //If destroy is called in an event handler, we have no el, and we have already cleaned up, so return.
+        if(!element) { return; }
+
+        //Add or remove event listeners depending on touch status
+        if (val === true) {
+            element.bind(this.MOVE_EV, $.proxy(this.touchMove, this));
+            element.bind(this.END_EV, $.proxy(this.touchEnd, this));
+
+            //we only have leave events on desktop, we manually calcuate leave on touch as its not supported in webkit
+            if (this.LEAVE_EV) {
+                element.bind(this.LEAVE_EV, $.proxy(this.touchLeave, this));
+            }
+        } else {
+
+            element.unbind(this.MOVE_EV, this.touchMove, false);
+            element.unbind(this.END_EV, this.touchEnd, false);
+
+            //we only have leave events on desktop, we manually calcuate leave on touch as its not supported in webkit
+            if (this.LEAVE_EV) {
+                element.unbind(this.LEAVE_EV, this.touchLeave, false);
+            }
+        }
+
+        //strict equality to ensure only true and false can update the value
+        element.data('intouch', val === true);
+    },
+
+    createFingerData: function(id, evt) {
+        var f = {
+            start: {
+                x: 0,
+                y: 0
+            },
+            last: {
+                x: 0,
+                y: 0
+            },
+            end: {
+                x: 0,
+                y: 0
+            }
+        };
+        f.start.x = f.last.x = f.end.x = evt.pageX || evt.clientX;
+        f.start.y = f.last.y = f.end.y = evt.pageY || evt.clientY;
+        this.fingerData[id] = f;
+        return f;
+    },
+
+    updateFingerData: function(evt) {
+        var id = evt.identifier !== undefined ? evt.identifier : 0;
+        var f = this.getFingerData(id);
+
+        if (f === null) {
+            f = this.createFingerData(id, evt);
+        }
+
+        f.last.x = f.end.x;
+        f.last.y = f.end.y;
+
+        f.end.x = evt.pageX || evt.clientX;
+        f.end.y = evt.pageY || evt.clientY;
+
+        return f;
+    },
+
+    getFingerData: function(id) {
+        return this.fingerData[id] || null;
+    },
+
+    setMaxDistance: function(direction, distance) {
+        if (direction === TouchConst.NONE) return;
+        distance = Math.max(distance, this.getMaxDistance(direction));
+        this.maximumsMap[direction].distance = distance;
+    },
+
+    getMaxDistance: function(direction) {
+        return (this.maximumsMap[direction]) ? this.maximumsMap[direction].distance : undefined;
+    },
+
+    createMaximumsData: function() {
+        var maxData = {};
+        maxData[TouchConst.LEFT] = this.createMaximumVO(TouchConst.LEFT);
+        maxData[TouchConst.RIGHT] = this.createMaximumVO(TouchConst.RIGHT);
+        maxData[TouchConst.UP] = this.createMaximumVO(TouchConst.UP);
+        maxData[TouchConst.DOWN] = this.createMaximumVO(TouchConst.DOWN);
+
+        return maxData;
+    },
+
+    createMaximumVO: function(dir) {
+        return {
+            direction: dir,
+            distance: 0
+        }
+    },
+
+    calculateDuration: function(){
+        return this.endTime - this.startTime;
+    },
+
+    calculateTouchesDistance: function(startPoint, endPoint){
+        var diffX = Math.abs(startPoint.x - endPoint.x);
+        var diffY = Math.abs(startPoint.y - endPoint.y);
+
+        return Math.round(Math.sqrt(diffX * diffX + diffY * diffY));
+    },
+
+    calculatePinchZoom: function(startDistance, endDistance){
+        var percent = (endDistance / startDistance) * 100; // 1 ? 100
+        return percent.toFixed(2);
+    },
+
+    calculatePinchDirection: function(){
+        if (this.pinchZoom < 1) {
+            return TouchConst.OUT;
+        } else {
+            return TouchConst.IN;
+        }
+    },
+
+    calculateDistance: function(startPoint, endPoint){
+        return Math.round(Math.sqrt(Math.pow(endPoint.x - startPoint.x, 2) + Math.pow(endPoint.y - startPoint.y, 2)));
+    },
+
+    calculateAngle: function(startPoint, endPoint){
+        var x = startPoint.x - endPoint.x;
+        var y = endPoint.y - startPoint.y;
+        var r = Math.atan2(y, x); //radians
+        var angle = Math.round(r * 180 / Math.PI); //degrees
+
+        //ensure value is positive
+        if (angle < 0) {
+            angle = 360 - Math.abs(angle);
+        }
+
+        return angle;
+    },
+
+    calculateDirection: function(startPoint, endPoint){
+        if( this.comparePoints(startPoint, endPoint) ) {
+            return TouchConst.NONE;
+        }
+
+        var angle = this.calculateAngle(startPoint, endPoint);
+
+        if ((angle <= 45) && (angle >= 0)) {
+            return TouchConst.LEFT;
+        } else if ((angle <= 360) && (angle >= 315)) {
+            return TouchConst.LEFT;
+        } else if ((angle >= 135) && (angle <= 225)) {
+            return TouchConst.RIGHT;
+        } else if ((angle > 45) && (angle < 135)) {
+            return TouchConst.DOWN;
+        } else {
+            return TouchConst.UP;
+        }
+    },
+
+    getTimeStamp: function(){
+        return (new Date()).getTime();
+    },
+
+    getBounds: function (el) {
+        el = $(el);
+        var offset = el.offset();
+
+        return {
+            left: offset.left,
+            right: offset.left + el.outerWidth(),
+            top: offset.top,
+            bottom: offset.top + el.outerHeight()
+        };
+    },
+
+    isInBounds: function(point, bounds){
+        return (point.x > bounds.left && point.x < bounds.right && point.y > bounds.top && point.y < bounds.bottom);
+    },
+
+    comparePoints: function(pointA, pointB) {
+        return (pointA.x === pointB.x && pointA.y === pointB.y);
+    },
+
+    removeListeners: function() {
+        var element = this.element;
+
+        element.unbind(this.START_EV, this.touchStart, this);
+        element.unbind(this.CANCEL_EV, this.touchCancel, this);
+        element.unbind(this.MOVE_EV, this.touchMove, this);
+        element.unbind(this.END_EV, this.touchEnd, this);
+
+        //we only have leave events on desktop, we manually calculate leave on touch as its not supported in webkit
+        if (this.LEAVE_EV) {
+            element.unbind(this.LEAVE_EV, this.touchLeave, this);
+        }
+
+        this.setTouchInProgress(false);
+    },
+
+    enable: function(){
+        this.disable();
+        this.element.bind(this.START_EV, this.touchStart);
+        this.element.bind(this.CANCEL_EV, this.touchCancel);
+        return this.element;
+    },
+
+    disable: function(){
+        this.removeListeners();
+        return this.element;
+    },
+
+    changeAttribute: function(attributeName){
+
+    },
+
+    destroy: function(){
+        this.removeListeners();
+    }
+};
+
+Metro['touch'] = TouchConst;
+Metro.plugin('touch', Touch);
+
+// Source: js/plugins/treeview.js
+
+var TreeViewDefaultConfig = {
+    effect: "slide",
+    duration: 100,
+    onNodeClick: Metro.noop,
+    onNodeDblClick: Metro.noop,
+    onNodeDelete: Metro.noop,
+    onNodeInsert: Metro.noop,
+    onNodeClean: Metro.noop,
+    onCheckClick: Metro.noop,
+    onRadioClick: Metro.noop,
+    onExpandNode: Metro.noop,
+    onCollapseNode: Metro.noop,
+    onTreeViewCreate: Metro.noop
+};
+
+Metro.treeViewSetup = function (options) {
+    TreeViewDefaultConfig = $.extend({}, TreeViewDefaultConfig, options);
+};
+
+if (typeof window.metroTreeViewSetup !== undefined) {
+    Metro.treeViewSetup(window.metroTreeViewSetup);
+}
+
+var TreeView = {
+    init: function( options, elem ) {
+        this.options = $.extend( {}, TreeViewDefaultConfig, options );
+        this.elem  = elem;
+        this.element = $(elem);
+
+        this._setOptionsFromDOM();
+        this._create();
+
+        return this;
     },
 
     _setOptionsFromDOM: function(){
@@ -19685,7 +25370,8 @@ var Treeview = {
             that._recheck(this);
         });
 
-        Utils.exec(o.onTreeviewCreate, [element]);
+        Utils.exec(o.onTreeViewCreate, null, element[0]);
+        element.fire("treeviewcreate");
     },
 
     _createIcon: function(data){
@@ -19775,7 +25461,10 @@ var Treeview = {
 
             that.current(node);
 
-            Utils.exec(o.onNodeClick, [node, element], node[0]);
+            Utils.exec(o.onNodeClick, [node[0]], element[0]);
+            element.fire("nodeclick", {
+                node: node[0]
+            });
 
             e.preventDefault();
         });
@@ -19789,7 +25478,10 @@ var Treeview = {
                 that.toggleNode(node);
             }
 
-            Utils.exec(o.onNodeDblClick, [node, element], node[0]);
+            Utils.exec(o.onNodeDblClick, [node[0]], element[0]);
+            element.fire("nodedblclick", {
+                node: node[0]
+            });
 
             e.preventDefault();
         });
@@ -19801,7 +25493,12 @@ var Treeview = {
 
             that.current(node);
 
-            Utils.exec(o.onRadioClick, [checked, check, node, element], this);
+            Utils.exec(o.onRadioClick, [checked, check[0], node[0]], element[0]);
+            element.fire("radioclick", {
+                checked: checked,
+                check: check[0],
+                node: node[0]
+            });
         });
 
         element.on(Metro.events.click, "input[type=checkbox]", function(e){
@@ -19811,7 +25508,12 @@ var Treeview = {
 
             that._recheck(check);
 
-            Utils.exec(o.onCheckClick, [checked, check, node, element], this);
+            Utils.exec(o.onCheckClick, [checked, check[0], node[0]], element[0]);
+            element.fire("checkclick", {
+                checked: checked,
+                check: check[0],
+                node: node[0]
+            });
         });
     },
 
@@ -19876,15 +25578,28 @@ var Treeview = {
     toggleNode: function(node){
         var element = this.element, o = this.options;
         var func;
+        var toBeExpanded = !node.data("collapsed");//!node.hasClass("expanded");
+
+        console.log(toBeExpanded);
 
         node.toggleClass("expanded");
+        node.data("collapsed", toBeExpanded);
 
         if (o.effect === "slide") {
-            func = node.hasClass("expanded") !== true ? "slideUp" : "slideDown";
-            Utils.exec(o.onCollapseNode, [node, element]);
+            func = toBeExpanded === true ? "slideUp" : "slideDown";
         } else {
-            func = node.hasClass("expanded") !== true ? "fadeOut" : "fadeIn";
-            Utils.exec(o.onExpandNode, [node, element]);
+            func = toBeExpanded === true ? "fadeOut" : "fadeIn";
+        }
+        if (toBeExpanded) {
+            Utils.exec(o.onExpandNode, [node[0]], element[0]);
+            element.fire("expandnode", {
+                node: node[0]
+            });
+        } else {
+            Utils.exec(o.onCollapseNode, [node[0]], element[0]);
+            element.fire("collapsenode", {
+                node: node[0]
+            });
         }
 
         node.children("ul")[func](o.duration);
@@ -19899,6 +25614,7 @@ var Treeview = {
         if (node === null) {
             target = element;
         } else {
+            node = $(node);
             target = node.children("ul");
             if (target.length === 0) {
                 target = $("<ul>").appendTo(node);
@@ -19912,7 +25628,11 @@ var Treeview = {
 
         new_node.appendTo(target);
 
-        Utils.exec(o.onNodeInsert, [new_node, element], new_node[0]);
+        Utils.exec(o.onNodeInsert, [new_node[0], node ? node[0] : null], element[0]);
+        element.fire("nodeinsert", {
+            node: new_node[0],
+            parent: node ? node[0] : null
+        });
 
         return new_node;
     },
@@ -19920,65 +25640,106 @@ var Treeview = {
     insertBefore: function(node, data){
         var element = this.element, o = this.options;
         var new_node = this._createNode(data);
+
+        if (Utils.isNull(node)) {
+            return this.addTo(node, data);
+        }
+
+        node = $(node);
         new_node.insertBefore(node);
-        Utils.exec(o.onNodeInsert, [new_node, element], new_node[0]);
+        Utils.exec(o.onNodeInsert, [new_node[0], node[0]], element[0]);
+        element.fire("nodeinsert", {
+            node: new_node[0],
+            parent: node ? node[0] : null
+        });
         return new_node;
     },
 
     insertAfter: function(node, data){
         var element = this.element, o = this.options;
         var new_node = this._createNode(data);
+
+        if (Utils.isNull(node)) {
+            return this.addTo(node, data);
+        }
+
+        node = $(node);
         new_node.insertAfter(node);
-        Utils.exec(o.onNodeInsert, [new_node, element], new_node[0]);
+        Utils.exec(o.onNodeInsert, [new_node[0], node[0]], element[0]);
+        element.fire("nodeinsert", {
+            node: new_node[0],
+            parent: node[0]
+        });
         return new_node;
     },
 
     del: function(node){
         var element = this.element, o = this.options;
+        node = $(node);
         var parent_list = node.closest("ul");
         var parent_node = parent_list.closest("li");
+
+        Utils.exec(o.onNodeDelete, [node[0]], element[0]);
+        element.fire("nodedelete", {
+            node: node[0]
+        });
+
         node.remove();
+
         if (parent_list.children().length === 0 && !parent_list.is(element)) {
             parent_list.remove();
             parent_node.removeClass("expanded");
             parent_node.children(".node-toggle").remove();
         }
-        Utils.exec(o.onNodeDelete, [element], element[0]);
     },
 
     clean: function(node){
         var element = this.element, o = this.options;
+        node = $(node);
         node.children("ul").remove();
         node.removeClass("expanded");
         node.children(".node-toggle").remove();
-        Utils.exec(o.onNodeClean, [node, element], node[0]);
+        Utils.exec(o.onNodeClean, [node[0]], element[0]);
+        element.fire("nodeclean", {
+            node: node[0]
+        });
     },
 
     changeAttribute: function(attributeName){
-
+        switch (attributeName) {
+            default: ;
+        }
     }
 };
 
-Metro.plugin('treeview', Treeview);
+Metro.plugin('treeview', TreeView);
 
 // Source: js/plugins/validator.js
+
 var ValidatorFuncs = {
     required: function(val){
-        return Utils.isValue(val.trim());
+        if (Array.isArray(val)) {
+            return val.length > 0 ? val : false;
+        } else {
+            return Utils.isValue(val) ? val.trim() : false;
+        }
     },
     length: function(val, len){
+        if (Array.isArray(val)) {return val.length === parseInt(len);}
         if (!Utils.isValue(len) || isNaN(len) || len <= 0) {
             return false;
         }
         return val.trim().length === parseInt(len);
     },
     minlength: function(val, len){
+        if (Array.isArray(val)) {return val.length >= parseInt(len);}
         if (!Utils.isValue(len) || isNaN(len) || len <= 0) {
             return false;
         }
         return val.trim().length >= parseInt(len);
     },
     maxlength: function(val, len){
+        if (Array.isArray(val)) {return val.length <= parseInt(len);}
         if (!Utils.isValue(len) || isNaN(len) || len <= 0) {
             return false;
         }
@@ -20017,8 +25778,12 @@ var ValidatorFuncs = {
     url: function(val){
         return /^(?:(?:https?|ftp):\/\/)(?:\S+(?::\S*)?@)?(?:(?!(?:10|127)(?:\.\d{1,3}){3})(?!(?:169\.254|192\.168)(?:\.\d{1,3}){2})(?!172\.(?:1[6-9]|2\d|3[0-1])(?:\.\d{1,3}){2})(?:[1-9]\d?|1\d\d|2[01]\d|22[0-3])(?:\.(?:1?\d{1,2}|2[0-4]\d|25[0-5])){2}(?:\.(?:[1-9]\d?|1\d\d|2[0-4]\d|25[0-4]))|(?:(?:[a-z\u00a1-\uffff0-9]-*)*[a-z\u00a1-\uffff0-9]+)(?:\.(?:[a-z\u00a1-\uffff0-9]-*)*[a-z\u00a1-\uffff0-9]+)*(?:\.(?:[a-z\u00a1-\uffff]{2,}))\.?)(?::\d{2,5})?(?:[/?#]\S*)?$/i.test(val);
     },
-    date: function(val){
-        return (new Date(val) !== "Invalid Date" && !isNaN(new Date(val)));
+    date: function(val, format, locale){
+        if (Utils.isNull(format)) {
+            return String(new Date(val)).toLowerCase() !== "invalid date";
+        } else {
+            return String(val.toDate(format, locale)).toLowerCase() !== "invalid date";
+        }
     },
     number: function(val){
         return !isNaN(val);
@@ -20036,12 +25801,12 @@ var ValidatorFuncs = {
         return /(^#[0-9A-F]{6}$)|(^#[0-9A-F]{3}$)/i.test(val);
     },
     color: function(val){
+        if (!Utils.isValue(val)) return false;
         return Colors.color(val, Colors.PALETTES.STANDARD) !== false;
     },
     pattern: function(val, pat){
-        if (!Utils.isValue(pat)) {
-            return false;
-        }
+        if (!Utils.isValue(val)) return false;
+        if (!Utils.isValue(pat)) return false;
         var reg = new RegExp(pat);
         return reg.test(val);
     },
@@ -20052,9 +25817,13 @@ var ValidatorFuncs = {
         return val !== not_this;
     },
     notequals: function(val, val2){
+        if (Utils.isNull(val)) return false;
+        if (Utils.isNull(val2)) return false;
         return val.trim() !== val2.trim();
     },
     equals: function(val, val2){
+        if (Utils.isNull(val)) return false;
+        if (Utils.isNull(val2)) return false;
         return val.trim() === val2.trim();
     },
     custom: function(val, func){
@@ -20162,7 +25931,7 @@ var ValidatorFuncs = {
             $.each(funcs, function(){
                 if (this_result === false) return;
                 var rule = this.split("=");
-                var f, a;
+                var f, a, b;
 
                 f = rule[0]; rule.shift();
                 a = rule.join("=");
@@ -20171,14 +25940,19 @@ var ValidatorFuncs = {
                     a = input[0].form.elements[a].value;
                 }
 
+                if (f === 'date') {
+                    a = input.attr("data-value-format");
+                    b = input.attr("data-value-locale");
+                }
+
                 if (Utils.isFunc(ValidatorFuncs[f]) === false)  {
                     this_result = true;
                 } else {
                     if (required_mode === true || f === "required") {
-                        this_result = ValidatorFuncs[f](input.val(), a);
+                        this_result = ValidatorFuncs[f](input.val(), a, b);
                     } else {
                         if (input.val().trim() !== "") {
-                            this_result = ValidatorFuncs[f](input.val(), a);
+                            this_result = ValidatorFuncs[f](input.val(), a, b);
                         } else {
                             this_result = true;
                         }
@@ -20222,14 +25996,36 @@ var ValidatorFuncs = {
 
 Metro['validator'] = ValidatorFuncs;
 
+var ValidatorDefaultConfig = {
+    submitTimeout: 200,
+    interactiveCheck: false,
+    clearInvalid: 0,
+    requiredMode: true,
+    useRequiredClass: true,
+    onBeforeSubmit: Metro.noop_true,
+    onSubmit: Metro.noop,
+    onError: Metro.noop,
+    onValidate: Metro.noop,
+    onErrorForm: Metro.noop,
+    onValidateForm: Metro.noop,
+    onValidatorCreate: Metro.noop
+};
+
+Metro.validatorSetup = function (options) {
+    ValidatorDefaultConfig = $.extend({}, ValidatorDefaultConfig, options);
+};
+
+if (typeof window.metroValidatorSetup !== undefined) {
+    Metro.validatorSetup(window.metroValidatorSetup);
+}
+
 var Validator = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, ValidatorDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
         this._onsubmit = null;
         this._onreset = null;
-        this._action = null;
         this.result = [];
 
         this._setOptionsFromDOM();
@@ -20239,20 +26035,6 @@ var Validator = {
     },
 
     dependencies: ['utils', 'colors'],
-
-    options: {
-        submitTimeout: 200,
-        interactiveCheck: false,
-        clearInvalid: 0,
-        requiredMode: true,
-        onBeforeSubmit: Metro.noop_true,
-        onSubmit: Metro.noop,
-        onError: Metro.noop,
-        onValidate: Metro.noop,
-        onErrorForm: Metro.noop,
-        onValidateForm: Metro.noop,
-        onValidatorCreate: Metro.noop
-    },
 
     _setOptionsFromDOM: function(){
         var element = this.element, o = this.options;
@@ -20272,17 +26054,15 @@ var Validator = {
         var that = this, element = this.element, o = this.options;
         var inputs = element.find("[data-validate]");
 
-        this._action = element[0].action;
-
         element
-            .attr("novalidate", 'novalidate')
-            .attr("action", "javascript:");
+            .attr("novalidate", 'novalidate');
+            //.attr("action", "javascript:");
 
         $.each(inputs, function(){
             var input = $(this);
             var funcs = input.data("validate");
             var required = funcs.indexOf("required") > -1;
-            if (required) {
+            if (required && o.useRequiredClass === true) {
                 if (ValidatorFuncs.is_control(input)) {
                     input.parent().addClass("required");
                 } else {
@@ -20317,7 +26097,8 @@ var Validator = {
             return that._reset();
         };
 
-        Utils.exec(this.options.onValidatorCreate, [element], this.elem);
+        Utils.exec(o.onValidatorCreate, null, element[0]);
+        element.fire("validatorcreate");
     },
 
     _reset: function(){
@@ -20334,6 +26115,7 @@ var Validator = {
             val: 0,
             log: []
         };
+        var formData = Utils.formData(element);
 
         $.each(inputs, function(){
             ValidatorFuncs.validate(this, result, o.onValidate, o.onError, o.requiredMode);
@@ -20341,18 +26123,28 @@ var Validator = {
 
         submit.removeAttr("disabled").removeClass("disabled");
 
-        element[0].action = this._action;
-
-        result.val += Utils.exec(o.onBeforeSubmit, [element], this.elem) === false ? 1 : 0;
+        result.val += Utils.exec(o.onBeforeSubmit, [formData], this.elem) === false ? 1 : 0;
 
         if (result.val === 0) {
-            Utils.exec(o.onValidateForm, [element], form);
+            Utils.exec(o.onValidateForm, [formData], form);
+            element.fire("validateform", {
+                data: formData
+            });
+
             setTimeout(function(){
-                Utils.exec(o.onSubmit, [element], form);
+                Utils.exec(o.onSubmit, [formData], form);
+                element.fire("formsubmit", {
+                    data: formData
+                });
                 if (that._onsubmit !==  null) Utils.exec(that._onsubmit, null, form);
             }, o.submitTimeout);
         } else {
-            Utils.exec(o.onErrorForm, [result.log, element], form);
+            Utils.exec(o.onErrorForm, [result.log, formData], form);
+            element.fire("errorform", {
+                log: result.log,
+                data: formData
+            });
+
             if (o.clearInvalid > 0) {
                 setTimeout(function(){
                     $.each(inputs, function(){
@@ -20371,17 +26163,71 @@ var Validator = {
     },
 
     changeAttribute: function(attributeName){
-        switch (attributeName) {
-        }
     }
 };
 
 Metro.plugin('validator', Validator);
 
 // Source: js/plugins/video.js
+
+var VideoDefaultConfig = {
+    src: null,
+
+    poster: "",
+    logo: "",
+    logoHeight: 32,
+    logoWidth: "auto",
+    logoTarget: "",
+
+    volume: .5,
+    loop: false,
+    autoplay: false,
+
+    fullScreenMode: Metro.fullScreenMode.DESKTOP,
+    aspectRatio: Metro.aspectRatio.HD,
+
+    controlsHide: 3000,
+
+    showLoop: true,
+    showPlay: true,
+    showStop: true,
+    showMute: true,
+    showFull: true,
+    showStream: true,
+    showVolume: true,
+    showInfo: true,
+
+    loopIcon: "<span class='default-icon-loop'></span>",
+    stopIcon: "<span class='default-icon-stop'></span>",
+    playIcon: "<span class='default-icon-play'></span>",
+    pauseIcon: "<span class='default-icon-pause'></span>",
+    muteIcon: "<span class='default-icon-mute'></span>",
+    volumeLowIcon: "<span class='default-icon-low-volume'></span>",
+    volumeMediumIcon: "<span class='default-icon-medium-volume'></span>",
+    volumeHighIcon: "<span class='default-icon-high-volume'></span>",
+    screenMoreIcon: "<span class='default-icon-enlarge'></span>",
+    screenLessIcon: "<span class='default-icon-shrink'></span>",
+
+    onPlay: Metro.noop,
+    onPause: Metro.noop,
+    onStop: Metro.noop,
+    onEnd: Metro.noop,
+    onMetadata: Metro.noop,
+    onTime: Metro.noop,
+    onVideoCreate: Metro.noop
+};
+
+Metro.videoSetup = function (options) {
+    VideoDefaultConfig = $.extend({}, VideoDefaultConfig, options);
+};
+
+if (typeof window.metroVideoSetup !== undefined) {
+    Metro.videoSetup(window.metroVideoSetup);
+}
+
 var Video = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, VideoDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
         this.fullscreen = false;
@@ -20393,58 +26239,12 @@ var Video = {
         this.volumeBackup = 0;
         this.muted = false;
         this.fullScreenInterval = false;
+        this.isPlaying = false;
 
         this._setOptionsFromDOM();
         this._create();
 
         return this;
-    },
-
-    options: {
-        src: null,
-
-        poster: "",
-        logo: "",
-        logoHeight: 32,
-        logoWidth: "auto",
-        logoTarget: "",
-
-        volume: .5,
-        loop: false,
-        autoplay: false,
-
-        fullScreenMode: Metro.fullScreenMode.DESKTOP,
-        aspectRatio: Metro.aspectRatio.HD,
-
-        controlsHide: 3000,
-
-        showLoop: true,
-        showPlay: true,
-        showStop: true,
-        showMute: true,
-        showFull: true,
-        showStream: true,
-        showVolume: true,
-        showInfo: true,
-
-        loopIcon: "<span class='default-icon-loop'></span>",
-        stopIcon: "<span class='default-icon-stop'></span>",
-        playIcon: "<span class='default-icon-play'></span>",
-        pauseIcon: "<span class='default-icon-pause'></span>",
-        muteIcon: "<span class='default-icon-mute'></span>",
-        volumeLowIcon: "<span class='default-icon-low-volume'></span>",
-        volumeMediumIcon: "<span class='default-icon-medium-volume'></span>",
-        volumeHighIcon: "<span class='default-icon-high-volume'></span>",
-        screenMoreIcon: "<span class='default-icon-enlarge'></span>",
-        screenLessIcon: "<span class='default-icon-shrink'></span>",
-
-        onPlay: Metro.noop,
-        onPause: Metro.noop,
-        onStop: Metro.noop,
-        onEnd: Metro.noop,
-        onMetadata: Metro.noop,
-        onTime: Metro.noop,
-        onVideoCreate: Metro.noop
     },
 
     _setOptionsFromDOM: function(){
@@ -20477,7 +26277,8 @@ var Video = {
             this.play();
         }
 
-        Utils.exec(o.onVideoCreate, [element, this.player]);
+        Utils.exec(o.onVideoCreate, [element, this.player], element[0]);
+        element.fire("videocreate");
     },
 
     _createPlayer: function(){
@@ -20643,7 +26444,7 @@ var Video = {
         element.on("loadedmetadata", function(){
             that.duration = video.duration.toFixed(0);
             that._setInfo(0, that.duration);
-            Utils.exec(o.onMetadata, [video, player]);
+            Utils.exec(o.onMetadata, [video, player], element[0]);
         });
 
         element.on("canplay", function(){
@@ -20659,7 +26460,7 @@ var Video = {
             var position = Math.round(video.currentTime * 100 / that.duration);
             that._setInfo(video.currentTime, that.duration);
             that.stream.data('slider').val(position);
-            Utils.exec(o.onTime, [video.currentTime, that.duration, video, player]);
+            Utils.exec(o.onTime, [video.currentTime, that.duration, video, player], element[0]);
         });
 
         element.on("waiting", function(){
@@ -20672,25 +26473,25 @@ var Video = {
 
         element.on("play", function(){
             player.find(".play").html(o.pauseIcon);
-            Utils.exec(o.onPlay, [video, player]);
+            Utils.exec(o.onPlay, [video, player], element[0]);
             that._onMouse();
         });
 
         element.on("pause", function(){
             player.find(".play").html(o.playIcon);
-            Utils.exec(o.onPause, [video, player]);
+            Utils.exec(o.onPause, [video, player], element[0]);
             that._offMouse();
         });
 
         element.on("stop", function(){
             that.stream.data('slider').val(0);
-            Utils.exec(o.onStop, [video, player]);
+            Utils.exec(o.onStop, [video, player], element[0]);
             that._offMouse();
         });
 
         element.on("ended", function(){
             that.stream.data('slider').val(0);
-            Utils.exec(o.onEnd, [video, player]);
+            Utils.exec(o.onEnd, [video, player], element[0]);
             that._offMouse();
         });
 
@@ -20721,6 +26522,7 @@ var Video = {
         player.on(Metro.events.click, ".full", function(e){
             that.fullscreen = !that.fullscreen;
             player.find(".full").html(that.fullscreen === true ? o.screenLessIcon : o.screenMoreIcon);
+
             if (o.fullScreenMode === Metro.fullScreenMode.WINDOW) {
                 if (that.fullscreen === true) {
                     player.addClass("full-screen");
@@ -20746,14 +26548,22 @@ var Video = {
                 }
             }
 
-            if (that.fullscreen === true) {
-                $(document).on(Metro.events.keyup + "_video", function(e){
-                    if (e.keyCode === 27) {
-                        player.find(".full").click();
-                    }
-                });
-            } else {
-                $(document).off(Metro.events.keyup + "_video");
+            // if (that.fullscreen === true) {
+            //     $(document).on(Metro.events.keyup + "_video", function(e){
+            //         if (e.keyCode === 27) {
+            //             player.find(".full").click();
+            //             console.log('esc');
+            //         }
+            //     });
+            // } else {
+            //     $(document).off(Metro.events.keyup + "_video");
+            // }
+        });
+
+        $(window).on(Metro.events.keyup + "_video", function(e){
+            if (that.fullscreen && e.keyCode === 27) {
+                player.find(".full").click();
+                console.log('esc');
             }
         });
 
@@ -20763,7 +26573,7 @@ var Video = {
     },
 
     _onMouse: function(){
-        var player = this.player, o = this.options;
+        var that = this, player = this.player, o = this.options;
 
         if (o.controlsHide > 0) {
             player.on(Metro.events.enter, function(){
@@ -20772,7 +26582,7 @@ var Video = {
 
             player.on(Metro.events.leave, function(){
                 setTimeout(function(){
-                    player.find(".controls").fadeOut();
+                    if (that.isPlaying) player.find(".controls").fadeOut();
                 }, o.controlsHide);
             });
         }
@@ -20860,10 +26670,13 @@ var Video = {
             return ;
         }
 
+        this.isPlaying = true;
+
         this.video.play();
     },
 
     pause: function(){
+        this.isPlaying = false;
         this.video.pause();
     },
 
@@ -20874,6 +26687,7 @@ var Video = {
     },
 
     stop: function(){
+        this.isPlaying = false;
         this.video.pause();
         this.video.currentTime = 0;
         this.stream.data('slider').val(0);
@@ -20928,70 +26742,89 @@ var Video = {
 Metro.plugin('video', Video);
 
 // Source: js/plugins/window.js
+
+var WindowDefaultConfig = {
+    hidden: false,
+    width: "auto",
+    height: "auto",
+    btnClose: true,
+    btnMin: true,
+    btnMax: true,
+    clsCaption: "",
+    clsContent: "",
+    clsWindow: "",
+    draggable: true,
+    dragElement: ".window-caption .icon, .window-caption .title",
+    dragArea: "parent",
+    shadow: false,
+    icon: "",
+    title: "Window",
+    content: "default",
+    resizable: true,
+    overlay: false,
+    overlayColor: 'transparent',
+    overlayAlpha: .5,
+    modal: false,
+    position: "absolute",
+    checkEmbed: true,
+    top: "auto",
+    left: "auto",
+    place: "auto",
+    closeAction: Metro.actions.REMOVE,
+    customButtons: null,
+    clsCustomButton: "",
+    minWidth: 0,
+    minHeight: 0,
+    maxWidth: 0,
+    maxHeight: 0,
+    onDragStart: Metro.noop,
+    onDragStop: Metro.noop,
+    onDragMove: Metro.noop,
+    onCaptionDblClick: Metro.noop,
+    onCloseClick: Metro.noop,
+    onMaxClick: Metro.noop,
+    onMinClick: Metro.noop,
+    onResizeStart: Metro.noop,
+    onResizeStop: Metro.noop,
+    onResize: Metro.noop,
+    onWindowCreate: Metro.noop,
+    onShow: Metro.noop,
+    onWindowDestroy: Metro.noop,
+    onCanClose: Metro.noop_true,
+    onClose: Metro.noop
+};
+
+Metro.windowSetup = function (options) {
+    WindowDefaultConfig = $.extend({}, WindowDefaultConfig, options);
+};
+
+if (typeof window.metroWindowSetup !== undefined) {
+    Metro.windowSetup(window.metroWindowSetup);
+}
+
 var Window = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, WindowDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
         this.win = null;
         this.overlay = null;
+        this.position = {
+            top: 0,
+            left: 0
+        };
+        this.hidden = false;
 
         this._setOptionsFromDOM();
         this._create();
-
-        Utils.exec(this.options.onWindowCreate, [this.win, this.element]);
 
         return this;
     },
 
     dependencies: ['draggable', 'resizeable'],
 
-    options: {
-        width: "auto",
-        height: "auto",
-        btnClose: true,
-        btnMin: true,
-        btnMax: true,
-        clsCaption: "",
-        clsContent: "",
-        clsWindow: "",
-        draggable: true,
-        dragElement: ".window-caption",
-        dragArea: "parent",
-        shadow: false,
-        icon: "",
-        title: "Window",
-        content: "default",
-        resizable: true,
-        overlay: false,
-        overlayColor: 'transparent',
-        overlayAlpha: .5,
-        modal: false,
-        position: "absolute",
-        checkEmbed: true,
-        top: "auto",
-        left: "auto",
-        place: "auto",
-        closeAction: Metro.actions.REMOVE,
-        onDragStart: Metro.noop,
-        onDragStop: Metro.noop,
-        onDragMove: Metro.noop,
-        onCaptionDblClick: Metro.noop,
-        onCloseClick: Metro.noop,
-        onMaxClick: Metro.noop,
-        onMinClick: Metro.noop,
-        onResizeStart: Metro.noop,
-        onResizeStop: Metro.noop,
-        onResize: Metro.noop,
-        onWindowCreate: Metro.noop,
-        onShow: Metro.noop,
-        onWindowDestroy: Metro.noop,
-        onCanClose: Metro.noop_true,
-        onClose: Metro.noop
-    },
-
     _setOptionsFromDOM: function(){
-        var that = this, element = this.element, o = this.options;
+        var element = this.element, o = this.options;
 
         $.each(element.data(), function(key, value){
             if (key in o) {
@@ -21007,8 +26840,7 @@ var Window = {
     _create: function(){
         var that = this, element = this.element, o = this.options;
         var win, overlay;
-        var prev = element.prev();
-        var parent = element.parent();
+        var parent = o.dragArea === "parent" ? element.parent() : $(o.dragArea);
 
         if (o.modal === true) {
             o.btnMax = false;
@@ -21021,35 +26853,73 @@ var Window = {
         }
 
         win = this._window(o);
+        win.addClass("no-visible");
 
-        if (prev.length === 0) {
-            parent.prepend(win);
-        } else {
-            win.insertAfter(prev);
-        }
+        parent.append(win);
+
         if (o.overlay === true) {
             overlay = this._overlay();
             overlay.appendTo(win.parent());
             this.overlay = overlay;
         }
 
-        Utils.exec(o.onShow, [win]);
-
         this.win = win;
+
+        Utils.exec(o.onWindowCreate, [this.win[0]], element[0]);
+        element.fire("windowcreate", {
+            win: win[0]
+        });
+
+        setTimeout(function(){
+            that._setPosition();
+
+            if (o.hidden !== true) {
+                that.win.removeClass("no-visible");
+            }
+            Utils.exec(o.onShow, [win[0]], element[0]);
+            element.fire("show", {
+                win: win[0]
+            });
+        }, 100);
+    },
+
+    _setPosition: function(){
+        var o = this.options;
+        var win = this.win;
+        var parent = o.dragArea === "parent" ? win.parent() : $(o.dragArea);
+        var top_center = parent.height() / 2 - win[0].offsetHeight / 2;
+        var left_center = parent.width() / 2 - win[0].offsetWidth / 2;
+        var top, left, right, bottom;
+
+        if (o.place !== 'auto') {
+
+            switch (o.place.toLowerCase()) {
+                case "top-left": top = 0; left = 0; right = "auto"; bottom = "auto"; break;
+                case "top-center": top = 0; left = left_center; right = "auto"; bottom = "auto"; break;
+                case "top-right": top = 0; right = 0; left = "auto"; bottom = "auto"; break;
+                case "right-center": top = top_center; right = 0; left = "auto"; bottom = "auto"; break;
+                case "bottom-right": bottom = 0; right = 0; left = "auto"; top = "auto"; break;
+                case "bottom-center": bottom = 0; left = left_center; right = "auto"; top = "auto"; break;
+                case "bottom-left": bottom = 0; left = 0; right = "auto"; top = "auto"; break;
+                case "left-center": top = top_center; left = 0; right = "auto"; bottom = "auto"; break;
+                default: top = top_center; left = left_center; bottom = "auto"; right = "auto";
+            }
+
+            win.css({
+                top: top,
+                left: left,
+                bottom: bottom,
+                right: right
+            });
+        }
     },
 
     _window: function(o){
         var that = this;
         var win, caption, content, icon, title, buttons, btnClose, btnMin, btnMax, resizer, status;
+        var width = o.width, height = o.height;
 
         win = $("<div>").addClass("window");
-        win.css({
-            width: o.width,
-            height: o.height,
-            position: o.position,
-            top: o.top,
-            left: o.left
-        });
 
         if (o.modal === true) {
             win.addClass("modal");
@@ -21070,15 +26940,13 @@ var Window = {
             win.addClass("win-shadow");
         }
 
-        if (o.icon !== undefined) {
+        if (Utils.isValue(o.icon)) {
             icon = $("<span>").addClass("icon").html(o.icon);
             icon.appendTo(caption);
         }
 
-        if (o.title !== undefined) {
-            title = $("<span>").addClass("title").html(o.title);
-            title.appendTo(caption);
-        }
+        title = $("<span>").addClass("title").html(Utils.isValue(o.title) ? o.title : "&nbsp;");
+        title.appendTo(caption);
 
         if (o.content !== undefined && o.content !== 'original') {
 
@@ -21097,55 +26965,76 @@ var Window = {
             }
         }
 
-        if (o.btnClose === true || o.btnMin === true || o.btnMax === true) {
-            buttons = $("<div>").addClass("buttons");
-            buttons.appendTo(caption);
+        buttons = $("<div>").addClass("buttons");
+        buttons.appendTo(caption);
 
-            if (o.btnMax === true) {
-                btnMax = $("<span>").addClass("btn-max");
-                btnMax.appendTo(buttons);
-            }
-
-            if (o.btnMin === true) {
-                btnMin = $("<span>").addClass("btn-min");
-                btnMin.appendTo(buttons);
-            }
-
-            if (o.btnClose === true) {
-                btnClose = $("<span>").addClass("btn-close");
-                btnClose.appendTo(buttons);
-            }
+        if (o.btnMax === true) {
+            btnMax = $("<span>").addClass("button btn-max sys-button");
+            btnMax.appendTo(buttons);
         }
+
+        if (o.btnMin === true) {
+            btnMin = $("<span>").addClass("button btn-min sys-button");
+            btnMin.appendTo(buttons);
+        }
+
+        if (o.btnClose === true) {
+            btnClose = $("<span>").addClass("button btn-close sys-button");
+            btnClose.appendTo(buttons);
+        }
+
+        if (Utils.isValue(o.customButtons)) {
+            var customButtons = [];
+
+            if (Utils.isObject(o.customButtons) !== false) {
+                o.customButtons = Utils.isObject(o.customButtons);
+            }
+
+            if (typeof o.customButtons === "string" && o.customButtons.indexOf("{") > -1) {
+                customButtons = JSON.parse(o.customButtons);
+            } else if (typeof o.customButtons === "object" && Utils.objectLength(o.customButtons) > 0) {
+                customButtons = o.customButtons;
+            } else {
+                console.log("Unknown format for custom buttons");
+            }
+
+            $.each(customButtons, function(){
+                var item = this;
+                var customButton = $("<span>");
+
+                customButton
+                    .addClass("button btn-custom")
+                    .addClass(o.clsCustomButton)
+                    .addClass(item.cls)
+                    .attr("tabindex", -1)
+                    .html(item.html);
+
+                customButton.data("action", item.onclick);
+
+                buttons.prepend(customButton);
+            });
+        }
+
+        caption.on(Metro.events.stop, ".btn-custom", function(e){
+            if (Utils.isRightMouse(e)) return;
+            var button = $(this);
+            var action = button.data("action");
+            Utils.exec(action, [button], this);
+        });
 
         win.attr("id", o.id === undefined ? Utils.elementId("window") : o.id);
-
-        if (o.resizable === true) {
-            resizer = $("<span>").addClass("resize-element");
-            resizer.appendTo(win);
-            win.addClass("resizable");
-        }
 
         win.on(Metro.events.dblclick, ".window-caption", function(e){
             that.maximized(e);
         });
-        win.on(Metro.events.click, ".btn-max", function(e){
-            that.maximized(e);
-        });
-        win.on(Metro.events.click, ".btn-min", function(e){
-            that.minimized(e);
-        });
-        win.on(Metro.events.click, ".btn-close", function(e){
-            that.close(e);
-        });
 
-        if (o.resizable === true) {
-            win.resizable({
-                resizeElement: ".resize-element",
-                onResizeStart: o.onResizeStart,
-                onResizeStop: o.onResizeStop,
-                onResize: o.onResize
-            });
-        }
+        caption.on(Metro.events.click, ".btn-max, .btn-min, .btn-close", function(e){
+            if (Utils.isRightMouse(e)) return;
+            var target = $(e.target);
+            if (target.hasClass("btn-max")) that.maximized(e);
+            if (target.hasClass("btn-min")) that.minimized(e);
+            if (target.hasClass("btn-close")) that.close(e);
+        });
 
         if (o.draggable === true) {
             win.draggable({
@@ -21157,20 +27046,57 @@ var Window = {
             })
         }
 
-
-        if (o.place !== 'auto') {
-            win.addClass("pos-" + o.place);
-        }
-
         win.addClass(o.clsWindow);
         caption.addClass(o.clsCaption);
         content.addClass(o.clsContent);
+
+        if (o.minWidth === 0) {
+            o.minWidth = 34;
+            $.each(buttons.children(".btn-custom"), function(){
+                o.minWidth += Utils.hiddenElementSize(this).width;
+            });
+            if (o.btnMax) o.minWidth += 34;
+            if (o.btnMin) o.minWidth += 34;
+            if (o.btnClose) o.minWidth += 34;
+        }
+
+        if (o.minWidth > 0 && !isNaN(o.width) && o.width < o.minWidth) {
+            width = o.minWidth;
+        }
+        if (o.minHeight > 0 && !isNaN(o.height) && o.height > o.minHeight) {
+            height = o.minHeight;
+        }
+
+        if (o.resizable === true) {
+            resizer = $("<span>").addClass("resize-element");
+            resizer.appendTo(win);
+            win.addClass("resizable");
+
+            win.resizable({
+                minWidth: o.minWidth,
+                minHeight: o.minHeight,
+                maxWidth: o.maxWidth,
+                maxHeight: o.maxHeight,
+                resizeElement: ".resize-element",
+                onResizeStart: o.onResizeStart,
+                onResizeStop: o.onResizeStop,
+                onResize: o.onResize
+            });
+        }
+
+        win.css({
+            width: width,
+            height: height,
+            position: o.position,
+            top: o.top,
+            left: o.left
+        });
 
         return win;
     },
 
     _overlay: function(){
-        var that = this, win = this.win,  element = this.element, o = this.options;
+        var o = this.options;
 
         var overlay = $("<div>");
         overlay.addClass("overlay");
@@ -21187,23 +27113,34 @@ var Window = {
     },
 
     maximized: function(e){
-        var that = this, win = this.win,  element = this.element, o = this.options;
+        var win = this.win,  element = this.element, o = this.options;
         var target = $(e.currentTarget);
+        win.removeClass("minimized");
         win.toggleClass("maximized");
         if (target.hasClass("window-caption")) {
-            Utils.exec(o.onCaptionDblClick, [win]);
+            Utils.exec(o.onCaptionDblClick, [win[0]], element[0]);
+            element.fire("captiondblclick", {
+                win: win[0]
+            });
         } else {
-            Utils.exec(o.onMaxClick, [win]);
+            Utils.exec(o.onMaxClick, [win[0]], element[0]);
+            element.fire("maxclick", {
+                win: win[0]
+            });
         }
     },
 
-    minimized: function(e){
-        var that = this, win = this.win,  element = this.element, o = this.options;
+    minimized: function(){
+        var win = this.win,  element = this.element, o = this.options;
+        win.removeClass("maximized");
         win.toggleClass("minimized");
-        Utils.exec(o.onMinClick, [win], element[0]);
+        Utils.exec(o.onMinClick, [win[0]], element[0]);
+        element.fire("minclick", {
+            win: win[0]
+        });
     },
 
-    close: function(e){
+    close: function(){
         var that = this, win = this.win,  element = this.element, o = this.options;
         var timer = null;
 
@@ -21217,15 +27154,26 @@ var Window = {
             timeout = 500;
         }
 
-        Utils.exec(o.onClose, [win], element[0]);
+        Utils.exec(o.onClose, [win[0]], element[0]);
+        element.fire("close", {
+            win: win[0]
+        });
 
         timer = setTimeout(function(){
             timer = null;
             if (o.modal === true) {
                 win.siblings(".overlay").remove();
             }
-            Utils.exec(o.onCloseClick, [win], element[0]);
-            Utils.exec(o.onWindowDestroy, [win], element[0]);
+            Utils.exec(o.onCloseClick, [win[0]], element[0]);
+            element.fire("closeclick", {
+                win: win[0]
+            });
+
+            Utils.exec(o.onWindowDestroy, [win[0]], element[0]);
+            element.fire("windowdestroy", {
+                win: win[0]
+            });
+
             if (o.closeAction === Metro.actions.REMOVE) {
                 win.remove();
             } else {
@@ -21236,13 +27184,18 @@ var Window = {
     },
 
     hide: function(){
-        this.win.addClass("no-visible");
+        this.win.css({
+            display: "none"
+        });
     },
     show: function(){
         this.win.removeClass("no-visible");
+        this.win.css({
+            display: "flex"
+        });
     },
     toggle: function(){
-        if (this.win.hasClass("no-visible")) {
+        if (this.win.css("display") === "none" || this.win.hasClass("no-visible")) {
             this.show();
         } else {
             this.hide();
@@ -21259,7 +27212,7 @@ var Window = {
     },
 
     toggleButtons: function(a) {
-        var that = this, element = this.element, win = this.win, o = this.options;
+        var win = this.win;
         var btnClose = win.find(".btn-close");
         var btnMin = win.find(".btn-min");
         var btnMax = win.find(".btn-max");
@@ -21276,7 +27229,7 @@ var Window = {
     },
 
     changeSize: function(a){
-        var that = this, element = this.element, win = this.win, o = this.options;
+        var element = this.element, win = this.win;
         if (a === "data-width") {
             win.css("width", element.data("width"));
         }
@@ -21286,7 +27239,7 @@ var Window = {
     },
 
     changeClass: function(a){
-        var that = this, element = this.element, win = this.win, o = this.options;
+        var element = this.element, win = this.win, o = this.options;
         if (a === "data-cls-window") {
             win[0].className = "window " + (o.resizable ? " resizeable " : " ") + element.attr("data-cls-window");
         }
@@ -21299,7 +27252,7 @@ var Window = {
     },
 
     toggleShadow: function(){
-        var that = this, element = this.element, win = this.win, o = this.options;
+        var element = this.element, win = this.win;
         var flag = JSON.parse(element.attr("data-shadow"));
         if (flag === true) {
             win.addClass("win-shadow");
@@ -21309,7 +27262,7 @@ var Window = {
     },
 
     setContent: function(){
-        var that = this, element = this.element, win = this.win, o = this.options;
+        var element = this.element, win = this.win;
         var content = element.attr("data-content");
         var result;
 
@@ -21325,29 +27278,27 @@ var Window = {
     },
 
     setTitle: function(){
-        var that = this, element = this.element, win = this.win, o = this.options;
+        var element = this.element, win = this.win;
         var title = element.attr("data-title");
         win.find(".window-caption .title").html(title);
     },
 
     setIcon: function(){
-        var that = this, element = this.element, win = this.win, o = this.options;
+        var element = this.element, win = this.win;
         var icon = element.attr("data-icon");
         win.find(".window-caption .icon").html(icon);
     },
 
     getIcon: function(){
-        var that = this, element = this.element, win = this.win, o = this.options;
-        return win.find(".window-caption .icon").html();
+        return this.win.find(".window-caption .icon").html();
     },
 
     getTitle: function(){
-        var that = this, element = this.element, win = this.win, o = this.options;
-        return win.find(".window-caption .title").html();
+        return this.win.find(".window-caption .title").html();
     },
 
     toggleDraggable: function(){
-        var that = this, element = this.element, win = this.win, o = this.options;
+        var element = this.element, win = this.win;
         var flag = JSON.parse(element.attr("data-draggable"));
         var drag = win.data("draggable");
         if (flag === true) {
@@ -21358,7 +27309,7 @@ var Window = {
     },
 
     toggleResizable: function(){
-        var that = this, element = this.element, win = this.win, o = this.options;
+        var element = this.element, win = this.win;
         var flag = JSON.parse(element.attr("data-resizable"));
         var resize = win.data("resizable");
         if (flag === true) {
@@ -21371,7 +27322,7 @@ var Window = {
     },
 
     changeTopLeft: function(a){
-        var that = this, element = this.element, win = this.win, o = this.options;
+        var element = this.element, win = this.win;
         var pos;
         if (a === "data-top") {
             pos = parseInt(element.attr("data-top"));
@@ -21389,8 +27340,8 @@ var Window = {
         }
     },
 
-    changePlace: function (a) {
-        var that = this, element = this.element, win = this.win, o = this.options;
+    changePlace: function () {
+        var element = this.element, win = this.win;
         var place = element.attr("data-place");
         win.addClass(place);
     },
@@ -21495,9 +27446,51 @@ Metro['window'] = {
 };
 
 // Source: js/plugins/wizard.js
+
+var WizardDefaultConfig = {
+    start: 1,
+    finish: 0,
+    iconHelp: "<span class='default-icon-help'></span>",
+    iconPrev: "<span class='default-icon-left-arrow'></span>",
+    iconNext: "<span class='default-icon-right-arrow'></span>",
+    iconFinish: "<span class='default-icon-check'></span>",
+
+    buttonMode: "cycle", // default, cycle, square
+    buttonOutline: true,
+
+    clsWizard: "",
+    clsActions: "",
+    clsHelp: "",
+    clsPrev: "",
+    clsNext: "",
+    clsFinish: "",
+
+    onPage: Metro.noop,
+    onNextPage: Metro.noop,
+    onPrevPage: Metro.noop,
+    onFirstPage: Metro.noop,
+    onLastPage: Metro.noop,
+    onFinishPage: Metro.noop,
+    onHelpClick: Metro.noop,
+    onPrevClick: Metro.noop,
+    onNextClick: Metro.noop,
+    onFinishClick: Metro.noop,
+    onBeforePrev: Metro.noop_true,
+    onBeforeNext: Metro.noop_true,
+    onWizardCreate: Metro.noop
+};
+
+Metro.wizardSetup = function (options) {
+    WizardDefaultConfig = $.extend({}, WizardDefaultConfig, options);
+};
+
+if (typeof window.metroWizardSetup !== undefined) {
+    Metro.wizardSetup(window.metroWizardSetup);
+}
+
 var Wizard = {
     init: function( options, elem ) {
-        this.options = $.extend( {}, this.options, options );
+        this.options = $.extend( {}, WizardDefaultConfig, options );
         this.elem  = elem;
         this.element = $(elem);
 
@@ -21505,34 +27498,6 @@ var Wizard = {
         this._create();
 
         return this;
-    },
-
-    options: {
-        start: 1,
-        finish: 0,
-        iconHelp: "<span class='default-icon-help'></span>",
-        iconPrev: "<span class='default-icon-left-arrow'></span>",
-        iconNext: "<span class='default-icon-right-arrow'></span>",
-        iconFinish: "<span class='default-icon-check'></span>",
-
-        buttonMode: "cycle", // default, cycle, square
-        buttonOutline: true,
-
-        clsWizard: "",
-        clsActions: "",
-        clsHelp: "",
-        clsPrev: "",
-        clsNext: "",
-        clsFinish: "",
-
-        onPage: Metro.noop,
-        onHelpClick: Metro.noop,
-        onPrevClick: Metro.noop,
-        onNextClick: Metro.noop,
-        onFinishClick: Metro.noop,
-        onBeforePrev: Metro.noop_true,
-        onBeforeNext: Metro.noop_true,
-        onWizardCreate: Metro.noop
     },
 
     _setOptionsFromDOM: function(){
@@ -21555,7 +27520,8 @@ var Wizard = {
         this._createWizard();
         this._createEvents();
 
-        Utils.exec(o.onWizardCreate, [element]);
+        Utils.exec(o.onWizardCreate, null, element[0]);
+        element.fire("wizardcreate");
     },
 
     _createWizard: function(){
@@ -21604,21 +27570,43 @@ var Wizard = {
         element.on(Metro.events.click, ".wizard-btn-help", function(){
             var pages = element.children("section");
             var page = pages.get(that.current - 1);
-            Utils.exec(o.onHelpClick, [that.current, page, element])
+            Utils.exec(o.onHelpClick, [that.current, page[0], element[0]]);
+            element.fire("helpclick", {
+                index: that.current,
+                page: page[0]
+            });
         });
 
         element.on(Metro.events.click, ".wizard-btn-prev", function(){
             that.prev();
-            Utils.exec(o.onPrevClick, [that.current, element])
+            var pages = element.children("section");
+            var page = pages.get(that.current - 1);
+            Utils.exec(o.onPrevClick, [that.current, page[0]], element[0]);
+            element.fire("prevclick", {
+                index: that.current,
+                page: page[0]
+            });
         });
 
         element.on(Metro.events.click, ".wizard-btn-next", function(){
             that.next();
-            Utils.exec(o.onNextClick, [that.current, element])
+            var pages = element.children("section");
+            var page = pages.get(that.current - 1);
+            Utils.exec(o.onNextClick, [that.current, page[0]], element[0]);
+            element.fire("nextclick", {
+                index: that.current,
+                page: page[0]
+            });
         });
 
         element.on(Metro.events.click, ".wizard-btn-finish", function(){
-            Utils.exec(o.onFinishClick, [that.current, element])
+            var pages = element.children("section");
+            var page = pages.get(that.current - 1);
+            Utils.exec(o.onFinishClick, [that.current, page[0]], element[0]);
+            element.fire("finishclick", {
+                index: that.current,
+                page: page[0]
+            });
         });
 
         element.on(Metro.events.click, ".complete", function(){
@@ -21643,6 +27631,13 @@ var Wizard = {
         this.current++;
 
         this.toPage(this.current);
+
+        page = $(element.children("section").get(this.current - 1));
+        Utils.exec(o.onNextPage, [this.current, page[0]], element[0]);
+        element.fire("nextpage", {
+            index: that.current,
+            page: page[0]
+        });
     },
 
     prev: function(){
@@ -21656,16 +27651,42 @@ var Wizard = {
         this.current--;
 
         this.toPage(this.current);
+
+        page = $(element.children("section").get(this.current - 1));
+        Utils.exec(o.onPrevPage, [this.current, page[0]], element[0]);
+        element.fire("prevpage", {
+            index: that.current,
+            page: page[0]
+        });
     },
 
     last: function(){
         var that = this, element = this.element, o = this.options;
+        var page;
 
         this.toPage(element.children("section").length);
+
+        page = $(element.children("section").get(this.current - 1));
+        Utils.exec(o.onLastPage, [this.current, page[0]], element[0]);
+        element.fire("lastpage", {
+            index: that.current,
+            page: page[0]
+        });
+
     },
 
     first: function(){
+        var that = this, element = this.element, o = this.options;
+        var page;
+
         this.toPage(1);
+
+        page = $(element.children("section").get(0));
+        Utils.exec(o.onFirstPage, [this.current, page[0]], element[0]);
+        element.fire("firstpage", {
+            index: that.current,
+            page: page[0]
+        });
     },
 
     toPage: function(page){
@@ -21704,6 +27725,14 @@ var Wizard = {
             finish.removeClass("disabled");
         }
 
+        if (parseInt(o.finish) > 0 && this.current === parseInt(o.finish)) {
+            Utils.exec(o.onFinishPage, [this.current, target[0]], element[0]);
+            element.fire("finishpage", {
+                index: this.current,
+                page: target[0]
+            });
+        }
+
         if (this.current < sections.length) {
             next.removeClass("disabled");
         }
@@ -21712,8 +27741,11 @@ var Wizard = {
             prev.removeClass("disabled");
         }
 
-        element.trigger("onpage", [this.current, target, element]);
-        Utils.exec(o.onPage, [this.current, target, element]);
+        Utils.exec(o.onPage, [this.current, target[0]], element[0]);
+        element.fire("page", {
+            index: this.current,
+            page: target[0]
+        });
     },
 
     changeAttribute: function(attributeName){
