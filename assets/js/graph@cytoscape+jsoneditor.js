@@ -75,6 +75,83 @@ function prepareData() {
     };
 }
 
+function initCxtCommands(){
+    // node
+    cy.cxtmenu({
+        selector: 'node',
+
+        commands: [
+            {
+                content: '<span class="mif-cross mif-lg"></span>',
+                select: function(ele){
+                    console.log( "delete node: " + ele.id() );
+                }
+            },
+
+            {
+                content: '<span class="mif-star mif-lg"></span>',
+                select: function(ele){
+                    console.log( ele.data('name') );
+                },
+                enabled: false
+            },
+
+            {
+                content: '<span class="mif-more-horiz mif-lg"></span>',
+                select: function(ele){
+                    console.log( "more info about node: " + ele.position() );
+                }
+            }
+        ]
+    });
+    // edge
+    cy.cxtmenu({
+        selector: 'edge',
+
+        commands: [
+            {
+                content: '<span class="mif-cross mif-lg"></span>',
+                select: function(ele){
+                    console.log( "delete edge: " + ele.id() );
+                }
+            },
+
+            {
+                content: '<span class="mif-star mif-lg"></span>',
+                select: function(ele){
+                    console.log( ele.data('name') );
+                },
+                enabled: false
+            },
+
+            {
+                content: '<span class="mif-more-horiz mif-lg"></span>',
+                select: function(ele){
+                    console.log( "more info about edge: " + ele.position() );
+                }
+            }
+        ]
+    });
+    // canvas
+    // cy.cxtmenu({
+    //     selector: 'core',
+    //     commands: [
+    //         {
+    //             content: '<span class="mif-add mif-lg"></span>',
+    //             select: function(ele){
+    //                 console.log( ele );
+    //             }
+    //         }//,
+    //         // {
+    //         //     content: 'bg2',
+    //         //     select: function(){
+    //         //         console.log( 'bg2' );
+    //         //     }
+    //         // }
+    //     ]
+    // });
+}
+
 function initVizContentControl(elementId) {
     cy = cytoscape({
         container: document.getElementById(elementId), // container to render in
@@ -85,11 +162,18 @@ function initVizContentControl(elementId) {
     // tap/click
     cy.on('tap', 'node', function (evt) {
         var node = evt.target;
-        console.log('Click/Tap on node:' + node);
+        console.log('Click/Tap on node:');
+        console.log(evt.target);
     });
     cy.on('tap', 'edge', function (evt) {
         var edge = evt.target;
-        console.log('Click/Tap on edge:' + edge);
+        console.log('Click/Tap on edge:');
+        console.log(evt.target);
+    });
+    cy.on('cxttap', null, function (evt) {
+        var edge = evt.target;
+        console.log('RightClick/TwoFingersTap:');
+        console.log(evt);
     });
 
     cy.on('drag', 'node', function (evt) {
@@ -99,6 +183,8 @@ function initVizContentControl(elementId) {
         current_json.elements.edges = _.takeWhile(ej, function(o) { return o.group == "edges"; });
         json_editor.set(current_json);
     });
+
+    initCxtCommands();
 }
 
 function initJsonEditor(elementId) {
