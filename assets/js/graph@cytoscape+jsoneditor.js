@@ -150,6 +150,7 @@ function initCxtCommands(){
     //         // }
     //     ]
     // });
+    var nav = cy.navigator(); // get navigator instance, nav
 }
 
 function initVizContentControl(elementId) {
