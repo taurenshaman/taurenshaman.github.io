@@ -9,7 +9,7 @@ var nodesArray, edgesArray;
 function prepareData() {
     nodesArray = [
         { data: { id: 1, label: 'Node in\nthe center', shape: 'text', font: { strokeWidth: 4 } }, position: { x: 0, y: 0 } },
-        { data: { id: 2, label: 'Node\nwith\nmultiple\nlines', shape: 'circle' } , position: { x: 0, y: 0 } },
+        { data: { id: 2, label: 'Node\nwith\nmultiple\nlines', shape: 'circle' }, position: { x: 0, y: 0 } },
         { data: { id: 3, label: 'This is a lot of text\nbut luckily we can spread\nover multiple lines', shape: 'database' }, position: { x: 0, y: 0 } },
         { data: { id: 4, label: 'This is text\non multiple lines', shape: 'box', x: 0, y: 0 } },
         { data: { id: 5, label: 'Little text', shape: 'ellipse', x: 0, y: 0 } },
@@ -48,7 +48,7 @@ function prepareData() {
         },
         style: [ // the stylesheet for the graph
             {
-                selector: 'node',
+                selector: 'node[label]',
                 style: {
                     'background-color': '#666',
                     'label': 'data(label)'
@@ -58,12 +58,61 @@ function prepareData() {
             {
                 selector: 'edge',
                 style: {
-                    'curve-style': 'haystack',
+                    'curve-style': 'bezier',
                     'width': 3,
                     'line-color': '#ccc',
                     'opacity': 0.666,
                     'target-arrow-color': '#ccc',
                     'target-arrow-shape': 'triangle'
+                }
+            },
+            // edge handler styles
+            {
+                selector: '.eh-handle',
+                style: {
+                    'background-color': 'orange',
+                    'width': 12,
+                    'height': 12,
+                    'shape': 'ellipse',
+                    'overlay-opacity': 0,
+                    'border-width': 12, // makes the handle easier to hit
+                    'border-opacity': 0
+                }
+            },
+            {
+                selector: '.eh-hover',
+                style: {
+                    'background-color': 'orange',
+                    'opacity': 0.6
+                }
+            },
+            {
+                selector: '.eh-source',
+                style: {
+                    'border-width': 2,
+                    'border-color': 'orange'
+                }
+            },
+            {
+                selector: '.eh-target',
+                style: {
+                    'border-width': 2,
+                    'border-color': 'orange'
+                }
+            },
+            {
+                selector: '.eh-preview, .eh-ghost-edge',
+                style: {
+                    'background-color': 'orange',
+                    'line-color': 'orange',
+                    'target-arrow-color': 'orange',
+                    'source-arrow-color': 'orange'
+                }
+            },
+            {
+                selector: '.eh-ghost-edge.eh-preview-active',
+                style: {
+                    'opacity': 0
                 }
             }
         ],
@@ -75,7 +124,7 @@ function prepareData() {
     };
 }
 
-function initCxtCommands(){
+function initCxtCommands() {
     // node
     cy.cxtmenu({
         selector: 'node',
@@ -83,23 +132,23 @@ function initCxtCommands(){
         commands: [
             {
                 content: '<span class="mif-cross mif-lg"></span>',
-                select: function(ele){
-                    console.log( "delete node: " + ele.id() );
+                select: function (ele) {
+                    console.log("delete node: " + ele.id());
                 }
             },
 
             {
                 content: '<span class="mif-star mif-lg"></span>',
-                select: function(ele){
-                    console.log( ele.data('name') );
+                select: function (ele) {
+                    console.log(ele.data('name'));
                 },
                 enabled: false
             },
 
             {
                 content: '<span class="mif-more-horiz mif-lg"></span>',
-                select: function(ele){
-                    console.log( "more info about node: " + ele.position() );
+                select: function (ele) {
+                    console.log("more info about node: " + ele.position());
                 }
             }
         ]
@@ -111,23 +160,23 @@ function initCxtCommands(){
         commands: [
             {
                 content: '<span class="mif-cross mif-lg"></span>',
-                select: function(ele){
-                    console.log( "delete edge: " + ele.id() );
+                select: function (ele) {
+                    console.log("delete edge: " + ele.id());
                 }
             },
 
             {
                 content: '<span class="mif-star mif-lg"></span>',
-                select: function(ele){
-                    console.log( ele.data('name') );
+                select: function (ele) {
+                    console.log(ele.data('name'));
                 },
                 enabled: false
             },
 
             {
                 content: '<span class="mif-more-horiz mif-lg"></span>',
-                select: function(ele){
-                    console.log( "more info about edge: " + ele.position() );
+                select: function (ele) {
+                    console.log("more info about edge: " + ele.position());
                 }
             }
         ]
@@ -150,7 +199,7 @@ function initCxtCommands(){
     //         // }
     //     ]
     // });
-    var nav = cy.navigator(); // get navigator instance, nav
+
 }
 
 function initVizContentControl(elementId) {
@@ -179,13 +228,42 @@ function initVizContentControl(elementId) {
 
     cy.on('drag', 'node', function (evt) {
         var ej = cy.elements().jsons();
-        // console.log(ej);
-        current_json.elements.nodes = _.takeWhile(ej, function(o) { return o.group == "nodes"; });
-        current_json.elements.edges = _.takeWhile(ej, function(o) { return o.group == "edges"; });
+        current_json.elements.nodes = _.filter(ej, function (o) { return o.group === "nodes"; });
+        current_json.elements.edges = _.filter(ej, function (o) { return o.group === "edges"; });
         json_editor.set(current_json);
     });
 
+    // https://github.com/cytoscape/cytoscape.js-cxtmenu
     initCxtCommands();
+    // https://github.com/cytoscape/cytoscape.js-edgehandles
+    let eh = cy.edgehandles({
+        noEdgeEventsInDraw: true,
+        complete: function( sourceNode, targetNode, addedEles ){
+            // fired when edgehandles is done and elements are added
+            // console.log("source:");
+            // console.log(sourceNode);
+            // console.log("target:");
+            // console.log(targetNode);
+            // console.log("addedElement:");
+            // console.log(addedEles);
+            var newEdge = addedEles.data();
+            //console.log(newEdge);
+            // 如果不适用正则表达式，_.replace只替换第一个符合的项
+            newEdge.id = _.replace(newEdge.id, new RegExp("-","g"), '');
+            edgesArray.push({
+                data: newEdge
+            });
+            current_json.elements.edges = edgesArray;
+            json_editor.set(current_json);
+            cy.json(current_json);
+            // test // ok:20190520
+            // var ej = cy.elements().jsons();
+            // var edges = _.filter(ej, function (o) { return o.group === "edges"; });
+            // console.log(edges);
+        },
+    });
+
+    var nav = cy.navigator(); // get navigator instance, nav
 }
 
 function initJsonEditor(elementId) {
