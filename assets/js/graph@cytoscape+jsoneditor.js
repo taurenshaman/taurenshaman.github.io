@@ -5,6 +5,7 @@ var current_json;
 
 var cy;
 var nodesArray, edgesArray;
+var position_TapHold;
 
 function prepareData() {
     nodesArray = [
@@ -238,23 +239,30 @@ function initCxtCommands() {
         ]
     });
     // canvas
-    // cy.cxtmenu({
-    //     selector: 'core',
-    //     commands: [
-    //         {
-    //             content: '<span class="mif-add mif-lg"></span>',
-    //             select: function(ele){
-    //                 console.log( ele );
-    //             }
-    //         }//,
-    //         // {
-    //         //     content: 'bg2',
-    //         //     select: function(){
-    //         //         console.log( 'bg2' );
-    //         //     }
-    //         // }
-    //     ]
-    // });
+    cy.cxtmenu({
+        selector: 'core',
+        commands: [
+            {
+                content: '<span class="mif-add mif-lg"></span>',
+                select: function(ele){
+                    // var pos = ele.getCenterPan();
+                    // console.log(pos);
+                    // pos = ele.renderedPosition;
+                    // console.log(pos);
+                    // console.log(cy);
+                    // console.log(ele);
+                    createNode(position_TapHold.x, position_TapHold.y, "Node.abc");
+                    // console.log( "New node at position: (" + pos.x + ", " + pos.y + ")" );
+                }
+            }//,
+            // {
+            //     content: 'bg2',
+            //     select: function(){
+            //         console.log( 'bg2' );
+            //     }
+            // }
+        ]
+    });
 
 }
 
@@ -267,19 +275,22 @@ function initVizContentControl(elementId) {
     });
     // tap/click
     cy.on('tap', 'node', function (evt) {
-        var node = evt.target;
-        console.log('Click/Tap on node:');
-        console.log(evt.target);
+        // var node = evt.target;
+        // console.log('Click/Tap on node:');
+        // console.log(evt.target);
     });
     cy.on('tap', 'edge', function (evt) {
-        var edge = evt.target;
-        console.log('Click/Tap on edge:');
-        console.log(evt.target);
+        // var edge = evt.target;
+        // console.log('Click/Tap on edge:');
+        // console.log(evt.target);
     });
     cy.on('cxttap', null, function (evt) {
-        var edge = evt.target;
-        console.log('RightClick/TwoFingersTap:');
-        console.log(evt);
+        // var edge = evt.target;
+        // console.log('RightClick/TwoFingersTap:');
+        // console.log(evt);
+    });
+    cy.on('taphold', null, function (evt) {
+        position_TapHold = evt.position;
     });
 
     cy.on('drag', 'node', function (evt) {
@@ -342,6 +353,21 @@ function initJsonEditor(elementId) {
         }
     };
     json_editor = new JSONEditor(container, options);
+}
+
+function createNode(x, y, label){
+    var id = _.uuid();
+    id = _.replace(id, new RegExp("-", "g"), '');
+    nodesArray.push({
+        data: {
+            id: id,
+            label: label
+        },
+        position: { x: x, y: y } 
+    });
+    current_json.elements.nodes = nodesArray;
+    json_editor.set(current_json);
+    cy.json(current_json);
 }
 
 function copyCyData(copyNodes, copyEdges, copyConfig) {
