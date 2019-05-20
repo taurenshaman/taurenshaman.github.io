@@ -133,7 +133,35 @@ function initCxtCommands() {
             { // delete
                 content: '<span class="mif-cross mif-lg"></span>',
                 select: function (ele) {
-                    console.log("delete node: " + ele.id());
+                    var itemId = ele.id();
+                    console.log("delete node: " + itemId);
+                    Metro.dialog.create({
+                        title: "Are you sure to DELETE the node?",
+                        content: "<div>Node: id = " + itemId + "</div>",
+                        actions: [
+                            {
+                                caption: "OK",
+                                cls: "js-dialog-close alert",
+                                onclick: function () {
+                                    var toDelete = cy.filter(function (element, i) {
+                                        return element.isNode() && element.data('id') == itemId;
+                                    });
+                                    cy.remove(toDelete);
+                                    // copy and update JsonEditor
+                                    copyCyData(true, true, false);
+                                    json_editor.set(current_json);
+                                    console.log("delete node: " + itemId + "... DONE!");
+                                }
+                            },
+                            {
+                                caption: "Cancel",
+                                cls: "js-dialog-close",
+                                onclick: function () {
+                                    console.log("delete node: " + itemId + "... CANCELLED!");
+                                }
+                            }
+                        ]
+                    });
                 }
             },
 
@@ -161,30 +189,31 @@ function initCxtCommands() {
             { // delete
                 content: '<span class="mif-cross mif-lg"></span>',
                 select: function (ele) {
-                    var edgeId = ele.id();
-                    console.log("delete edge: " + edgeId);
+                    var itemId = ele.id();
+                    console.log("delete edge: " + itemId);
                     Metro.dialog.create({
                         title: "Are you sure to DELETE the edge?",
-                        content: "<div>Edge: id = " + edgeId + "</div>",
+                        content: "<div>Edge: id = " + itemId + "</div>",
                         actions: [
                             {
                                 caption: "OK",
                                 cls: "js-dialog-close alert",
-                                onclick: function(){
-                                    var edges = current_json.elements.edges;
-                                    var delEdge = _.remove(current_json.elements.edges, function(item) {
-                                        return item.data.id == edgeId;
-                                      });
-                                    cy.json(current_json);
+                                onclick: function () {
+                                    var toDelete = cy.filter(function (element, i) {
+                                        return element.isEdge() && element.data('id') == itemId;
+                                    });
+                                    cy.remove(toDelete);
+                                    // copy and update JsonEditor
+                                    copyCyData(false, true, false);
                                     json_editor.set(current_json);
-                                    console.log("delete edge: " + edgeId + "... DONE!");
+                                    console.log("delete edge: " + itemId + "... DONE!");
                                 }
                             },
                             {
                                 caption: "Cancel",
                                 cls: "js-dialog-close",
-                                onclick: function(){
-                                    console.log("delete edge: " + ele.id() + "... CANCELLED!");
+                                onclick: function () {
+                                    console.log("delete edge: " + itemId + "... CANCELLED!");
                                 }
                             }
                         ]
@@ -254,9 +283,7 @@ function initVizContentControl(elementId) {
     });
 
     cy.on('drag', 'node', function (evt) {
-        var ej = cy.elements().jsons();
-        current_json.elements.nodes = _.filter(ej, function (o) { return o.group === "nodes"; });
-        current_json.elements.edges = _.filter(ej, function (o) { return o.group === "edges"; });
+        copyCyData(true, true, false);
         json_editor.set(current_json);
     });
 
@@ -265,7 +292,7 @@ function initVizContentControl(elementId) {
     // https://github.com/cytoscape/cytoscape.js-edgehandles
     let eh = cy.edgehandles({
         noEdgeEventsInDraw: true,
-        complete: function( sourceNode, targetNode, addedEles ){
+        complete: function (sourceNode, targetNode, addedEles) {
             // fired when edgehandles is done and elements are added
             // console.log("source:");
             // console.log(sourceNode);
@@ -276,7 +303,7 @@ function initVizContentControl(elementId) {
             var newEdge = addedEles.data();
             //console.log(newEdge);
             // 如果不适用正则表达式，_.replace只替换第一个符合的项
-            newEdge.id = _.replace(newEdge.id, new RegExp("-","g"), '');
+            newEdge.id = _.replace(newEdge.id, new RegExp("-", "g"), '');
             edgesArray.push({
                 data: newEdge
             });
@@ -315,6 +342,19 @@ function initJsonEditor(elementId) {
         }
     };
     json_editor = new JSONEditor(container, options);
+}
+
+function copyCyData(copyNodes, copyEdges, copyConfig) {
+    var ej = cy.elements().jsons();
+    if (copyNodes === true) {
+        current_json.elements.nodes = _.filter(ej, function (o) { return o.group === "nodes"; });
+    }
+    if (copyEdges === true) {
+        current_json.elements.edges = _.filter(ej, function (o) { return o.group === "edges"; });
+    }
+    if (copyConfig === true) {
+        // TODO
+    }
 }
 
 $(document).ready(function () {
