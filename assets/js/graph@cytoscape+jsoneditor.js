@@ -130,22 +130,22 @@ function initCxtCommands() {
         selector: 'node',
 
         commands: [
-            {
+            { // delete
                 content: '<span class="mif-cross mif-lg"></span>',
                 select: function (ele) {
                     console.log("delete node: " + ele.id());
                 }
             },
 
-            {
-                content: '<span class="mif-star mif-lg"></span>',
+            { // edit
+                content: '<span class="mif-pencil mif-lg"></span>',
                 select: function (ele) {
                     console.log(ele.data('name'));
                 },
                 enabled: false
             },
 
-            {
+            { // more
                 content: '<span class="mif-more-horiz mif-lg"></span>',
                 select: function (ele) {
                     console.log("more info about node: " + ele.position());
@@ -158,22 +158,49 @@ function initCxtCommands() {
         selector: 'edge',
 
         commands: [
-            {
+            { // delete
                 content: '<span class="mif-cross mif-lg"></span>',
                 select: function (ele) {
-                    console.log("delete edge: " + ele.id());
+                    var edgeId = ele.id();
+                    console.log("delete edge: " + edgeId);
+                    Metro.dialog.create({
+                        title: "Are you sure to DELETE the edge?",
+                        content: "<div>Edge: id = " + edgeId + "</div>",
+                        actions: [
+                            {
+                                caption: "OK",
+                                cls: "js-dialog-close alert",
+                                onclick: function(){
+                                    var edges = current_json.elements.edges;
+                                    var delEdge = _.remove(current_json.elements.edges, function(item) {
+                                        return item.data.id == edgeId;
+                                      });
+                                    cy.json(current_json);
+                                    json_editor.set(current_json);
+                                    console.log("delete edge: " + edgeId + "... DONE!");
+                                }
+                            },
+                            {
+                                caption: "Cancel",
+                                cls: "js-dialog-close",
+                                onclick: function(){
+                                    console.log("delete edge: " + ele.id() + "... CANCELLED!");
+                                }
+                            }
+                        ]
+                    });
                 }
             },
 
-            {
-                content: '<span class="mif-star mif-lg"></span>',
+            { // edit
+                content: '<span class="mif-pencil mif-lg"></span>',
                 select: function (ele) {
                     console.log(ele.data('name'));
                 },
                 enabled: false
             },
 
-            {
+            { // more info
                 content: '<span class="mif-more-horiz mif-lg"></span>',
                 select: function (ele) {
                     console.log("more info about edge: " + ele.position());
