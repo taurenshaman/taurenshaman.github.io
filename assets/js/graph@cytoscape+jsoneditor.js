@@ -14,9 +14,9 @@ function prepareData() {
         { data: { id: 3, label: 'This is a lot of text\nbut luckily we can spread\nover multiple lines', shape: 'database' }, position: { x: 0, y: 0 } },
         { data: { id: 4, label: 'This is text\non multiple lines', shape: 'box', x: 0, y: 0 } },
         { data: { id: 5, label: 'Little text', shape: 'ellipse', x: 0, y: 0 } },
-        { data: { id: 6, font: { multi: true }, label: '<b>This</b> is a\n<i>default</i> <b><i>multi-</i>font</b> <code>label</code>', shape: 'box' }, position: { x: 0, y: 0 } },
-        { data: { id: 7, font: { multi: 'html', size: 20 }, label: '<b>This</b> is an\n<i>html</i> <b><i>multi-</i>font</b> <code>label</code>', shape: 'box' }, position: { x: 0, y: 0 } },
-        { data: { id: 8, font: { multi: 'md', face: 'georgia' }, label: '*This* is a\n_markdown_ *_multi-_ font* `label`', shape: 'box' }, position: { x: 0, y: 0 } },
+        { data: { id: 6, font: { multi: true }, label: '<b>This</b> is a\n<i>default</i> <b><i>multi-</i>font</b> <code>label</code>', shape: 'box', contentType: 'html' }, position: { x: 0, y: 0 } },
+        { data: { id: 7, font: { multi: 'html', size: 20 }, label: '<b>This</b> is an\n<i>html</i> <b><i>multi-</i>font</b> <code>label</code>', shape: 'box', contentType: 'html' }, position: { x: 0, y: 0 } },
+        { data: { id: 8, font: { multi: 'md', face: 'georgia' }, label: '*This* is a\n_markdown_ *_multi-_ font* `label`', shape: 'box', contentType: 'markdown' }, position: { x: 0, y: 0 } },
         { data: { id: 11, label: 'star', shape: 'star' }, position: { x: 0, y: 0 } },
         { data: { id: 12, font: { size: 30 }, size: 40, label: 'big star', shape: 'star' }, position: { x: 0, y: 0 } }
     ];
@@ -30,8 +30,8 @@ function prepareData() {
         { data: { source: 1, target: 11 } },
         { data: { source: 11, target: 12, dashes: true, width: 1, length: 200 } },
 
-        { data: { source: 5, target: 6, font: { multi: true }, label: "multi: <b>true</b>" } },
-        { data: { source: 5, target: 7, font: { multi: "md" }, label: "*multi*: _md_" } },
+        { data: { source: 5, target: 6, font: { multi: true }, label: "multi: <b>true</b>", contentType: 'html' } },
+        { data: { source: 5, target: 7, font: { multi: "md" }, label: "*multi*: _md_", contentType: 'markdown' } },
         { data: { source: 5, target: 8, label: "simple" } }
     ];
 
@@ -48,6 +48,23 @@ function prepareData() {
             edges: edgesArray
         },
         style: [ // the stylesheet for the graph
+            // {
+            //     selector: 'node',
+            //     style: {
+            //         'width': '20px',
+            //         'height': '20px',
+            //         // 'text-wrap': 'wrap',
+            //         // 'text-max-width': '200px',
+            //         "overlay-padding": "5px",
+            //         "overlay-opacity": 0,
+            //         "z-index": 10,
+            //         "border-width": 2,
+            //         "border-opacity": 0,
+            //         'background-color': '#acf',
+            //         'border-width': 1,
+            //         'border-color': '#69c'
+            //     }
+            // },
             {
                 selector: 'node[label]',
                 style: {
@@ -60,11 +77,12 @@ function prepareData() {
                 selector: 'edge',
                 style: {
                     'curve-style': 'bezier',
-                    'width': 3,
-                    'line-color': '#ccc',
-                    'opacity': 0.666,
-                    'target-arrow-color': '#ccc',
-                    'target-arrow-shape': 'triangle'
+                    'width': 1.3,
+                    'line-color': '#666',
+                    'opacity': 1,
+                    'target-arrow-color': '#666',
+                    'target-arrow-shape': 'vee',
+                    'target-arrow-color': '#666',
                 }
             },
             // edge handler styles
@@ -244,7 +262,7 @@ function initCxtCommands() {
         commands: [
             {
                 content: '<span class="mif-add mif-lg"></span>',
-                select: function(ele){
+                select: function (ele) {
                     // var pos = ele.getCenterPan();
                     // console.log(pos);
                     // pos = ele.renderedPosition;
@@ -269,6 +287,7 @@ function initCxtCommands() {
 function initVizContentControl(elementId) {
     cy = cytoscape({
         container: document.getElementById(elementId), // container to render in
+        zoom: 1,
         elements: current_json.elements,
         style: current_json.style,
         layout: current_json.layout
@@ -297,6 +316,29 @@ function initVizContentControl(elementId) {
         copyCyData(true, true, false);
         json_editor.set(current_json);
     });
+
+    // node label in html
+    // https://github.com/kaluginserg/cytoscape-node-html-label
+    // cy.nodeHtmlLabel([
+    //     {
+    //         query: 'node[contentType="html"]',
+    //         cssClass: 'cy-title',
+    //         valign: "top",
+    //         valignBox: "top",
+    //         tpl: function (data) {
+    //             return '<p class="cy-title">' + data.label + '</p>';
+    //         }
+    //     },
+    //     {
+    //         query: 'node',
+    //         //cssClass: 'cy-title',
+    //         valign: "top",
+    //         valignBox: "top",
+    //         tpl: function (data) {
+    //             return data.label;
+    //         }
+    //     }
+    // ]);
 
     // https://github.com/cytoscape/cytoscape.js-cxtmenu
     initCxtCommands();
@@ -328,7 +370,7 @@ function initVizContentControl(elementId) {
         },
     });
 
-    var nav = cy.navigator(); // get navigator instance, nav
+    //var nav = cy.navigator(); // get navigator instance, nav
 }
 
 function initJsonEditor(elementId) {
@@ -355,7 +397,7 @@ function initJsonEditor(elementId) {
     json_editor = new JSONEditor(container, options);
 }
 
-function createNode(x, y, label){
+function createNode(x, y, label) {
     var id = _.uuid();
     id = _.replace(id, new RegExp("-", "g"), '');
     nodesArray.push({
@@ -363,7 +405,7 @@ function createNode(x, y, label){
             id: id,
             label: label
         },
-        position: { x: x, y: y } 
+        position: { x: x, y: y }
     });
     current_json.elements.nodes = nodesArray;
     json_editor.set(current_json);
