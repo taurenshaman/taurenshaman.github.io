@@ -178,7 +178,8 @@ function initVizContentControl(elementId) {
                 class: Table,
                 inlineToolbar: true,
                 shortcut: 'CMD+ALT+T'
-            }
+            },
+            cytoscape: CytoscapeModule
         },
         data: current_json.blocks,
         onChange: function () {
