@@ -3,7 +3,7 @@
         {
             "data": {
                 "id": 1,
-                "label": "Node in\nthe center",
+                "title": "Node in\nthe center",
                 "shape": "text",
                 "font": {
                     "strokeWidth": 4
@@ -17,7 +17,7 @@
         {
             "data": {
                 "id": 2,
-                "label": "Node\nwith\nmultiple\nlines",
+                "title": "Node\nwith\nmultiple\nlines",
                 "shape": "circle"
             },
             "position": {
@@ -28,7 +28,7 @@
         {
             "data": {
                 "id": 3,
-                "label": "This is a lot of text\nbut luckily we can spread\nover multiple lines",
+                "title": "This is a lot of text\nbut luckily we can spread\nover multiple lines",
                 "shape": "database"
             },
             "position": {
@@ -39,7 +39,7 @@
         {
             "data": {
                 "id": 4,
-                "label": "This is text\non multiple lines",
+                "title": "This is text\non multiple lines",
                 "shape": "box",
                 "x": 0,
                 "y": 0
@@ -48,7 +48,7 @@
         {
             "data": {
                 "id": 5,
-                "label": "Little text",
+                "title": "Little text",
                 "shape": "ellipse",
                 "x": 0,
                 "y": 0
@@ -57,7 +57,7 @@
         {
             "data": {
                 "id": 6,
-                "label": "<b>This</b> is a\n<i>default</i> <b><i>multi-</i>font</b> <code>label</code>",
+                "title": "<b>This</b> is a\n<i>default</i> <b><i>multi-</i>font</b> <code>label</code>",
                 "shape": "box",
                 "contentType": "html"
             },
@@ -69,7 +69,7 @@
         {
             "data": {
                 "id": 7,
-                "label": "<b>This</b> is an\n<i>html</i> <b><i>multi-</i>font</b> <code>label</code>",
+                "title": "<b>This</b> is an\n<i>html</i> <b><i>multi-</i>font</b> <code>label</code>",
                 "shape": "box",
                 "contentType": "html"
             },
@@ -81,7 +81,7 @@
         {
             "data": {
                 "id": 8,
-                "label": "*This* is a\n_markdown_ *_multi-_ font* `label`",
+                "title": "*This* is a\n_markdown_ *_multi-_ font* `label`",
                 "shape": "box",
                 "contentType": "markdown"
             },
@@ -93,7 +93,7 @@
         {
             "data": {
                 "id": 11,
-                "label": "star",
+                "title": "star",
                 "shape": "star"
             },
             "position": {
@@ -104,7 +104,7 @@
         {
             "data": {
                 "id": 12,
-                "label": "big star",
+                "title": "big star",
                 "shape": "star"
             },
             "position": {
@@ -137,7 +137,7 @@
                 "target": 4,
                 "width": 1,
                 "length": 200,
-                "label": "I\\'m an edge!"
+                "title": "I\\'m an edge!"
             }
         },
         {
@@ -146,7 +146,7 @@
                 "target": 5,
                 "width": 3,
                 "length": 200,
-                "label": "arrows\nare cool"
+                "title": "arrows\nare cool"
             }
         },
         {
@@ -167,7 +167,7 @@
             "data": {
                 "source": 5,
                 "target": 6,
-                "label": "multi: <b>true</b>",
+                "title": "multi: <b>true</b>",
                 "contentType": "html"
             }
         },
@@ -175,7 +175,7 @@
             "data": {
                 "source": 5,
                 "target": 7,
-                "label": "*multi*: _md_",
+                "title": "*multi*: _md_",
                 "contentType": "markdown"
             }
         },
@@ -183,7 +183,7 @@
             "data": {
                 "source": 5,
                 "target": 8,
-                "label": "simple"
+                "title": "simple"
             }
         }
     ]
