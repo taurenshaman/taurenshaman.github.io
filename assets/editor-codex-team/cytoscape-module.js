@@ -18,9 +18,9 @@ var cyStyles = [ // the stylesheet for the graph
         }
     },
     {
-        selector: 'node[name]',
+        selector: 'node[title]',
         style: {
-            'label': 'data(name)'
+            'label': 'data(title)'
         }
     },
 
@@ -33,7 +33,7 @@ var cyStyles = [ // the stylesheet for the graph
             "opacity": 0.9,
             "overlay-padding": "3px",
             "overlay-opacity": 0,
-            "label": "data(name)",
+            "label": "data(title)",
             "font-family": "FreeSet,Arial,sans-serif",
             "font-size": 9,
             "font-weight": "bold",
@@ -41,17 +41,86 @@ var cyStyles = [ // the stylesheet for the graph
             "text-background-color": "#ffffff",
             "text-background-padding": 3,
             "text-background-shape": "roundrectangle",
-            "width": 1
+            "width": 1,
+            "target-arrow-shape": "vee"
         }
     }
 ];
 
+var cyLayoutOptions = {
+    cose: {
+        name: 'cose',
+        padding: 100,
+        nodeOverlap: 10,
+        idealEdgeLength: function (edge) {
+            // switch (edge.data().type) {
+            //     case 1 :
+            //         return 30;
+            //     case 2 :
+            //     case 3 :
+            //         return 120;
+            //     case 0 :
+            //     default :
+            //         return 45;
+            // }
+            return _.random(40, 130);
+        },
+        edgeElasticity: function (edge) {
+            // switch (edge.data().type) {
+            //     case 1 :
+            //         return 50;
+            //     case 2 :
+            //     case 3 :
+            //         return 200;
+            //     case 0 :
+            //     default :
+            //         return 100;
+            // }
+            return _.random(80, 260);
+        },
+        nestingFactor: 1.2,
+        initialTemp: 1000,
+        coolingFactor: 0.99,
+        minTemp: 1.0,
+        gravity: 1.4
+    },
+    grid: {
+        name: "grid"
+    },
+    random: {
+        name: "random"
+    },
+    spread: {
+        name: "spread"
+    }
+};
+
 
 class CytoscapeModule {
     constructor({ data, api }) {
-        this.data = data;
+        this.data = {
+            dataUri: data.dataUri,
+            layout: data.layout,
+            stretched: data.stretched !== undefined ? data.stretched : false
+        };
         this.api = api;
         this.wrapper = undefined;
+        this.settings = [
+            {
+                name: 'stretched',
+                title: 'Stretch',
+                icon: `<svg width="17" height="10" viewBox="0 0 17 10" xmlns="http://www.w3.org/2000/svg"><path d="M13.568 5.925H4.056l1.703 1.703a1.125 1.125 0 0 1-1.59 1.591L.962 6.014A1.069 1.069 0 0 1 .588 4.26L4.38.469a1.069 1.069 0 0 1 1.512 1.511L4.084 3.787h9.606l-1.85-1.85a1.069 1.069 0 1 1 1.512-1.51l3.792 3.791a1.069 1.069 0 0 1-.475 1.788L13.514 9.16a1.125 1.125 0 0 1-1.59-1.591l1.644-1.644z"/></svg>`
+            }// ,
+            // {
+            //     name: 'fullScreen',
+            //     title: 'Full Screen',
+            //     icon: `<svg xmlns="http://www.w3.org/2000/svg" height="48" width="48" viewBox="0 0 48 48">
+            //   <g>
+            //     <path id="path1" transform="rotate(0,24,24) translate(11.0000193714818,11) scale(0.81249883771109,0.81249883771109)" d="M11.585977,18.999021L12.999977,20.41302 3.4147511,30.000045 9.999999,30.000045 9.999999,32.000045 0,32.000045 0,22.000045 2,22.000045 2,28.586798z M20.414059,18.998996L29.999999,28.586804 29.999999,22.000045 31.999999,22.000045 31.999999,32.000045 21.999999,32.000045 21.999999,30.000045 28.585288,30.000045 18.999996,20.412996z M21.999999,0L31.999999,0 31.999999,9.999999 29.999999,9.999999 29.999999,3.4131746 20.413977,13.001045 18.999977,11.587039 28.585168,2 21.999999,2z M0,0L9.999999,0 9.999999,2 3.4148293,2 13.000021,11.587039 11.586021,13.001045 2,3.4131756 2,9.999999 0,9.999999z" />
+            //   </g>
+            // </svg>`
+            // }
+        ];
     }
 
     static get toolbox() {
@@ -62,11 +131,36 @@ class CytoscapeModule {
         };
     }
 
+    renderSettings() {
+        const wrapper = document.createElement('div');
+
+        this.settings.forEach(tune => {
+            let button = document.createElement('div');
+
+            // button.classList.add('cdx-settings-button');
+            // button.classList.toggle('cdx-settings-button--active', this.data[tune.name]);
+            button.classList.add(this.api.styles.settingsButton);
+            button.classList.toggle(this.api.styles.settingsButtonActive, this.data[tune.name]);
+
+            button.innerHTML = tune.icon;
+            button.setAttribute("title", tune.name);
+            wrapper.appendChild(button);
+
+            button.addEventListener('click', () => {
+                this._toggleTune(tune.name);
+                //button.classList.toggle('cdx-settings-button--active');
+                button.classList.toggle(this.api.styles.settingsButtonActive);
+            });
+        });
+
+        return wrapper;
+    }
+
     render() {
         this.wrapper = document.createElement('div');
         this.wrapper.classList.add('cytoscape-module');
         if (this.data && this.data.dataUri && this.data.layout) {
-            this._createCytoscape();
+            this._createCytoscape(this.data.dataUri, this.data.layout);
             return this.wrapper;
         }
 
@@ -82,76 +176,164 @@ class CytoscapeModule {
         inputDataUrl.placeholder = 'Paste an data URL...';
         inputLayout.placeholder = 'layout name: spread/random/grid';
 
-        inputDataUrl.value = this.data && this.data.dataUri ? this.data.dataUri : '';
+        inputDataUrl.value = this.data && this.data.dataUri ? this.data.dataUri : "";
         inputLayout.value = this.data && this.data.layout ? this.data.layout : 'spread';
+        //this.data.dataUri = "https://raw.githubusercontent.com/taurenshaman/taurenshaman.github.io/master/data/cytoscape-0.json";
         this.data.layout = 'spread';
 
         inputDataUrl.addEventListener('paste', (event) => {
             //this._createImage(event.clipboardData.getData('text'));
             this.data.dataUri = event.clipboardData.getData('text');
-            this._createCytoscape();
+            //this.data.dataUri = inputDataUrl.value;
+            //this._createCytoscape();
         });
         inputLayout.addEventListener('paste', (event) => {
             //this._createImage(event.clipboardData.getData('text'));
             this.data.layout = event.clipboardData.getData('text');
-            this._createCytoscape();
+            //this.data.layout = inputLayout.value;
+            //this._createCytoscape();
+        });
+
+        inputDataUrl.addEventListener('keyup', (event) => {
+            if (event.keyCode === 13) {
+                this.data.dataUri = inputDataUrl.value;
+                //this._createCytoscape();
+            }
+
+        });
+        inputLayout.addEventListener('keyup', (event) => {
+            if (event.keyCode === 13) {
+                this.data.layout = inputLayout.value;
+                //this._createCytoscape();
+            }
         });
 
         return this.wrapper;
     }
 
-    _createCytoscape() {
-        console.log(this.data);
-        var dataUri = this.data.dataUri.trim();
-        var layoutName = this.data.layout.trim();
-        if (!dataUri || !layoutName) {
-            return;
+    _toggleTune(tune) {
+        this.data[tune] = !this.data[tune];
+        this._acceptTuneView();
+    }
+
+    _acceptTuneView() {
+        this.settings.forEach( tune => {
+            this.wrapper.classList.toggle(tune.name, !!this.data[tune.name]);
+            if (tune.name === 'stretched') {
+                this.api.blocks.stretchBlock(this.api.blocks.getCurrentBlockIndex(), !!this.data.stretched);
+                if(this.cy){
+                    this.cy.resize();
+                    this.cy.center();
+                }
+            }
+        });
+    }
+
+    _computeHash(str) {
+        var hash = 0;
+        if (str.length === 0) {
+            return hash;
         }
+        for (var i = 0; i < str.length; i++) {
+            var char = str.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash; // Convert to 32bit integer
+        }
+        return hash;
+    }
 
-        // download json from dataUri, e.g. https://kaluginserg.github.io/cytoscape-node-html-label/demo/sample-dataset.js
-        // ...
-        var elementsData = sampleDataset;
+    _initCyLayout(divLayout){
+        const combo = document.createElement('div');
+    }
 
-        var id = _.uuid();
-        id = _.replace(id, new RegExp("-", "g"), '');
-        // var now = new Date();
-        // var id = now.format("yyyy_MM_dd_hh_mm_ss");
-
+    _initCytoscape(data, divId) {
+        // cy core
         const divCy = document.createElement('div');
-        divCy.setAttribute("id", "divCy_" + id);
+        divCy.setAttribute("id", divId);
         divCy.setAttribute("style", "min-height: 500px; min-width: 500px;");
         divCy.classList.add('w-100');
         divCy.classList.add('h-100');
         divCy.classList.add('border');
         divCy.classList.add('bd-default');
 
+        // cy layout
+        const divCyLayout = document.createElement('div');
+        _initCyLayout(divCyLayout);
+
         this.wrapper.innerHTML = '';
         this.wrapper.appendChild(divCy);
+        this.wrapper.appendChild(divCyLayout);
+
+        var layoutName = this.data.layout.trim();
 
         var cy = cytoscape({
             container: divCy, //document.getElementById(elementId), // container to render in
             zoom: 1,
-            elements: elementsData,
+            elements: data,
             style: cyStyles,
             layout: {
                 name: layoutName
             }
         });
+        this.cy = cy;
+    }
+
+    _createCytoscape(dataUri, layoutName) {
+        if (!dataUri || !layoutName) {
+            return;
+        }
+
+        //dataUri = "https://raw.githubusercontent.com/taurenshaman/taurenshaman.github.io/master/data/cytoscape-0.json";
+        var uriHash = this._computeHash(dataUri);// + "#" + layoutName
+        var divCyId = "divCy_" + uriHash;
+        var exists = document.getElementById(divCyId);
+        if (exists) {
+            return;
+        }
+
+        console.log("read to get: " + dataUri);
+        var req = new XMLHttpRequest();
+        req.open('GET', dataUri);
+        req.onload = () => {
+            if (req.status === 200) {
+                var j = JSON.parse(req.response);
+                console.log(j);
+                this._initCytoscape(j, divCyId);
+            } else {
+                console.log(req.statusText);
+            }
+            this._acceptTuneView();
+        };
+        req.send();
     }
 
     save(blockContent) {
         //const input = blockContent.querySelector('input');
-        const inputDataUri = blockContent.querySelector('.data_uri');
-        const inputLayout = blockContent.querySelector('.graph_layout');
+        // const inputDataUri = blockContent.querySelector('.data_uri');
+        // const inputLayout = blockContent.querySelector('.graph_layout');
 
-        return {
-            dataUri: inputDataUri.value,
-            layout: inputLayout.value
-        };
+        // var dataUri = inputDataUri.value;
+        // var layoutName = inputLayout.value;
+        // console.log(layoutName + ": " + dataUri);
+
+        var dataUri = this.data.dataUri;
+        var layoutName = this.data.layout;
+        console.log(layoutName + ": " + dataUri);
+
+        this._createCytoscape(dataUri, layoutName);
+
+        // return {
+        //     dataUri: dataUri,
+        //     layout: layoutName
+        // };
+        return Object.assign(this.data, {
+            dataUri: dataUri,
+            layout: layoutName
+        });
     }
 
     validate(savedData) {
-        if (!savedData.dataUri.trim() || !savedData.layout.trim()) {
+        if (!savedData.dataUri || !savedData.layout || !savedData.dataUri.trim() || !savedData.layout.trim()) {
             return false;
         }
         return true;
