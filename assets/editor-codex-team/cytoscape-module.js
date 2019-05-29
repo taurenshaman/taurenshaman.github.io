@@ -1,5 +1,5 @@
 
-var cyStyles = [ // the stylesheet for the graph
+const cyStyles = [ // the stylesheet for the graph
     {
         selector: 'node',
         style: {
@@ -47,7 +47,7 @@ var cyStyles = [ // the stylesheet for the graph
     }
 ];
 
-var cyLayoutOptions = {
+const cyLayoutOptions = {
     cose: {
         name: 'cose',
         padding: 100,
@@ -110,7 +110,10 @@ class CytoscapeModule {
                 name: 'stretched',
                 title: 'Stretch',
                 icon: `<svg width="17" height="10" viewBox="0 0 17 10" xmlns="http://www.w3.org/2000/svg"><path d="M13.568 5.925H4.056l1.703 1.703a1.125 1.125 0 0 1-1.59 1.591L.962 6.014A1.069 1.069 0 0 1 .588 4.26L4.38.469a1.069 1.069 0 0 1 1.512 1.511L4.084 3.787h9.606l-1.85-1.85a1.069 1.069 0 1 1 1.512-1.51l3.792 3.791a1.069 1.069 0 0 1-.475 1.788L13.514 9.16a1.125 1.125 0 0 1-1.59-1.591l1.644-1.644z"/></svg>`
-            }// ,
+            },
+            // fullScreen
+            // bug 1: when exit, the height of contianer will be stretched to the screen height
+            // bug 2: the background color is white in FullScreen. Tried but not work: https://stackoverflow.com/questions/16163089/background-element-goes-black-when-entering-fullscreen-with-html5
             // {
             //     name: 'fullScreen',
             //     title: 'Full Screen',
@@ -143,13 +146,18 @@ class CytoscapeModule {
             button.classList.toggle(this.api.styles.settingsButtonActive, this.data[tune.name]);
 
             button.innerHTML = tune.icon;
-            button.setAttribute("title", tune.name);
+            button.setAttribute("title", tune.title);
             wrapper.appendChild(button);
 
             button.addEventListener('click', () => {
-                this._toggleTune(tune.name);
-                //button.classList.toggle('cdx-settings-button--active');
-                button.classList.toggle(this.api.styles.settingsButtonActive);
+                if(tune.name === "fullScreen"){
+                    requestFullScreen(this.wrapper);
+                } // fullScreen
+                else{
+                    this._toggleTune(tune.name);
+                    //button.classList.toggle('cdx-settings-button--active');
+                    button.classList.toggle(this.api.styles.settingsButtonActive);
+                }
             });
         });
 
@@ -221,12 +229,16 @@ class CytoscapeModule {
             this.wrapper.classList.toggle(tune.name, !!this.data[tune.name]);
             if (tune.name === 'stretched') {
                 this.api.blocks.stretchBlock(this.api.blocks.getCurrentBlockIndex(), !!this.data.stretched);
-                if(this.cy){
-                    this.cy.resize();
-                    this.cy.center();
-                }
+                this._tryRefreshCyAfterResize();
             }
         });
+    }
+
+    _tryRefreshCyAfterResize(){
+        if(this.cy){
+            this.cy.resize();
+            this.cy.center();
+        }
     }
 
     _computeHash(str) {
@@ -242,11 +254,34 @@ class CytoscapeModule {
         return hash;
     }
 
+    _setupFullScreen(){
+        if (this.wrapper.addEventListener){ // listen to exitFullScreen
+            this.wrapper.addEventListener('webkitfullscreenchange', () => { this._tryRefreshCyAfterResize(); }, false);
+            this.wrapper.addEventListener('mozfullscreenchange', () => { this._tryRefreshCyAfterResize(); }, false);
+            this.wrapper.addEventListener('fullscreenchange', () => { this._tryRefreshCyAfterResize(); }, false);
+            this.wrapper.addEventListener('MSFullscreenChange', () => { this._tryRefreshCyAfterResize(); }, false);
+        }
+        // change bg to white(default: black) while fullscreen
+        // var css = `*:fullscreen, *:-webkit-full-screen, *:-moz-full-screen, *:-ms-full-screen {
+        //     background-color: rgba(255,255,255,0.5);
+        // }`;
+        // var style = document.createElement('style');
+        // if (style.styleSheet) {
+        //     style.styleSheet.cssText = css;
+        // } else {
+        //     style.appendChild(document.createTextNode(css));
+        // }
+        // this.wrapper.appendChild(style);
+    }
+
     _initCyLayout(divLayout){
-        const combo = document.createElement('div');
+        //const combo = document.createElement('div');
     }
 
     _initCytoscape(data, divId) {
+        // container
+        //this.divCytoscapeModuleContainer = document.createElement('div');
+
         // cy core
         const divCy = document.createElement('div');
         divCy.setAttribute("id", divId);
@@ -258,11 +293,14 @@ class CytoscapeModule {
 
         // cy layout
         const divCyLayout = document.createElement('div');
-        _initCyLayout(divCyLayout);
+        this._initCyLayout(divCyLayout);
 
         this.wrapper.innerHTML = '';
         this.wrapper.appendChild(divCy);
         this.wrapper.appendChild(divCyLayout);
+        this.wrapper.classList.add('support-full-screen');
+
+        this._setupFullScreen();
 
         var layoutName = this.data.layout.trim();
 
