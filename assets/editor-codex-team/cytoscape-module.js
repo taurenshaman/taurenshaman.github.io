@@ -189,20 +189,14 @@ class CytoscapeModule {
         }
 
         const inputDataUrl = document.createElement('input');
-        //const inputLayout = document.createElement('input');
-
         inputDataUrl.classList.add('w-100');
-        //inputLayout.classList.add('graph_layout');
 
         this.wrapper.appendChild(inputDataUrl);
-        //this.wrapper.appendChild(inputLayout);
 
         inputDataUrl.placeholder = 'Paste an data URL...';
-        //inputLayout.placeholder = 'layout name: spread/random/grid';
-
         inputDataUrl.value = this.data && this.data.dataUri ? this.data.dataUri : "";
-        //inputLayout.value = this.data && this.data.layout ? this.data.layout : 'spread';
-        //this.data.dataUri = "https://raw.githubusercontent.com/taurenshaman/taurenshaman.github.io/master/data/cytoscape-0.json";
+
+        // defualt layout
         this.data.layout = 'spread';
 
         inputDataUrl.addEventListener('paste', (event) => {
@@ -211,12 +205,6 @@ class CytoscapeModule {
             //this.data.dataUri = inputDataUrl.value;
             //this._createCytoscape();
         });
-        // inputLayout.addEventListener('paste', (event) => {
-        //     //this._createImage(event.clipboardData.getData('text'));
-        //     this.data.layout = event.clipboardData.getData('text');
-        //     //this.data.layout = inputLayout.value;
-        //     //this._createCytoscape();
-        // });
 
         inputDataUrl.addEventListener('keyup', (event) => {
             if (event.keyCode === 13) {
@@ -225,12 +213,6 @@ class CytoscapeModule {
             }
 
         });
-        // inputLayout.addEventListener('keyup', (event) => {
-        //     if (event.keyCode === 13) {
-        //         this.data.layout = inputLayout.value;
-        //         //this._createCytoscape();
-        //     }
-        // });
 
         return this.wrapper;
     }
@@ -333,7 +315,7 @@ class CytoscapeModule {
         divCy.classList.add('w-100');
         divCy.classList.add('h-100');
         divCy.classList.add('border');
-        divCy.classList.add('bd-default');
+        divCy.classList.add('bd-lightGray');
 
         // cy layout
         const divCyLayout = document.createElement('div');
@@ -392,11 +374,7 @@ class CytoscapeModule {
     save(blockContent) {
         //const input = blockContent.querySelector('input');
         // const inputDataUri = blockContent.querySelector('.data_uri');
-        // const inputLayout = blockContent.querySelector('.graph_layout');
-
         // var dataUri = inputDataUri.value;
-        // var layoutName = inputLayout.value;
-        // console.log(layoutName + ": " + dataUri);
 
         var dataUri = this.data.dataUri;
         var layoutName = this.data.layout;
