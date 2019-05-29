@@ -48,6 +48,21 @@ const cyStyles = [ // the stylesheet for the graph
 ];
 
 const cyLayoutOptions = {
+    breadthfirst: {
+        name: "breadthfirst"
+    },
+    circle: {
+        name: "circle"
+    },
+    concentric: {
+        name: "concentric",
+        concentric: function( node ){
+            return node.degree();
+        },
+        levelWidth: function( nodes ){
+            return nodes.maxDegree() / 4;
+        }
+    },
     cose: {
         name: 'cose',
         padding: 100,
@@ -91,7 +106,8 @@ const cyLayoutOptions = {
         name: "random"
     },
     spread: {
-        name: "spread"
+        name: "spread",
+        minDist: 40
     }
 };
 
@@ -173,19 +189,19 @@ class CytoscapeModule {
         }
 
         const inputDataUrl = document.createElement('input');
-        const inputLayout = document.createElement('input');
+        //const inputLayout = document.createElement('input');
 
-        inputDataUrl.classList.add('data_uri');
-        inputLayout.classList.add('graph_layout');
+        inputDataUrl.classList.add('w-100');
+        //inputLayout.classList.add('graph_layout');
 
         this.wrapper.appendChild(inputDataUrl);
-        this.wrapper.appendChild(inputLayout);
+        //this.wrapper.appendChild(inputLayout);
 
         inputDataUrl.placeholder = 'Paste an data URL...';
-        inputLayout.placeholder = 'layout name: spread/random/grid';
+        //inputLayout.placeholder = 'layout name: spread/random/grid';
 
         inputDataUrl.value = this.data && this.data.dataUri ? this.data.dataUri : "";
-        inputLayout.value = this.data && this.data.layout ? this.data.layout : 'spread';
+        //inputLayout.value = this.data && this.data.layout ? this.data.layout : 'spread';
         //this.data.dataUri = "https://raw.githubusercontent.com/taurenshaman/taurenshaman.github.io/master/data/cytoscape-0.json";
         this.data.layout = 'spread';
 
@@ -195,12 +211,12 @@ class CytoscapeModule {
             //this.data.dataUri = inputDataUrl.value;
             //this._createCytoscape();
         });
-        inputLayout.addEventListener('paste', (event) => {
-            //this._createImage(event.clipboardData.getData('text'));
-            this.data.layout = event.clipboardData.getData('text');
-            //this.data.layout = inputLayout.value;
-            //this._createCytoscape();
-        });
+        // inputLayout.addEventListener('paste', (event) => {
+        //     //this._createImage(event.clipboardData.getData('text'));
+        //     this.data.layout = event.clipboardData.getData('text');
+        //     //this.data.layout = inputLayout.value;
+        //     //this._createCytoscape();
+        // });
 
         inputDataUrl.addEventListener('keyup', (event) => {
             if (event.keyCode === 13) {
@@ -209,12 +225,12 @@ class CytoscapeModule {
             }
 
         });
-        inputLayout.addEventListener('keyup', (event) => {
-            if (event.keyCode === 13) {
-                this.data.layout = inputLayout.value;
-                //this._createCytoscape();
-            }
-        });
+        // inputLayout.addEventListener('keyup', (event) => {
+        //     if (event.keyCode === 13) {
+        //         this.data.layout = inputLayout.value;
+        //         //this._createCytoscape();
+        //     }
+        // });
 
         return this.wrapper;
     }
@@ -274,8 +290,36 @@ class CytoscapeModule {
         // this.wrapper.appendChild(style);
     }
 
+    _buildSelectOption(eleSelect, optionValue, optionTitle){
+        const opt = document.createElement('option');
+        opt.setAttribute("value", optionValue);
+        opt.text = optionTitle;
+        // append to select
+        eleSelect.appendChild(opt);
+        return opt;
+    }
+
     _initCyLayout(divLayout){
-        //const combo = document.createElement('div');
+        const eleSelect = document.createElement('select');
+        eleSelect.setAttribute("data-role", "select");
+        // init options list
+        this._buildSelectOption(eleSelect, "breadthfirst", "breadthfirst");
+        this._buildSelectOption(eleSelect, "circle", "circle");
+        this._buildSelectOption(eleSelect, "concentric", "concentric");
+        this._buildSelectOption(eleSelect, "cose", "cose");
+        this._buildSelectOption(eleSelect, "grid", "grid");
+        this._buildSelectOption(eleSelect, "random", "random");
+        var defaultLayout = this._buildSelectOption(eleSelect, "spread", "spread");
+        defaultLayout.setAttribute("selected", "selected");
+        // onchange
+        eleSelect.onchange = (event)=>{
+            var selectElement = event.target;
+            this.data.layout = selectElement.value;
+            var tmp = this.cy.layout(cyLayoutOptions[selectElement.value]);
+            tmp.run();
+        };
+        // append to div
+        divLayout.appendChild(eleSelect);
     }
 
     _initCytoscape(data, divId) {

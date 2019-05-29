@@ -107,7 +107,8 @@ function prepareData() {
     ];
 
     current_json = {
-        blocks: itemsArray
+        blocks: itemsArray,
+        version: "2.13.0"
     };
 }
 
@@ -181,7 +182,9 @@ function initVizContentControl(elementId) {
             },
             cytoscape: CytoscapeModule
         },
-        data: current_json.blocks,
+
+        data: current_json,
+        
         onChange: function () {
             editor.save().then((savedData) => {
                 current_json = savedData;
