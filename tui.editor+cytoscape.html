@@ -8,10 +8,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 
     <!-- Site Properties -->
-    <title>Rich Text Content Editor of Editor.js@codex-team + jsoneditor</title>
+    <title>cytoscape.js in tui.editor</title>
 
     <link rel="stylesheet" type="text/css" href="https://cdn.metroui.org.ua/v4/css/metro-all.min.css">
-    <link rel="stylesheet" type="text/css" href="https://taurenshaman.github.io/assets/jsoneditor/jsoneditor.min.css">
+    <link rel="stylesheet" href="https://uicdn.toast.com/tui-editor/latest/tui-editor.min.css" />
+    <link rel="stylesheet" href="https://uicdn.toast.com/tui-editor/latest/tui-editor-contents.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.33.0/codemirror.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css" />
     <link rel="stylesheet" type="text/css" href="assets/css/site.css?v=201905290952">
 
     
@@ -43,25 +46,16 @@
     <script src="assets/editor-codex-team/warning.min.js"></script> -->
 
 
-    <script src="https://cdn.jsdelivr.net/npm/@editorjs/header@latest"></script><!-- Header -->
-    <script src="https://cdn.jsdelivr.net/npm/@editorjs/image@latest"></script><!-- Image -->
-    <script src="https://cdn.jsdelivr.net/npm/@editorjs/delimiter@latest"></script><!-- Delimiter -->
-    <script src="https://cdn.jsdelivr.net/npm/@editorjs/list@latest"></script><!-- List -->
-    <script src="https://cdn.jsdelivr.net/npm/@editorjs/checklist@latest"></script><!-- Checklist -->
-    <script src="https://cdn.jsdelivr.net/npm/@editorjs/quote@latest"></script><!-- Quote -->
-    <script src="https://cdn.jsdelivr.net/npm/@editorjs/code@latest"></script><!-- Code -->
-    <script src="https://cdn.jsdelivr.net/npm/@editorjs/embed@latest"></script><!-- Embed -->
-    <script src="https://cdn.jsdelivr.net/npm/@editorjs/table@latest"></script><!-- Table -->
-    <script src="https://cdn.jsdelivr.net/npm/@editorjs/link@latest"></script><!-- Link -->
-    <script src="https://cdn.jsdelivr.net/npm/@editorjs/warning@latest"></script><!-- Warning -->
-    <script src="https://cdn.jsdelivr.net/npm/@editorjs/marker@latest"></script><!-- Marker -->
-    <script src="https://cdn.jsdelivr.net/npm/@editorjs/inline-code@latest"></script><!-- Inline Code -->
-    <script src="https://cdn.jsdelivr.net/npm/@editorjs/editorjs@latest"></script><!-- Editor.js's Core -->
-    <script src="assets/editor-codex-team/cytoscape-module.js"></script>
+    <script src="https://uicdn.toast.com/tui.code-snippet/latest/tui-code-snippet.min.js"></script><!--scrollSync需要用到这里面的函数-->
+    <script src=https://cdnjs.cloudflare.com/ajax/libs/markdown-it/9.0.1/markdown-it.min.js></script>
+    <script src="https://uicdn.toast.com/tui-editor/latest/tui-editor-Editor-full.js"></script>
+    <script src="https://uicdn.toast.com/tui-editor/latest/tui-editor-extScrollSync.min.js"></script>
+
+    <script src="assets/tui.editor/cytoscape-module.js"></script>
     <script src="https://kaluginserg.github.io/cytoscape-node-html-label/demo/sample-dataset.js"></script>
 
     <script src="assets/js/site.js?v=20180912"></script>
-    <script src="assets/js/editor@codexteam+jsoneditor.js"></script>
+    
 </head>
 
 <body>
@@ -72,18 +66,21 @@
             Try add cytoscape: DataUri: https://raw.githubusercontent.com/taurenshaman/taurenshaman.github.io/master/data/cytoscape-0.json
         </div>
         <div class="row">
-            <div data-role="splitter" class="w-100 h-100" data-min-sizes="100" style="min-height: 500px;">
+            <!-- <div data-role="splitter" class="w-100 h-100" data-min-sizes="100" style="min-height: 500px;">
                 <div class="d-flex flex-justify-center flex-align-center">
                     <div id="jsoneditor" class="w-100 h-100 p-3"></div>
                 </div>
                 <div class="d-flex flex-justify-center flex-align-center">
                     <div id="editorContainer" class="w-100 h-100 p-3"></div>
                 </div>
+            </div> -->
+            <div class="cell-12 d-flex flex-justify-center flex-align-center" style="min-height: 500px;">
+                <div id="editorContainer" class="w-100 h-100 p-3"></div>
             </div>
         </div>
     </div>
 
     <div id="footerline"></div>
 </body>
-
+<script src="assets/js/tui.editor+cytoscape.js"></script>
 </html>
