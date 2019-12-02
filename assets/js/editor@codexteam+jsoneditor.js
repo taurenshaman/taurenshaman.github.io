@@ -8,6 +8,20 @@ var editor;
 function prepareData() {
     itemsArray = [
         {
+            "type": "paragraph",
+            "data": {
+                "text": "Hello <b>editor.js</b> + <b>cytoscape</b>"
+            }
+        },
+        {
+            "type": "cytoscape",
+            "data": {
+                "dataUri": "https://raw.githubusercontent.com/taurenshaman/taurenshaman.github.io/master/data/cytoscape-0.json",
+                "layout": "spread",
+                "stretched": false
+            }
+        },
+        {
             "type": "header",
             "data": {
                 "text": "Editor.js",
@@ -184,12 +198,12 @@ function initVizContentControl(elementId) {
         },
 
         data: current_json,
-        
+
         onChange: function () {
             editor.save().then((savedData) => {
                 current_json = savedData;
                 json_editor.set(current_json);
-              });
+            });
         }
     });
 }
