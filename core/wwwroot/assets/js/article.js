@@ -22,8 +22,8 @@ function init(articlesData) {
 	});
 }
 
-function initArticle(){
-	$("#article-title").val(json.title);
+function initArticle() {
+	document.getElementById("article-title").textContent = json.title;
 	viewer.setMarkdown(json.content);
 }
 

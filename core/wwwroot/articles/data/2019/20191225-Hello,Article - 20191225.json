@@ -1,10 +1,10 @@
 {
     "title": "Hello,Article - 20191225",
-    "content": "Hello, Lore\n\n## Mind 01\n\n```lorecard.mind\ndata: https://localhost:44356/jerin/mind/aafc2741a83444e9910c680c0b384cf9 \n```\n\n## Section 01\n\n\n```lorecard.section\ndata: https://localhost:44356/jerin/section/d5aa9d79566d4469bf22c116a1a212a6\n```\n\n## Mind 02\n\n```lorecard.mind\ndata: https://localhost:44356/jerin/mind/f21703588cca4cea96f8931442e3df22\n```\n\n## Section 02\n\n```lorecard.section\ndata: https://localhost:44356/jerin/section/ce8aef74bbb54a34884dfeac272c331e\n```\n\n## Dialog 01\n\n```lorecard.dialog\ndata: https://localhost:44356/jerin/dialog/58ee56d6fe8f410db871b954441513d3\n```\n\n## Dialog 02\n\n```lorecard.dialog\ndata: https://localhost:44356/jerin/dialog/b51f46f41f894c9a9d43859a756ef1b7\n```\n\nHello, Lore\n",
+    "content": "Hello, Lore\n\n测试：思维导图\n## Mind 01\n\n```lorecard.mind\ndata: https://lore.chuci.info/taurenshaman/mind/b87789af835a4c58b506084415d3ad5f \n```\n\n测试：摘抄\n## Section 01\n\n\n```lorecard.section\ndata: https://lore.chuci.info/taurenshaman/section/327ebb4c524f47e4b5494789b8cb8026\n```\n\n测试：对话流\n## Dialog 01\n\n```lorecard.dialog\ndata: https://lore.chuci.info/taurenshaman/dialog/fdc80cbf83314f0c8a87c8913987ed91\n```\n\nHello, Lore\n",
     "contentType": "markdown",
     "author": {
         "userName": "jerin",
         "homepage": "https://lore.chuci.info/jerin"
     },
-    "modifiedAt": "2019-12-25T09:13:58Z"
+    "modifiedAt": "2020-01-03T05:02:15Z"
 }
