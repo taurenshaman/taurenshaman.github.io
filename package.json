@@ -1,0 +1,27 @@
+{
+  "name": "taurenshaman.github.io",
+  "version": "1.0.0",
+  "description": "my website",
+  "main": "index.html",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/taurenshaman/taurenshaman.github.io.git"
+  },
+  "author": "Jerin Lee",
+  "license": "UNLICENSED",
+  "bugs": {
+    "url": "https://github.com/taurenshaman/taurenshaman.github.io/issues"
+  },
+  "homepage": "https://github.com/taurenshaman/taurenshaman.github.io#readme",
+  "devDependencies": {
+    "@babel/cli": "^7.4.4",
+    "@babel/core": "^7.4.5",
+    "@babel/preset-env": "^7.4.5"
+  },
+  "dependencies": {
+    "@babel/polyfill": "^7.4.4"
+  }
+}

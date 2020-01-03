@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <Platforms>AnyCPU;x64</Platforms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.StaticFiles" Version="2.2.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="wwwroot\articles\2019.html" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="apps\" />
+  </ItemGroup>
+
+</Project>
