@@ -1,4 +1,5 @@
 {
+	"id": "8cf6dec1082740e8b63ced0ac7286b72",
     "title": "#2020001: Hello article, blocks style",
     "content": {
         "time": 1579075404150,
@@ -62,5 +63,7 @@
         "userName": "jerin",
         "homepage": "https://lore.chuci.info/jerin"
     },
-    "modifiedAt": "2020-01-15T08:03:24Z"
+	"createdAt": "2020-01-15T08:03:24Z",
+    "modifiedAt": "2020-01-15T08:03:24Z",
+	"version": 1
 }

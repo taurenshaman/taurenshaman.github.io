@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <!-- Standard Meta -->
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+
+    <!-- Site Properties -->
+    <title>Rich Text Content Editor of Editor.js@codex-team + KaTeX</title>
+
+    <link rel="stylesheet" type="text/css" href="https://cdn.metroui.org.ua/v4/css/metro-all.min.css">
+    <link rel="stylesheet" type="text/css" href="https://taurenshaman.github.io/assets/jsoneditor/jsoneditor.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.11.1/dist/katex.min.css"
+        integrity="sha384-zB1R0rpPzHqg7Kpt0Aljp8JPLqbXI3bhnPWROx27a9N0Ll6ZP/+DiW/UqRcLbRjq" crossorigin="anonymous">
+    <link rel="stylesheet" type="text/css" href="../assets/css/site.css?v=201905290952">
+
+
+    <!-- <script data-main="assets/js/main-editor-codexteam" src="assets/js/require.js"></script> -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+    <script src="https://cdn.metroui.org.ua/v4/js/metro.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.11/lodash.min.js"></script>
+    <script src="../assets/js/lodash-uuid.js"></script>
+    <script src="../assets/js/full-screen.js"></script>
+    <script src="https://taurenshaman.github.io/assets/js/weaver.min.js"></script>
+    <script src="https://taurenshaman.github.io/assets/jsoneditor/jsoneditor.min.js"></script>
+    <script src="../assets/js/full-screen.js"></script>
+
+
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/header@latest"></script><!-- Header -->
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/image@latest"></script><!-- Image -->
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/delimiter@latest"></script><!-- Delimiter -->
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/list@latest"></script><!-- List -->
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/checklist@latest"></script><!-- Checklist -->
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/quote@latest"></script><!-- Quote -->
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/code@latest"></script><!-- Code -->
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/embed@latest"></script><!-- Embed -->
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/table@latest"></script><!-- Table -->
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/link@latest"></script><!-- Link -->
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/warning@latest"></script><!-- Warning -->
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/marker@latest"></script><!-- Marker -->
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/inline-code@latest"></script><!-- Inline Code -->
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/editorjs@latest"></script><!-- Editor.js's Core -->
+
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.11.1/dist/katex.min.js"
+        integrity="sha384-y23I5Q6l+B6vatafAwxRu/0oK/79VlbSz7Q9aiSZUvyWYIYsd+qj+o24G5ZU2zJz"
+        crossorigin="anonymous"></script>
+    <script src="../assets/editor-codex-team/katex-module.js"></script>
+
+    <script src="../assets/js/site.js?v=20180912"></script>
+</head>
+
+<body>
+    <div id="headerline"></div>
+
+    <div class="container grid" style="margin-top: 70px;">
+        <div class="row">
+            \f{x} = \int_{-\infty}^\infty
+    \hat \f\xi\,e^{2 \pi i \xi x}
+    \,d\xi
+        </div>
+        <div class="row">
+            <div data-role="splitter" class="w-100 h-100" data-min-sizes="100"  data-split-sizes="30, 70" style="min-height: 500px;">
+                <div class="d-flex flex-justify-center flex-align-center">
+                    <div id="jsoneditor" class="w-100 h-100 p-3"></div>
+                </div>
+                <div class="d-flex flex-justify-center flex-align-center">
+                    <div id="editorContainer" class="w-100 h-100 p-3 border bd-light"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="footerline"></div>
+</body>
+
+<script>
+    var json_editor;
+    var current_json;
+
+    var itemsArray;
+
+    var editor;
+
+    function initVizContentControl(elementId) {
+        editor = new EditorJS({
+            /** 
+             * Id of Element that should contain the Editor 
+             */
+            holder: elementId,
+
+            /** 
+             * Available Tools list. 
+             * Pass Tool's class or Settings object for each Tool you want to use 
+             */
+            tools: {
+                /**
+               * Each Tool is a Plugin. Pass them via 'class' option with necessary settings {@link docs/tools.md}
+               */
+                header: {
+                    class: Header,
+                    inlineToolbar: ['link'],
+                    config: {
+                        placeholder: 'Header'
+                    },
+                    shortcut: 'CMD+SHIFT+H'
+                },
+                /**
+                 * Or pass class directly without any configuration
+                 */
+                image: {
+                    class: ImageTool,
+                },
+                list: {
+                    class: List,
+                    inlineToolbar: true,
+                    shortcut: 'CMD+SHIFT+L'
+                },
+                checklist: {
+                    class: Checklist,
+                    inlineToolbar: true,
+                },
+                quote: {
+                    class: Quote,
+                    inlineToolbar: true,
+                    config: {
+                        quotePlaceholder: 'Enter a quote',
+                        captionPlaceholder: 'Quote\'s author',
+                    },
+                    shortcut: 'CMD+SHIFT+O'
+                },
+                warning: Warning,
+                marker: {
+                    class: Marker,
+                    shortcut: 'CMD+SHIFT+M'
+                },
+                code: {
+                    class: CodeTool,
+                    shortcut: 'CMD+SHIFT+C'
+                },
+                delimiter: Delimiter,
+                inlineCode: {
+                    class: InlineCode,
+                    shortcut: 'CMD+SHIFT+C'
+                },
+                linkTool: LinkTool,
+                embed: Embed,
+                table: {
+                    class: Table,
+                    inlineToolbar: true,
+                    shortcut: 'CMD+ALT+T'
+                },
+                katex: KatexModule
+            },
+
+            //data: current_json,
+
+            onChange: function () {
+                editor.save().then((savedData) => {
+                    current_json = savedData;
+                    json_editor.set(current_json);
+                });
+            }
+        });
+    }
+
+    function initJsonEditor(elementId) {
+        var container = document.getElementById(elementId);
+        var options = {
+            mode: 'code',
+            modes: ['code', 'form', 'text', 'tree', 'view'], // allowed modes
+            onError: function (err) {
+                alert(err.toString());
+            },
+            onChangeText: function (jsonString) {
+                var json = JSON.parse(jsonString);
+                if (json === undefined || !json || _.isEqual(json, current_json))
+                    return;
+
+                current_json = json;
+
+                // itemsDS.clear();
+                // itemsDS.add(current_json["items"]);
+
+                // vis_timeline.setOptions(optionsData);
+            }
+        };
+        json_editor = new JSONEditor(container, options);
+    }
+
+    $(document).ready(function () {
+        //prepareData();
+
+        initJsonEditor("jsoneditor");
+        //json_editor.set(current_json);
+
+        initVizContentControl("editorContainer");
+
+        //editor.focus();
+    });
+
+</script>
+
+</html>

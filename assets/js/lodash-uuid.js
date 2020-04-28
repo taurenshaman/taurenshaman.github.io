@@ -34,6 +34,11 @@
             });
         };
 
+        extendWith.plainUUID = function () {
+            var id = extendWith.uuid();
+            return id.replace(/-/g, '');
+        };
+
         /**
          * _.isUuid4
          *

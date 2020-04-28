@@ -1,4 +1,5 @@
 {
+	"id": "920d9dca34ce463cbe1e3075ce3051b1",
     "title": "Article - 20200103",
     "content": "\n```lorecard.section\ndata: https://localhost:44356/jerin/section/d5aa9d79566d4469bf22c116a1a212a6\n```\n\n",
     "contentType": "markdown",
@@ -6,5 +7,7 @@
         "userName": "jerin",
         "homepage": "https://lore.chuci.info/jerin"
     },
-    "modifiedAt": "2020-01-03T05:30:41Z"
+	"createdAt": "2020-01-03T05:30:41Z",
+    "modifiedAt": "2020-01-03T05:30:41Z",
+	"version": 1
 }

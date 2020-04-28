@@ -1,4 +1,5 @@
 {
+	"id": "eaa079a469d04f0094dbd5b3ffcD0e9d",
     "title": "Hello,Article - 20191225",
     "content": "Hello, Lore\n\n测试：思维导图\n## Mind 01\n\n```lorecard.mind\ndata: https://lore.chuci.info/taurenshaman/mind/b87789af835a4c58b506084415d3ad5f \n```\n\n测试：摘抄\n## Section 01\n\n\n```lorecard.section\ndata: https://lore.chuci.info/taurenshaman/section/327ebb4c524f47e4b5494789b8cb8026\n```\n\n测试：对话流\n## Dialog 01\n\n```lorecard.dialog\ndata: https://lore.chuci.info/taurenshaman/dialog/fdc80cbf83314f0c8a87c8913987ed91\n```\n\nHello, Lore\n",
     "contentType": "markdown",
@@ -6,5 +7,7 @@
         "userName": "jerin",
         "homepage": "https://lore.chuci.info/jerin"
     },
-    "modifiedAt": "2020-01-03T05:02:15Z"
+	"createdAt": "2020-01-03T05:02:15Z",
+    "modifiedAt": "2020-01-03T05:02:15Z",
+	"version": 1
 }
