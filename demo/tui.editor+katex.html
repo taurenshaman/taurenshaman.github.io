@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <!-- Standard Meta -->
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+
+    <!-- Site Properties -->
+    <title>Katex in tui.editor</title>
+
+    <link rel="stylesheet" type="text/css" href="../assets/metro/css/metro-all.min.css?v=4.3.6">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.48.4/codemirror.min.css" />
+    <link rel="stylesheet" href="https://uicdn.toast.com/editor/latest/toastui-editor.min.css?v=2.1" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.11.1/dist/katex.min.css"
+        integrity="sha384-zB1R0rpPzHqg7Kpt0Aljp8JPLqbXI3bhnPWROx27a9N0Ll6ZP/+DiW/UqRcLbRjq" crossorigin="anonymous">
+
+    <link rel="stylesheet" type="text/css" href="../assets/css/site.css?v=201905290952">
+</head>
+
+<body>
+    <div id="headerline"></div>
+
+    <div class="container grid" style="margin-top: 10px;">
+        <div class="row">
+            \f{x} = \int_{-\infty}^\infty
+            \hat \f\xi\,e^{2 \pi i \xi x}
+            \,d\xi
+        </div>
+        <div class="row">
+            <div class="cell-12 d-flex flex-justify-center flex-align-center"
+                style="min-height: 700px; margin-bottom: 10px;">
+                <div id="editorContainer" class="w-100 h-100 p-3"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="footerline"></div>
+</body>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+<script src="../assets/metro/js/metro.min.js?v=4.3.6"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.11/lodash.min.js"></script>
+<script src="https://taurenshaman.github.io/assets/js/lodash-uuid.js"></script>
+<script src="../assets/js/full-screen.js"></script>
+
+<script src="https://uicdn.toast.com/editor/latest/toastui-editor-all.min.js?v=2.1"></script>
+<!-- <script src="https://uicdn.toast.com/editor/latest/toastui-jquery-editor.min.js"></script> -->
+
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.11.1/dist/katex.min.js"
+    integrity="sha384-y23I5Q6l+B6vatafAwxRu/0oK/79VlbSz7Q9aiSZUvyWYIYsd+qj+o24G5ZU2zJz"
+    crossorigin="anonymous"></script>
+<script src="../assets/tui.editor/katex-module.js"></script>
+
+<script src="../assets/js/site.js?v=20180912"></script>
+
+<script>
+    //const Editor = toastui.Editor;
+    //const { Editor } = toastui;
+
+    const tuiEditor = new toastui.Editor({
+       el: document.querySelector('#editorContainer'),
+       usageStatistics: false,
+       initialEditType: 'markdown',
+       previewStyle: 'vertical',
+       height: '500px',
+       plugins: [katexPlugin]
+    });
+
+// Using Method: Customize the first button
+const toolbar = tuiEditor.getUI().getToolbar();
+
+tuiEditor.eventManager.addEventType('katexButton');
+tuiEditor.eventManager.listen('katexButton', function() {
+    let content = [
+                '',
+                '```' + 'katex',
+                'f{x} = \\int_{-\\infty}^\\infty',
+                '    \\hat f\\xi\,e^{2 \\pi i \\xi x}',
+                '    \\,d\\xi',
+                '```',
+                ''
+              ].join('\n');
+              tuiEditor.insertText(content);
+});
+
+toolbar.insertItem(0, {
+  type: 'button',
+  options: {
+    //className: 'first',
+    event: 'katexButton',
+    tooltip: 'Katex',
+    text: '∑',
+    style: 'background:none; color: black;'
+  }
+});
+
+</script>
+
+</html>
