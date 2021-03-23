@@ -9,9 +9,9 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cryptocoins-icons@2.9.0/webfont/cryptocoins.css" />
 	<script type="text/javascript">
 		const pageData = {
-			username: "payhub",
-			nickname: "PayHub",
-			avatar: "https://robohash.org/payhub.png",
+			username: "taurenshaman",
+			nickname: "堆烟·雷云纹",
+			avatar: "https://robohash.org/taurenshaman.png",
 			accounts: [
 				// Too High Fees!!!
 				// {
@@ -102,18 +102,34 @@
 
 <body>
 	<header data-role="appbar" data-expand-point="md" style="position: static;">
-		<a href="https://github.com/taurenshaman/payhub" class="brand no-hover order-1"><span class="mif-bitcoin mif-3x mr-3"></span> PayHub</a>
+		<a href="https://github.com/taurenshaman/payhub" class="brand no-hover order-1"><span
+				class="mif-bitcoin mif-3x mr-3"></span> PayHub</a>
 		<ul class="app-bar-menu order-2 order-md-3">
+			<li>
+				<a class="dropdown-toggle"><span class="mif-link"></span> Connect</a>
+				<ul class="d-menu" data-role="dropdown">
+					<li>
+						<a href="#" class="dropdown-toggle">Portal Wallet</a>
+						<ul class="d-menu" data-role="dropdown">
+							<li><a onclick="vm.connectPW('ETH');"><span class="cc ETH"></span> ETH</a></li>
+							<li disabled><a onclick="vm.connectPW('EOS');"><span class="cc EOS"></span> EOS</a></li>
+							<li disabled><a onclick="vm.connectPW('TRX');"><span class="cc TRX"></span> Tron</a></li>
+						</ul>
+					</li>
+					<li><a onclick="vm.connectKeypering();">Keypering (CKB)</a></li>
+				</ul>
+			</li>
 		</ul>
 
 		<div class="app-bar-container ml-auto order-3 order-md-4">
-			<a class="app-bar-item" href="https://github.com/taurenshaman/payhub"><span class="mif-github mif-2x"></span></a>
+			<a class="app-bar-item" href="https://github.com/taurenshaman/payhub"><span
+					class="mif-github mif-2x"></span></a>
 		</div>
 	</header>
 
 	<div id="app" class="container grid" style="min-height: 600px;">
 		<div class="row">
-			<div class="d-flex flex-justify-center w-100">
+			<div class="d-flex flex-justify-between w-100">
 				<div class="social-box" style="width: 400px;">
 					<div class="header bg-orange fg-white">
 						<img id="avator" class="avatar bg-light" :src="avatar">
@@ -126,12 +142,35 @@
 							<div>@taurenshaman</div>
 						</li>
 						<li>
-							<div class="text-bold"><a href="https://www.buymeacoffee.com/taurenshaman">BuyMeACoffee</a></div>
+							<div class="text-bold"><a href="https://www.buymeacoffee.com/taurenshaman">BuyMeACoffee</a>
+							</div>
 							<div>@taurenshaman</div>
 						</li>
 						<li>
 							<div class="text-bold"><a href="https://www.patreon.com/taurenshaman">Patreon</a></div>
 							<div>@taurenshaman</div>
+						</li>
+					</ul>
+				</div>
+
+				<div class="skill-box" style="width: 400px;">
+					<div :class="visitorOriginalAddress === 'n/a' ? 'header fg-white bg-lightSteel' : 'header fg-white bg-green'">
+						<img class="avatar bg-light" :src="visitorAvatar" :title="visitorOriginalAddress">
+						<div class="title text-ellipsis" :title="'Original: ' + visitorOriginalAddress">{{visitorOriginalAddress}}</div>
+						<div class="subtitle text-ellipsis" :title="'CKB: ' + visitorCKBAddress">{{visitorCKBAddress}}</div>
+					</div>
+					<ul class="skills">
+						<li>
+							<span>CKB Balance</span>
+							<span class="badge bg-cyan fg-white">{{visitorCKBBalance}}</span>
+						</li>
+						<li>
+							<span>Capacity</span>
+							<span class="badge bg-cyan fg-white">{{visitorCapacity}}</span>
+						</li>
+						<li>
+							<span>Free</span>
+							<span class="badge bg-green fg-white">{{visitorFree}}</span>
 						</li>
 					</ul>
 				</div>
@@ -143,27 +182,27 @@
 		<div class="row mt-3 mb-3">
 			<div class="d-flex flex-justify-center flex-wrap w-100 h-100">
 				<div v-for="(item, index) in accounts" :key="item.uri" :id="'card_' + index"
-					 class="flip-card effect-on-active"
-					 style="width: 300px; height: 380px;">
+					class="flip-card effect-on-active" style="width: 300px; height: 380px;">
 					<div class="front">
 						<div class="card">
 							<div class="card-header bg-cyan fg-white">
-								<span :class="'icon mif-2x cc ' + item.theCurrency.unit"></span> {{item.name}} ({{item.theCurrency.unit}})
+								<span :class="'icon mif-2x cc ' + item.theCurrency.unit"></span> {{item.name}}
+								({{item.theCurrency.unit}})
 							</div>
 							<div class="card-content p-2 text-center" style="height: 210px;">
 								<h2 class="text-center fg-gray">{{item.name}}</h2>
 								<textarea :id="'taAccount_' + index" style="height: 100px;" readonly
-										  data-role="textarea"
-										  data-clear-button="false"
-										  data-auto-size="false"
-										  v-if="item.account && item.account.length > 0"
-										  v-bind:data-prepend="item.iconInfo" v-on:focus="copyAccount(index)">{{item.account}}</textarea>
+									data-role="textarea" data-clear-button="false" data-auto-size="false"
+									v-if="item.account && item.account.length > 0" v-bind:data-prepend="item.iconInfo"
+									v-on:focus="copyAccount(index)">{{item.account}}</textarea>
 							</div>
 							<div class="card-footer">
-								<button class="flat-button mif-copy info" title="Copy"
+								<button class="flat-button mif-copy" title="Copy"
 									v-if="item.account && item.account.length > 0"
 									v-on:click="copyAccount(index)"></button>
-								<!-- <button class="flat-button mif-upload success" title="Submit a transaction" v-on:click="submitTransaction(index)"></button> -->
+								<button class="flat-button mif-loop fg-cyan" title="Transfer"
+									v-if="item.account && item.account.length > 0 && item.supportTransfer"
+									v-on:click="transfer(index)"></button>
 								<button class="flat-button mif-qrcode" v-on:click="toggleCard(index)"></button>
 							</div>
 						</div>
@@ -171,11 +210,14 @@
 					<div class="back">
 						<div class="card">
 							<div class="card-header bg-cyan fg-white">
-								<span :class="'icon mif-2x cc ' + item.theCurrency.unit"></span> {{item.name}} ({{item.theCurrency.unit}})
+								<span :class="'icon mif-2x cc ' + item.theCurrency.unit"></span> {{item.name}}
+								({{item.theCurrency.unit}})
 							</div>
 							<div class="card-content d-flex p-2 flex-justify-center flex-align-center">
-								<img v-if="item.qrcode" style="width: 200px; height: 200px; overflow-y: auto" :src="item.qrcode" />
-								<div v-else :id="'qrcode_' + index" style="width: 200px; height: 200px; overflow-y: auto">
+								<img v-if="item.qrcode" style="width: 200px; height: 200px; overflow-y: auto"
+									:src="item.qrcode" />
+								<div v-else :id="'qrcode_' + index"
+									style="width: 200px; height: 200px; overflow-y: auto">
 								</div>
 							</div>
 							<div class="card-footer flex-justify-center">
@@ -188,6 +230,82 @@
 			</div>
 		</div>
 
+	</div>
+
+	<div id="charmTransferByKeypering" class="border bd-default p-1 bg-white fg-black w-75 h-100"
+		style="max-width: 500px;" data-role="charms" data-position="left">
+		<div class="grid w-100">
+			<div class="row p-1">
+				<h3>Transfer: {{coinName}}</h3>
+				<span class="small fg-gray">{{coinUnit}}</small>
+			</div>
+			<!---->
+			<div class="row p-1">
+				<input type="text" placeholder="receiver address" data-role="input"
+					data-prepend="Receiver" data-cls-prepend="bg-cyan fg-light"
+					data-cls-input="text-bold bg-light fg-cyan text-center"
+					v-model="form.toAddress">
+			</div>
+			<div class="row p-1">
+				<input type="number" placeholder="amount" data-role="input"
+					data-prepend="Amount" data-cls-prepend="bg-cyan fg-light"
+					data-cls-input="text-bold bg-light fg-cyan text-center"
+					v-model="form.transferCount">
+				<span>Aailable: {{ currentCapicity }}</span><!--currentSudtCount-->
+			</div>
+			<!-- sudt
+			<div class="row p-1 flex-justify-center">
+				<input type="checkbox" data-role="checkbox" data-caption="provide CKB"
+					v-model:checked="form.selfProvide" />
+			</div> -->
+			<div class="row p-3 flex-justify-center">
+				<button class="button info cycle outline mr-4" title="Transfer" v-on:click="transfer()"><span class="mif-checkmark"></span></button>
+				<button class="button info cycle outline" onclick="UIHelper.HideCharm('charmTransferByKeypering');"><span class="mif-cross"></span></button>
+			</div>
+		</div>
+	</div>
+
+	<div id="charmTransferByPW" class="border bd-default p-1 bg-white fg-black w-75 h-100"
+		style="max-width: 500px;" data-role="charms" data-position="left">
+		<div class="grid w-100">
+			<div class="row p-1">
+				<h3>Transfer: {{coinName}}</h3>
+				<span class="small fg-gray">{{coinUnit}}</small>
+			</div>
+			<div class="row p-1">
+				<input type="text" data-role="input"
+					data-prepend="Receiver" data-cls-prepend="bg-cyan fg-light"
+					data-cls-input="text-bold bg-light fg-cyan text-center" 
+					v-model="toAddressString">
+			</div>
+			<div class="row p-1">
+				<select data-role="select" v-bind:value="tokenName" v-on:change="tokenName = $event.target.value">
+					<option v-for="option in options" :value="option">
+						{{ option }}
+					  </option>
+				</select>
+			</div>
+			<div class="row p-1">
+				<input type="number" placeholder="amount" data-role="input"
+					data-prepend="Amount" data-cls-prepend="bg-cyan fg-light"
+					data-cls-input="text-bold bg-light fg-cyan text-center"
+					v-model="amountValue">
+				<span>Aailable: {{ balanceString }}</span>
+			</div>
+			<div class="row p-3 flex-justify-center">
+				<button class="button info cycle outline mr-4" title="Transfer" :disabled="transferBtnDisabled" v-on:click="transfer()">
+					<span class="mif-checkmark"></span>
+				</button>
+				<button class="button info cycle outline" onclick="UIHelper.HideCharm('charmTransferByPW');"><span class="mif-cross"></span></button>
+			</div>
+			<div class="row p-1">
+				<h3 class="fg-gray">Transactions:</span>
+			</div>
+			<div class="row p-1 scroll-y" style="height: 300px;">
+				<a v-for="tx in txs" :key="tx" :href="`https://explorer.nervos.org/aggron/transaction/${tx}`"
+					class="text-ellipsis" target="_blank"> {{tx}}</a>
+			</div>
+		</div>
 	</div>
 
     <footer class="text-muted">
@@ -206,67 +324,26 @@
     <script src="https://cdn.jsdelivr.net/npm/lodash@4.17.20/lodash.min.js"></script>
 	<!-- <script src="https://cdn.jsdelivr.net/npm/vue@2.6.12/dist/vue.min.js"></script> -->
 	<script src="https://unpkg.com/vue@next"></script>
-	
     <script src="https://cdn.jsdelivr.net/gh/taurenshaman/payhub/src/PayHub/PayHub.Web/wwwroot/js/qrcode.min.js"></script>
-	<script src="https://cdn.jsdelivr.net/gh/taurenshaman/payhub/src/PayHub/PayHub.Web/wwwroot/js/payhub.min.js?v=20201103"></script>
+	<!--web3 modal-->
+	<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/web3@1.3.4/dist/web3.min.js"></script>
+	<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/web3modal@1.9.3/dist/index.min.js"></script>
+	<!-- <script type="text/javascript" src="https://unpkg.com/evm-chains@0.2.0/dist/umd/index.min.js"></script> -->
+	<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@walletconnect/web3-provider@1.4.0/dist/umd/index.min.js"></script>
+	<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/fortmatic@2.2.1/dist/fortmatic.js"></script>
+	<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@toruslabs/torus-embed@1.9.12/dist/torus.umd.min.js"></script>
+	
+	<script src="https://cdn.jsdelivr.net/gh/taurenshaman/payhub/src/PayHub/PayHub.Web/wwwroot/js/payhub.min.js?v=20210323"></script>
     
 	<script type="text/javascript">
-		var vueApp;
-
-		function afterMetroReady() {
-			for (let i = 0; i < pageData.accounts.length; i++) {
-				const account = pageData.accounts[i];
-				// mouse enter/leave: flip-card > front(0)/back(1) > card
-				const cardDiv = document.getElementById("card_" + i);
-				const frontCard = cardDiv.children[0].children[0];
-				const backCard = cardDiv.children[1].children[0];
-				cardDiv.addEventListener('mouseenter', e => {
-					frontCard.classList.add("shadow-1");
-					backCard.classList.add("shadow-1");
-				});
-				cardDiv.addEventListener('mouseleave', e => {
-					frontCard.classList.remove("shadow-1");
-					backCard.classList.remove("shadow-1");
-				});
-				// qrcode
-				if(account.qrcode && account.qrcode.length > 4)
-					continue;
-				UIHelper.CreateQRCode("qrcode_" + i, account.account, 200);
-			}
-		}
-		
+		var UIHelper = PayHub.Tools.UIHelper;
+		var vm;
 		function init() {
-			console.log("init()...");
-			_.forEach(pageData.accounts, a => {
-				a.iconInfo = "<span class='cc " + a.theCurrency.unit + "'></span>";
-			});
-
-			const vueSettings = {
-				data(){
-					return pageData;
-				},
-				methods: {
-					copyAccount: function (index) {
-						const ele = document.getElementById("taAccount_" + index);
-						ele.select();
-
-						InputUtility.copyToClipboard();
-					},
-					toggleCard: function (index) {
-						$('#card_' + index).toggleClass('active');
-					}
-				},
-				mounted: function () {
-					console.log("vue mounted.");
-					Metro.init();
-					afterMetroReady();
-				}
-			};
-			vueApp = Vue.createApp(vueSettings).mount('#app');
+			vm = new PayHub.ViewModels.SinglePageViewModel("app", pageData);
 		}
-		
-		document.addEventListener("DOMContentLoaded", function(event) {
-		   setTimeout(init, 1000);
+
+		document.addEventListener("DOMContentLoaded", function (event) {
+			setTimeout(init, 1000);
 		});
 	</script>
 </body>
